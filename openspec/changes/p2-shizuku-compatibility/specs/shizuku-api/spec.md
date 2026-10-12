@@ -142,3 +142,22 @@ Tsuyu SHALL enforce manager identity for `exit`, permission-result dispatch and 
 #### Scenario: Administrative identity after reboot
 - **WHEN** the server starts again after reboot
 - **THEN** it resolves the installed manager identity again and rejects pre-reboot request and launch tokens
+
+### Requirement: Upstream non-Sui method behavior
+Tsuyu SHALL preserve the upstream non-Sui behavior of the reserved AIDL methods: authenticated manager `dispatchPackageChanged` calls have no effect and legitimate `isHidden` calls return `false`. These endpoints SHALL NOT introduce hidden-app or other Sui functionality.
+
+#### Scenario: Non-Sui calls
+- **WHEN** the manager calls `dispatchPackageChanged` or an attached client calls `isHidden(uid)`
+- **THEN** dispatch changes no package state and `isHidden` returns `false`
+
+#### Scenario: Unauthorized dispatch
+- **WHEN** an ordinary client attempts `dispatchPackageChanged`
+- **THEN** the call is rejected without changing package or consent state
+
+#### Scenario: Sui absent
+- **WHEN** these methods run on a device without Sui
+- **THEN** their documented results need no Sui service or platform lookup and have no system-wait timeout
+
+#### Scenario: Non-Sui behavior after reboot
+- **WHEN** clients attach to the restarted server after reboot
+- **THEN** `isHidden` still returns `false` and administrative dispatch remains an authenticated no-op

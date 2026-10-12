@@ -11,6 +11,8 @@ After P1 and P2, Tsuyu works only after manual startup. The first successful sta
 - Schedule one bounded, idempotent restart after boot using P1's private key and local startup coordinator.
 - Distinguish running service from persistence readiness and report denied/missing grants, expired authorization and restart failures with remote-accessible recovery.
 - Reestablish P2 binder delivery and preserved client decisions after restart.
+- Offer optional global key-expiry disabling after an explicit explanation and choice; preserve the current policy if the user does not choose it.
+- Respect later manual USB-debugging disabling and offer setup recovery rather than re-enable it automatically.
 
 ## Capabilities
 
@@ -37,9 +39,11 @@ Depends on `p1-local-start` and `p2-shizuku-compatibility`; base the P3 implemen
 
 Add a boot receiver, bounded unique background work and manager-only persistence preparation/status operations. Add only the permissions and storage required by approved persistence actions. The reference TV's vendor AUTO_START check is unavailable on a standard emulator, so emulator restart evidence does not establish vendor readiness.
 
+## Confirmed decisions
+
+- Disabling key expiry is optional, never automatic or preselected. Explain that `adb_allowed_connection_time=0` affects every authorized ADB key, then apply it only on explicit user choice and verify the result. Declining leaves the current policy untouched and does not block enablement; with expiry retained, a long powered-off period can require renewed key confirmation.
+- Respect later user-disabled USB debugging. Do not automatically re-enable it; explain why automatic startup is unavailable and offer setup recovery. No wireless debugging or close-port option is introduced.
+
 ## Open questions
 
-- Preventing key expiry requires setting global `adb_allowed_connection_time` to zero and affects every authorized ADB key, not just Tsuyu's. Conservative default, **to confirm**: retain the system expiry policy and recover through the key-confirmation flow when required. This means unattended startup after a sufficiently long powered-off period is not guaranteed. If Sygix chooses to disable expiry, explain the global effect before changing it, grant WRITE_SECURE_SETTINGS only for that approved need, read back the setting and update all artifacts/PR evidence.
-- If the user later disables USB debugging, conservative default, **to confirm**: respect that system choice and show setup recovery rather than silently re-enable it. No wireless debugging or close-port option is introduced.
-
-Repeat both questions and their reliability consequences in the implementation PR.
+None. The implementation PR must document the optional setting's global effect and the remaining validation assumptions.

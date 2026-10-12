@@ -27,6 +27,52 @@ Tsuyu SHALL explain each persistence mutation by its effect before applying it a
 - **WHEN** home opens after a reboot
 - **THEN** readiness reflects current system access and actual startup result rather than a cached successful grant
 
+### Requirement: Optional global key-expiry disabling
+Tsuyu SHALL offer an explicit optional action to disable global ADB key expiry and explain its effect on all authorized keys beforehand. It SHALL preserve the current policy without explicit choice, verify a requested change and report failure without blocking normal enablement. Viewing or rebooting SHALL NOT apply this setting change.
+
+#### Scenario: Explicit opt-in succeeds
+- **WHEN** the user chooses expiry disabling after its global-effect explanation
+- **THEN** Tsuyu sets `adb_allowed_connection_time` to zero through authenticated shell access and shows success only after read-back verification
+
+#### Scenario: Optional action declined
+- **WHEN** the user keeps the current policy, skips the option or presses Back before activating it
+- **THEN** the policy remains untouched, Tsuyu can still be enabled and the long-offline renewed-confirmation limitation is explained when expiry remains enabled
+
+#### Scenario: Setting or privilege unavailable
+- **WHEN** the setting cannot be read/written or the shell server is unavailable
+- **THEN** Tsuyu reports that the optional change is unavailable, offers recovery and does not claim expiry was disabled
+
+#### Scenario: Optional operation times out
+- **WHEN** the write or read-back exceeds its deadline
+- **THEN** the outcome is unverified, Tsuyu reconciles actual state before retry and does not claim that a timed-out write definitely had no effect
+
+#### Scenario: Optional setting after reboot
+- **WHEN** the TV reboots or the user changes the expiry policy elsewhere
+- **THEN** Tsuyu reports the current observed policy and does not restore a stored opt-in automatically
+
+#### Scenario: Optional action navigation
+- **WHEN** the explanation opens or returns from details
+- **THEN** keeping the current policy holds initial focus, D-pad reaches the explicit disabling action without wrapping, Back preserves the setting and returns focus to the initiating control; if an action disappears, focus falls back under `tv-navigation`
+
+### Requirement: Respect manual debugging disabling
+Tsuyu SHALL respect USB debugging being disabled in system settings and SHALL NOT automatically re-enable it during startup, retry or reboot. It SHALL explain the unavailable automatic-start prerequisite and offer the existing setup step without modifying debugging on the user's behalf.
+
+#### Scenario: User disables debugging
+- **WHEN** USB debugging is disabled after Tsuyu enablement
+- **THEN** a subsequent startup stops with setup-required status and offers settings recovery without changing debugging
+
+#### Scenario: User restores debugging
+- **WHEN** the user explicitly re-enables USB debugging in system settings and starts recovery
+- **THEN** Tsuyu rechecks the prerequisite and follows `local-start` with the existing key
+
+#### Scenario: Debugging state unavailable or timed out
+- **WHEN** debugging state cannot be read or its check exceeds the deadline
+- **THEN** Tsuyu reports unknown/unverified state with recovery rather than assuming permission to enable it
+
+#### Scenario: Disabled debugging after reboot
+- **WHEN** the TV reboots with USB debugging disabled
+- **THEN** boot startup neither re-enables it nor claims success, and the next app opening explains the required manual setup step
+
 ### Requirement: Bounded automatic boot restart
 After successful enablement, Tsuyu SHALL schedule an idempotent background restart when boot delivery is available, reusing `local-start` and its private key. It SHALL wait only within a finite retry budget for required system services, avoid duplicate servers and never depend on wireless pairing, Internet connectivity or manual app launch for the normal supported boot path.
 

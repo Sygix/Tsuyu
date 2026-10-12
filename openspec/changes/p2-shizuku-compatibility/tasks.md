@@ -12,6 +12,7 @@
 - [ ] 2.2 Implement startup enumeration and process/UID-driven provider delivery with finite retries; verify requesting-but-not-granted clients receive a binder, unrelated manifests do not and one blocked provider does not block others.
 - [ ] 2.3 Implement every API-matrix endpoint and remote transaction forwarding; verify allowed and denied cases, malformed parcels, flags, actual shell identity and failure propagation with contract tests.
 - [ ] 2.4 Update README with upstream API version, binder delivery and package-presence-check limitation; verify wording matches observed client results rather than claiming root capabilities.
+- [ ] 2.5 Preserve authenticated non-Sui `dispatchPackageChanged` no-op and `isHidden=false`; verify contract tests cover legitimate calls, unauthorized administrative dispatch and unchanged package/access state.
 
 ## 3. Consent and revocation
 
@@ -19,6 +20,7 @@
 - [ ] 3.2 Implement manager flag/result methods and immediate revocation with child/client cleanup; verify forged manager calls fail, stolen binders cannot administer access and an already-bound service stops after revoke.
 - [ ] 3.3 Implement request and authorized-app ViewModels/screens with French strings, icons and testTags; verify empty/loading/error/expired/partial-cleanup states and update README with consent and revocation behavior.
 - [ ] 3.4 Add Compose tests at `@Config(qualifiers = "w960dp-h540dp-xhdpi")`; verify refusal initial focus, D-pad edges, center activation, Back denial/caller return, list entry restoration and focused-row disappearance.
+- [ ] 3.5 Implement shared-UID group identity, disclosure and consent/revocation; verify JUnit cases for group-wide callbacks/access, child cleanup, unknown identity, lookup timeout and invalidation on membership/signature change, and Compose assertions for visible related-app names and group-wide wording.
 
 ## 4. Processes and UserServices
 
@@ -31,7 +33,7 @@
 - [ ] 5.1 Build/install the pinned upstream demo outside Tsuyu; on the TV emulator with simulated legacy TCP debugging after each boot, show binder received, refusal then explicit permission grant, actual shell-uid command output and native UserService bind/peek/unbind/remove. Deliver screenshots and sanitized assertions, then stop all started processes.
 - [ ] 5.2 Validate startup/later foreground and background delivery, revoke while a service is bound and service restart with persisted decisions; verify actual upstream clients, including SygixOs when available, and list any unexecuted client scenario explicitly.
 - [ ] 5.3 Run `./gradlew test`, `./gradlew assembleRelease`, `openspec validate --all --strict` and openspec-verify-change; verify a method/scenario-to-test report has no unacknowledged API gap.
-- [ ] 5.4 Open a signed P2 PR based on P1 with independent review, privacy/license scans, test evidence, the proposal's Open questions and pending TV/demo/SygixOs checklist; verify base branch and URL.
+- [ ] 5.4 Open a signed P2 PR based on P1 with independent review, privacy/license scans, test evidence, confirmed non-Sui/shared-UID decisions and pending TV/demo/SygixOs checklist; verify base branch and URL.
 
 ## Workflow follow-up
 

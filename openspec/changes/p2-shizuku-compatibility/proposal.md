@@ -12,6 +12,7 @@ A local shell server alone cannot serve existing client applications. Tsuyu must
 - Ask for access over the requesting app with its name/icon and “Autoriser” / “Refuser”, initially focusing refusal.
 - Persist server-managed access decisions, show authorized apps and support effective revocation.
 - Support remote processes and the full UserService binding, peeking, unbinding and removal lifecycle.
+- Preserve upstream non-Sui behavior for the Sui-reserved AIDL endpoints and explain UID-wide consent/revocation for applications sharing an Android UID.
 
 ## Capabilities
 
@@ -39,9 +40,13 @@ Depends on `p1-local-start`. Base the P2 implementation PR on the P1 branch. `p3
 
 Add MIT upstream AIDL/constants/parcelable contracts, a narrow public service alongside P1's manager IPC, persistent consent storage and request/list screens. Adapt provider delivery and process observation from Shizuku only as required. Preserve shell rather than root execution rights. Demo and SygixOs compatibility become acceptance evidence; real-TV validation is Sygix's responsibility.
 
+## Confirmed decisions
+
+- Retain Shizuku's non-Sui behavior: `dispatchPackageChanged` is an authenticated no-op and `isHidden` returns `false`. No Sui feature is introduced.
+- Applications sharing an Android UID receive grouped access. Display the related applications and explain that authorization and revocation affect the whole group, because Binder identity cannot isolate packages within a UID.
+
+No technical impossibility of UserService support has been established by reference inspection.
+
 ## Open questions
 
-- The upstream AIDL includes Sui-only `dispatchPackageChanged` and `isHidden` despite Sui being excluded. Conservative default, **to confirm**: retain upstream non-Sui behavior (authenticated no-op and `false`), not a hidden-app feature. Their bodies are already empty/false in upstream Shizuku; all other AIDL functionality remains required.
-- Shared Android UIDs cannot be separated by Binder identity. Conservative default, **to confirm**: make the UID-wide access effect explicit when listing related apps; never suggest that revoking only one package isolates another app with the same uid.
-
-These points must also appear in the implementation PR. No technical impossibility of UserService support has been established by reference inspection.
+None. Device validation obligations remain in design.md and tasks.md.

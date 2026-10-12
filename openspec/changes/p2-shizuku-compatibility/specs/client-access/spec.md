@@ -43,7 +43,7 @@ The request screen SHALL open over the requesting app, identify it with verified
 - **THEN** confirmation actions become invalid and the screen closes or shows a non-authorizing recovery action with valid focus
 
 ### Requirement: Authorized apps and effective revocation
-Tsuyu SHALL list authorized installed apps with name/icon and a visible per-app revoke action, including empty, loading and error states. Revocation SHALL immediately deny further privileged calls, terminate owned privileged processes/UserServices and remove persisted consent. This screen SHALL follow `tv-navigation`.
+Tsuyu SHALL list authorized installed apps with name/icon and a visible revoke action for each app or shared-UID group, including empty, loading and error states. Revocation SHALL immediately deny further privileged calls, terminate owned privileged processes/UserServices and remove persisted consent. This screen SHALL follow `tv-navigation`.
 
 #### Scenario: Successful revoke
 - **WHEN** the user revokes an authorized app
@@ -68,3 +68,30 @@ Tsuyu SHALL list authorized installed apps with name/icon and a visible per-app 
 #### Scenario: Revocation survives reboot
 - **WHEN** a revoked client reconnects after reboot
 - **THEN** it has no inherited grant and must request access again through the live server
+
+### Requirement: Explicit shared-UID consent
+Tsuyu SHALL treat installed applications sharing an Android user/UID as one access group. Permission requests and authorized-app views SHALL identify all related applications and explain that granting or revoking affects the group. Persisted consent SHALL be invalidated when the verified group identity changes.
+
+#### Scenario: Group authorization
+- **WHEN** a client sharing its uid calls `Shizuku.requestPermission` and the user grants after seeing the related applications
+- **THEN** attached group members observe granted access through `checkSelfPermission()` and the requesting client receives its matching granted callback
+
+#### Scenario: Group refusal and revocation
+- **WHEN** the user refuses the group request or revokes a displayed group
+- **THEN** no group member receives access from that request, or every member's existing grant and owned privileged children are revoked respectively
+
+#### Scenario: Identity resolution unavailable
+- **WHEN** related package identities cannot be resolved
+- **THEN** Tsuyu does not offer an incomplete group authorization and reports an actionable identity error
+
+#### Scenario: Group lookup timeout
+- **WHEN** group identity lookup exceeds its deadline
+- **THEN** confirmation cannot grant access using an unchecked member set and exposes retry or refusal
+
+#### Scenario: Membership change after reboot
+- **WHEN** reboot or package reconciliation reveals a changed member/signing identity set
+- **THEN** previous group consent is invalidated and clients observe denial until the changed group is explicitly authorized
+
+#### Scenario: Group view navigation
+- **WHEN** a shared-UID group appears in a request or authorized-app screen
+- **THEN** related names are visible without a hidden gesture, actions retain the screen's initial focus and edge/Back/restoration behavior from `tv-navigation`

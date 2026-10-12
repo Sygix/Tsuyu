@@ -30,7 +30,8 @@ Copy upstream AIDL unchanged except mandatory MIT headers into a focused API-con
 | `exit` | Terminate server and owned child processes; binder death follows | Manager only |
 | `dispatchPermissionConfirmationResult` | Match uid/pid/requestCode to pending request, apply access decision, dispatch callback | Manager only |
 | `getFlagsForUid`, `updateFlagsForUid` | Upstream permission-mask/flag semantics backed by server access state | Manager only |
-| `dispatchPackageChanged`, `isHidden` | Preserve AIDL endpoints; non-Sui semantics are an Open question in proposal.md | No unauthenticated state change |
+| `dispatchPackageChanged` | Authenticated no-op, matching upstream non-Sui behavior | Manager only |
+| `isHidden` | Return `false`, matching upstream non-Sui behavior | Attached client or manager |
 
 No method is omitted and no technical impossibility has been established. Any discovered impossibility must identify the device/runtime evidence here and revise all affected artifacts and the PR before claiming compatibility.
 
@@ -43,6 +44,8 @@ Isolate hidden Android framework access in adapters with narrow signatures for t
 ### Authorization and storage
 
 Keep a single server-owned permission authority. The app supplies app-private DataStore persistence through authenticated manager IPC, while the server owns live decisions and checks every privileged request. Bind stored grants to user/package/signing identity and current uid resolution, not uid alone. Commit a grant before publishing success; on unreadable storage, fail closed with an actionable manager error. Avoid duplicate app/server files with competing grant truth.
+
+Resolve the installed packages sharing a uid before presenting consent. Show their names and explain the group-wide effect in the request and authorized-app view. Grant/refuse/revoke the resolved user/uid group consistently across attached clients and owned children. Persist the verified member identities together; if membership or signing identity changes, invalidate the group's consent before admitting a new member. This avoids a new package inheriting another member's grant. Grouped records have stable user/uid keys while the identity set protects against uid reuse. The main UI still identifies the requesting application; shared membership is visible additional context, not a false per-package isolation claim.
 
 Authenticate UI actions against a server-issued pending identifier and its uid/pid/requestCode; extras alone are untrusted. Resolve app labels/icons from verified installed identity. Handle concurrent requests through a bounded queue; refuse stale/dead requests and discard replayed confirmations. Use a 120 s user-decision deadline, scoped to the live request. Refuse Back and screen-launch failure. Server callbacks keep the upstream requestCode and result Bundle.
 
@@ -86,4 +89,4 @@ Stack on P1; introduce empty consent storage and no preauthorized clients. P2 re
 
 ## Open Questions
 
-The two conservative product defaults in proposal.md remain to confirm and must be repeated in the implementation PR; they are not added as normative decisions here.
+None. Non-Sui method behavior and shared-UID access are confirmed decisions in proposal.md.
