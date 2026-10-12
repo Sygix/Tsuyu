@@ -1,0 +1,45 @@
+# Proposal
+
+## Why
+
+After P1 and P2, Tsuyu works only after manual startup. The first successful start must prepare the supported TV to restart the same shell server at subsequent boots and expose any missing persistence prerequisite clearly.
+
+## What Changes
+
+- Explain persistence access by its effect before the first setup mutation and show the resulting access afterwards.
+- Use the shell server to grant/check the supported vendor auto-start operation needed for boot delivery.
+- Schedule one bounded, idempotent restart after boot using P1's private key and local startup coordinator.
+- Distinguish running service from persistence readiness and report denied/missing grants, expired authorization and restart failures with remote-accessible recovery.
+- Reestablish P2 binder delivery and preserved client decisions after restart.
+
+## Capabilities
+
+### New Capabilities
+
+- `boot-persistence`: consented persistence preparation, automatic boot restart and readiness/recovery presentation.
+
+### Modified Capabilities
+
+None. Reuse `local-start`, `tv-navigation`, `shizuku-api` and `client-access`. P1 already delegates automatic reboot startup to this capability.
+
+## Dependencies
+
+Depends on `p1-local-start` and `p2-shizuku-compatibility`; base the P3 implementation PR on P2. Merge and archive order is P1 → P2 → P3.
+
+## Non-goals
+
+- Distribution and tagged release: P4.
+- TLS pairing, unsupported TCP-less TVs, root, accessibility workaround and fork watchdog layers: outside v1.
+- Guaranteeing reboot delivery after the user force-stops/uninstalls Tsuyu or removes required system access: outside the normal enabled-service contract; report recovery instead.
+- Validation on the reference TV by the agent: Sygix owns that sign-off.
+
+## Impact
+
+Add a boot receiver, bounded unique background work and manager-only persistence preparation/status operations. Add only the permissions and storage required by approved persistence actions. The reference TV's vendor AUTO_START check is unavailable on a standard emulator, so emulator restart evidence does not establish vendor readiness.
+
+## Open questions
+
+- Preventing key expiry requires setting global `adb_allowed_connection_time` to zero and affects every authorized ADB key, not just Tsuyu's. Conservative default, **to confirm**: retain the system expiry policy and recover through the key-confirmation flow when required. This means unattended startup after a sufficiently long powered-off period is not guaranteed. If Sygix chooses to disable expiry, explain the global effect before changing it, grant WRITE_SECURE_SETTINGS only for that approved need, read back the setting and update all artifacts/PR evidence.
+- If the user later disables USB debugging, conservative default, **to confirm**: respect that system choice and show setup recovery rather than silently re-enable it. No wireless debugging or close-port option is introduced.
+
+Repeat both questions and their reliability consequences in the implementation PR.
