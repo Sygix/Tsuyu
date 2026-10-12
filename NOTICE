@@ -1,0 +1,26 @@
+Tsuyu
+Copyright (C) 2026 Sygix
+Licensed under the GNU Affero General Public License v3.0 or later (LICENSE).
+
+This product includes software derived from the following projects. Each derived
+file keeps its original license and copyright notice in its header and states
+that it was modified.
+
+Shizuku
+  https://github.com/RikkaApps/Shizuku
+  Copyright (C) RikkaW and contributors
+  Licensed under the Apache License, Version 2.0 (LICENSES/Apache-2.0.txt)
+  Under section 6 of that license, as required by the Shizuku authors, Tsuyu does
+  not use the Shizuku name as its app name, the Shizuku launcher icons, the
+  application id moe.shizuku.privileged.api, or any declaration of a
+  moe.shizuku.manager.permission.* permission.
+
+Shizuku-API
+  https://github.com/RikkaApps/Shizuku-API
+  Copyright (c) 2021 RikkaW
+  Licensed under the MIT License (LICENSES/MIT-Shizuku-API.txt)
+
+Shevery
+  https://github.com/HmnDev-Tech/shevery
+  Copyright (C) HmnDev-Tech and contributors
+  Licensed under the Apache License, Version 2.0 (LICENSES/Apache-2.0.txt)
