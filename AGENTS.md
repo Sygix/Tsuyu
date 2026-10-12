@@ -40,7 +40,8 @@ Nothing is specified yet. Each phase becomes an OpenSpec change. Undecided topic
   - wireless debugging may be switched off, and its TLS port changes at every boot.
 - **AUTO_START (vendor app-op):**
   - It is `ignore` by default for third-party apps. While the app process isn't running, this blocks `BOOT_COMPLETED` and the binding of an accessibility service.
-  - The shell can grant it with `appops set --uid <package> AUTO_START allow`, and the value persists.
+   - `appops set --uid <package> AUTO_START allow` changes only the uid mode; the package mode stays `ignore` until `appops set <package> AUTO_START allow` also runs. Both modes can be set to `allow` and persist.
+   - Which mode the vendor boot policy reads is unverified. Prepare and read back both modes, and validate boot delivery with the app process absent.
 - **Key expiry:** an authorized adb key expires after 7 days without a connection, unless `adb_allowed_connection_time` is 0. This is a global setting, and writing it requires `WRITE_SECURE_SETTINGS`.
 
 Any other assumption about the device must be checked on the TV before it is specified.

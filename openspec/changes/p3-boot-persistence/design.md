@@ -14,7 +14,7 @@ See proposal.md. P1 owns authenticated local start and P2 owns client service/ac
 
 ### Preparation and privilege boundary
 
-Put the preparation disclosure in initial enablement before any shell-side auto-start mutation. After P1 starts the shell server, a manager-only operation reads the auto-start mode, grants AUTO_START for Tsuyu's resolved installed uid when supported, and reads it back. Use fixed package/operation inputs and validated system-resolved identity; client API callers cannot trigger preparation for other apps. Do not mark a command's zero exit status as grant proof without read-back.
+Put the preparation disclosure in initial enablement before any shell-side auto-start mutation. After P1 starts the shell server, a manager-only operation reads both uid and package AUTO_START modes, grants both with the respective uid/package appops commands when supported, and reads each mode back independently. Report ready only when both are allow. Use fixed package/operation inputs and validated system-resolved identity; client API callers cannot trigger preparation for other apps. Do not mark a command's zero exit status as grant proof without both read-backs.
 
 Distinguish supported-and-allowed, supported-and-denied, unsupported and query-failed results. An unsupported vendor operation is not itself failure on a platform without that gate. It is also not proof that another vendor has no boot restrictions. Standard boot scheduling continues and real-TV validation remains a separate claim. Each preparation system call has a 5 s deadline and typed failure; status separates running, scheduling-enabled and verified prerequisite outcomes. Do not introduce WRITE_SECURE_SETTINGS merely to observe USB debugging or grant an unrelated capability.
 
@@ -29,6 +29,8 @@ Keep the current global policy untouched when the option is skipped, refused, di
 ### Boot job
 
 Declare RECEIVE_BOOT_COMPLETED and a narrow receiver for system boot delivery. Schedule unique WorkManager work after normal boot, when app-private credential storage is available; avoid `LOCKED_BOOT_COMPLETED` until there is an expressed direct-boot need. WorkManager is preferred over a receiver-held coroutine because receiver/process lifetime is not a reliable launch budget. Do not use a generic foreground service or require an unmetered/internet-capable network for loopback traffic.
+
+The same receiver also handles system MY_PACKAGE_REPLACED and enqueues unique startup through the existing coordinator when persistence was enabled. P1 terminates the old server on APK replacement; restart resolves the newly installed APK and preserves same-signature app-private key/consent data. Do not resurrect a server after uninstall. A disabled prerequisite or failed update restart produces the same typed recovery outcome as boot startup.
 
 Persist completed enablement, the work attempt budget and the last typed startup outcome in the same app-private state authority. Unique work and P1's cross-request/shell singleton protections prevent duplicate starts after process death or simultaneous manual launch. Use at most three attempts, each bounded to P1's relevant operation deadlines, and an overall boot restart budget of five minutes tracked across work rescheduling. Stop permanent setup/auth failures instead of looping. A finite schedule cannot guarantee precise boot timing under OS deferral; readiness does not promise immediate execution.
 
@@ -54,6 +56,7 @@ If implementation actually adapts source rather than the described clean rewrite
 ## Risks / Trade-offs
 
 - [Vendor mode queries and worker scheduling differ across platforms] → deterministic fake tests plus emulator boot tests; Sygix confirms actual boot delivery from a stopped app process on the reference TV.
+- [Which AUTO_START mode the vendor boot gate reads is unverified] → prepare/read back both; Sygix verifies boot with the app process absent rather than inferring delivery from either mode alone.
 - [The emulator does not retain the reference TV's configured legacy endpoint] → restore simulated legacy TCP debugging after every emulator boot before judging the receiver/job; this is a fixture operation, never a Tsuyu product action. Prove the job starts without manually opening Tsuyu and also test delayed availability.
 - [Long powered-off period invalidates key authorization when expiry remains enabled] → disclose the limitation and offer optional expiry disabling; retain renewed-confirmation recovery if declined, failed or later changed in system settings.
 - [User force-stop blocks ordinary Android boot receivers] → report the standard limitation and recover when reopened; do not add an out-of-scope evasion layer.

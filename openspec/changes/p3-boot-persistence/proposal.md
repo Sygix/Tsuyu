@@ -8,7 +8,9 @@ After P1 and P2, Tsuyu works only after manual startup. The first successful sta
 
 - Explain persistence access by its effect before the first setup mutation and show the resulting access afterwards.
 - Use the shell server to grant/check the supported vendor auto-start operation needed for boot delivery.
+- Grant and read back both uid and package AUTO_START modes; readiness requires both to allow when the operation is supported.
 - Schedule one bounded, idempotent restart after boot using P1's private key and local startup coordinator.
+- Restart through the same coordinator on MY_PACKAGE_REPLACED, preserving the private key and client consent across same-signature updates.
 - Distinguish running service from persistence readiness and report denied/missing grants, expired authorization and restart failures with remote-accessible recovery.
 - Reestablish P2 binder delivery and preserved client decisions after restart.
 - Offer optional global key-expiry disabling after an explicit explanation and choice; preserve the current policy if the user does not choose it.

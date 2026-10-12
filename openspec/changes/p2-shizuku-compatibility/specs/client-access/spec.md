@@ -27,6 +27,10 @@ Tsuyu SHALL manage access independently of Android permission grants, authentica
 - **WHEN** the TV reboots and the server restarts
 - **THEN** persisted consent remains for matching installed identities, pending requests do not survive and a new unrelated installation inherits no access
 
+#### Scenario: Manager update preserves decisions
+- **WHEN** Tsuyu is updated with the same signing key and its shell server restarts
+- **THEN** persisted matching client decisions survive and `checkSelfPermission()` after new-binder attachment reflects the preserved grant or denial
+
 ### Requirement: Remote permission confirmation
 The request screen SHALL open over the requesting app, identify it with verified name/icon and explain the effect of access in French. It SHALL show “Autoriser” and “Refuser”, initially focus “Refuser” and follow `tv-navigation`. Completing or leaving the request SHALL return to the requesting app without granting on dismissal.
 

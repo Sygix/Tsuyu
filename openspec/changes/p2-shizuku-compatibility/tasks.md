@@ -21,6 +21,7 @@
 - [ ] 3.3 Implement request and authorized-app ViewModels/screens with French strings, icons and testTags; verify empty/loading/error/expired/partial-cleanup states and update README with consent and revocation behavior.
 - [ ] 3.4 Add Compose tests at `@Config(qualifiers = "w960dp-h540dp-xhdpi")`; verify refusal initial focus, D-pad edges, center activation, Back denial/caller return, list entry restoration and focused-row disappearance.
 - [ ] 3.5 Implement shared-UID group identity, disclosure and consent/revocation; verify JUnit cases for group-wide callbacks/access, child cleanup, unknown identity, lookup timeout and invalidation on membership/signature change, and Compose assertions for visible related-app names and group-wide wording.
+- [ ] 3.6 Verify same-signature manager update preserves client grant/denial storage and old binder death/new attachment; test the upstream demo after restarting the updated server.
 
 ## 4. Processes and UserServices
 
@@ -37,6 +38,6 @@
 
 ## Workflow follow-up
 
-- Sygix validates the release build on the TCL Google TV running Android 14: requesting client delivery before/after server startup, D-pad request/return, demo shell command and UserService/native library, SygixOs, refusal/revocation and decisions after reboot.
+- Sygix validates the release build on the TCL Google TV running Android 14: requesting client delivery before/after server startup, D-pad request/return, demo shell command and UserService/native library, refusal/revocation and decisions after reboot/update. SygixOs evidence is optional when an API-client build is available and is not a blocker.
 - Merge/archive P1 before P2; archive P2 only after Sygix merges and validates it on the TV. Run strict validation after archiving.
 - P3 stacks on this phase. The agent creates no tag and performs no merge.

@@ -17,6 +17,7 @@
 - [ ] 3.1 Implement validated APK launch and shell-only provider handoff with manager identity enforcement; verify wrong uid/token rejection, shell uid reporting and release-build launch on the emulator.
 - [ ] 3.2 Implement singleton start coordination, liveness and lifecycle StateFlow; verify JUnit tests cover concurrent requests, late completion, cancellation, server death and reboot reconciliation.
 - [ ] 3.3 Implement typed settings and operation errors with bounded workers and resource release; verify success, denied/missing APIs and blocked-operation timeout using deterministic fakes.
+- [ ] 3.4 Implement session detachment, stream redirection and package replacement/removal exit; verify emulator binder survival after ADB close and debugging disabling, old binder death on update/uninstall, and same-signature private-key survival. Add lifecycle failure tests and release diagnostics.
 
 ## 4. TV setup and home
 
@@ -31,6 +32,6 @@
 
 ## Workflow follow-up
 
-- Sygix validates `./gradlew assembleRelease` on the TCL Google TV running Android 14: settings navigation, discovery, “Always allow”, shell server startup, UI at couch distance and key reuse after reboot.
+- Sygix validates `./gradlew assembleRelease` on the TCL Google TV running Android 14: settings navigation, discovery, “Always allow”, shell server startup, binder survival after launch-stream close and debugging disabling, server exit on same-signature update/uninstall, private-key survival across update, UI at couch distance and key reuse after reboot.
 - Stack P2 on P1, then P3 on P2, one implementation PR per change. Sygix alone merges; no tag is created by the agent.
 - After merge and Sygix's real-TV validation, archive `p1-local-start`, then validate the archived specs. Archive in P1 → P2 → P3 order.

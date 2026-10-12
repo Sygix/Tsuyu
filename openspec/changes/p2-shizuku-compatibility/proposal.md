@@ -47,6 +47,8 @@ Add MIT upstream AIDL/constants/parcelable contracts, a narrow public service al
 
 No technical impossibility of UserService support has been established by reference inspection.
 
+Same-signature Tsuyu updates preserve client consent; the old server exits under `local-start` and clients reattach after restart. The upstream demo is required compatibility evidence. SygixOs is optional evidence when a Shizuku-API client build is available, never an implementation blocker.
+
 ## Open questions
 
 None. Device validation obligations remain in design.md and tasks.md.

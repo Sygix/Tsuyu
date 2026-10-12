@@ -5,7 +5,7 @@ Prepare supported TVs for a consented, bounded shell-service restart after boot 
 ## ADDED Requirements
 
 ### Requirement: Consented persistence preparation
-Tsuyu SHALL explain each persistence mutation by its effect before applying it and display verified outcomes afterwards. The first successful shell start SHALL prepare the supported vendor auto-start access through manager-authenticated operations with read-back verification. A running server SHALL NOT alone imply persistence is ready.
+Tsuyu SHALL explain persistence mutations before applying them and display verified outcomes afterwards. The first successful shell start SHALL grant supported vendor AUTO_START in both uid and package modes through manager-authenticated operations, independently reading both back. Readiness SHALL require both modes to be allow when supported, not merely a running server.
 
 #### Scenario: First setup succeeds
 - **WHEN** the user enables Tsuyu after seeing the persistence explanation and the shell server grants and verifies required auto-start access
@@ -26,6 +26,10 @@ Tsuyu SHALL explain each persistence mutation by its effect before applying it a
 #### Scenario: Grants after reboot
 - **WHEN** home opens after a reboot
 - **THEN** readiness reflects current system access and actual startup result rather than a cached successful grant
+
+#### Scenario: Only one auto-start mode allows
+- **WHEN** uid mode is allow but package mode remains ignore, or the reverse
+- **THEN** persistence is not reported ready and repair verifies both modes before reporting completion
 
 ### Requirement: Optional global key-expiry disabling
 Tsuyu SHALL offer an explicit optional action to disable global ADB key expiry and explain its effect on all authorized keys beforehand. It SHALL preserve the current policy without explicit choice, verify a requested change and report failure without blocking normal enablement. Viewing or rebooting SHALL NOT apply this setting change.
@@ -99,6 +103,33 @@ After successful enablement, Tsuyu SHALL schedule an idempotent background resta
 #### Scenario: Repeated boot and manual start requests
 - **WHEN** repeated boot events or a manual start overlap
 - **THEN** they use the same startup coordination and converge on one live shell server
+
+### Requirement: Restart after manager update
+When persistence is enabled, Tsuyu SHALL schedule restart on system MY_PACKAGE_REPLACED through the same startup coordinator. It SHALL resolve the current installed APK and preserve its key and matching client consent across same-signature updates. Uninstall SHALL leave no running server or scheduled resurrection.
+
+#### Scenario: Update with persistence ready
+- **WHEN** a same-signature update replaces Tsuyu with persistence ready
+- **THEN** P1 terminates the old server, replacement delivery schedules one new server from the new APK and clients regain binders with preserved matching consent
+
+#### Scenario: Update refused or failed
+- **WHEN** the user refuses an update or replacement does not complete
+- **THEN** no replacement restart is triggered and the existing app/key/consent state remains
+
+#### Scenario: Replacement delivery unavailable
+- **WHEN** the device blocks replacement delivery or a prerequisite is removed
+- **THEN** the next app opening reports unavailable restart and offers manual recovery without claiming success
+
+#### Scenario: Replacement restart timeout
+- **WHEN** restart after replacement exhausts the shared startup budget
+- **THEN** Tsuyu records an actionable failure and avoids repeated or duplicate launches
+
+#### Scenario: Updated installation after reboot
+- **WHEN** the updated TV installation reboots
+- **THEN** boot startup uses the current APK and surviving key/consent rather than old process or classpath state
+
+#### Scenario: Uninstall while running
+- **WHEN** Tsuyu is uninstalled
+- **THEN** P1 terminates the server and no update/boot worker recreates it
 
 ### Requirement: Persistence status and recovery navigation
 Home SHALL show boot-preparation status, completed access effects and actionable startup errors using French resources. Its repair/details screens SHALL follow `tv-navigation`, preserve current service and client-access states and avoid changing settings merely by viewing status.

@@ -80,3 +80,45 @@ Tsuyu SHALL launch only its packaged server with shell rights through authentica
 #### Scenario: Manual restart after reboot
 - **WHEN** a TV reboot terminates the server
 - **THEN** P1 exposes a manual start action; automatic reboot restart is owned by `boot-persistence` in P3
+
+### Requirement: Detached server survival
+Tsuyu SHALL launch its server in a new session, with redirected standard streams and no hang-up dependency on the launch stream. Closing the ADB connection or disabling debugging SHALL NOT terminate an already running server; it continues until reboot, authenticated exit or package replacement/removal.
+
+#### Scenario: Launch connection closes
+- **WHEN** Tsuyu closes its ADB connection after verifying launch
+- **THEN** the shell server continues running and its manager binder remains live
+
+#### Scenario: Debugging disabled while running
+- **WHEN** the user disables debugging while the server is running
+- **THEN** the existing server and manager binder remain live without re-enabling debugging; a later new start still requires debugging
+
+#### Scenario: Detachment unavailable or timed out
+- **WHEN** session detachment, redirection or its launch verification is unavailable or exceeds its deadline
+- **THEN** Tsuyu reports a startup failure instead of claiming durable running state
+
+#### Scenario: Reboot ends detached server
+- **WHEN** the TV reboots
+- **THEN** the detached process dies and restart follows the phase-specific startup contract
+
+### Requirement: Manager package lifecycle
+The running server SHALL exit when Tsuyu is replaced or removed, releasing owned resources and invalidating its manager binder. The private ADB key SHALL survive same-signature updates; removal SHALL NOT leave an orphan server using a removed APK. Automatic restart after replacement belongs to `boot-persistence`.
+
+#### Scenario: Same-signature update while running
+- **WHEN** Tsuyu is replaced by an update signed with the same key
+- **THEN** the old server exits and its binder dies, app-private key storage survives and a subsequent launch uses the current installed APK
+
+#### Scenario: Uninstall while running
+- **WHEN** Tsuyu is uninstalled while the server is running
+- **THEN** the server exits rather than remaining privileged with a removed manager package
+
+#### Scenario: Unconfirmed or failed update
+- **WHEN** the user refuses an update or installation fails without replacing the package
+- **THEN** the existing server and private key are not changed by Tsuyu
+
+#### Scenario: Package observation unavailable or timed out
+- **WHEN** required package lifecycle observation cannot be established or bounded reconciliation fails
+- **THEN** launch fails or the server exits with a lifecycle-specific diagnostic instead of running without replacement/removal protection
+
+#### Scenario: Updated package after reboot
+- **WHEN** Tsuyu starts after an update and TV reboot
+- **THEN** startup resolves the current installed APK and reuses the surviving private key rather than retaining the old classpath

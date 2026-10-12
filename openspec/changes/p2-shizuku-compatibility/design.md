@@ -87,6 +87,8 @@ Retain only source actually needed, verify exact upstream copyright notices and 
 
 Stack on P1; introduce empty consent storage and no preauthorized clients. P2 remains manually started until P3. Do not archive before merge and Sygix validation; archive P1 first. Update README with actual client compatibility and the accepted package-presence-check limitation.
 
+Keep consent in app-private storage across same-signature manager updates. The old server exits through P1 lifecycle protection; after restart clients attach to the new binder with their matching stored decisions. The upstream demo is required evidence; SygixOs may use its own local ADB instead and is optional evidence only when an API-client build is available.
+
 ## Open Questions
 
 None. Non-Sui method behavior and shared-UID access are confirmed decisions in proposal.md.
