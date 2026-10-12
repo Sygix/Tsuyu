@@ -1,25 +1,25 @@
-# Suivi : sujets non tranchés
+# Backlog: undecided topics
 
-Aucun de ces sujets n'est spécifié ni tranché. Chacun deviendra un change OpenSpec (`openspec/changes/<id>/`) ou sera rattaché à un change existant au moment où on le traite. Les pistes sont des hypothèses de travail, pas des décisions.
+None of these topics is specified or decided. Each one will become an OpenSpec change (`openspec/changes/<id>/`) or be attached to an existing change when it is addressed. The leads below are working assumptions, not decisions.
 
-## 1. TV dont adbd n'écoute pas en TCP
+## 1. TVs whose adbd does not listen on TCP
 
-**Constat** : sur la TV de référence, le firmware fixe le port TCP d'adbd à chaque démarrage. Sur une TV qui ne le fait pas, il ne reste que le débogage sans fil en TLS, dont l'appairage est impossible depuis la TV elle-même.
+**Observation:** on the reference TV, the firmware sets adbd's TCP port at every boot. A TV that does not do this only offers wireless debugging over TLS, and pairing it from the TV itself is impossible.
 
-**Pistes** :
-- appairage unique depuis un ordinateur ou un téléphone, avec une clé que Tsuyu peut ensuite utiliser ;
-- service d'accessibilité qui lit le code et le port sur l'écran d'appairage, sans prendre le focus.
+**Leads:**
+- a one-time pairing from a computer or a phone, with a key Tsuyu can use afterwards;
+- an accessibility service that reads the code and the port on the pairing screen, without taking focus.
 
-**À trancher** : la prise en charge de ces TV, la phase, et la piste retenue.
+**To decide:** whether these TVs are supported, in which phase, and which lead is chosen.
 
-## 2. Activation du débogage USB
+## 2. Enabling USB debugging
 
-**Constat** : le débogage USB survit au redémarrage, contrairement au débogage sans fil. Activé, il laisse le port TCP d'adbd ouvert sur le réseau local en permanence, et seules les clés autorisées y accèdent.
+**Observation:** USB debugging survives a reboot, unlike wireless debugging. While it is on, adbd's TCP port stays open on the local network; only authorized keys get in.
 
-**À trancher** : ce que Tsuyu demande d'activer, ce qu'il explique à l'utilisateur sur cette exposition, et s'il propose de la refermer quand le serveur tourne déjà.
+**To decide:** what Tsuyu asks the user to enable, what it explains about this exposure, and whether it offers to close it once the server is running.
 
-## 3. Version d'API annoncée aux clients
+## 3. API version reported to clients
 
-**Constat** : Shizuku-API est en version 13.1.5 ; Shevery annonce 14.3.
+**Observation:** Shizuku-API is at version 13.1.5; Shevery reports 14.3.
 
-**À trancher** : la version annoncée par Tsuyu et les méthodes de l'AIDL à implémenter réellement (UserService, remote process, etc.), après vérification des usages de SygixOs et de l'app de démo.
+**To decide:** the version Tsuyu reports, and which AIDL methods it really implements (UserService, remote process, etc.), after checking what SygixOs and the demo app use.

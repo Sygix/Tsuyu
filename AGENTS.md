@@ -172,4 +172,4 @@ The repository will become public. Everything pushed stays readable in the histo
   - archive a change with `openspec archive <id>`.
 - Use pnpm, not npm, for any Node package.
 - Strict spec format: `### Requirement:` (SHALL/MUST), `#### Scenario:` with `- **WHEN** / **THEN**`.
-- Spec artifacts (proposal, design, tasks, specs) are written in French, as set in `openspec/config.yaml`.
+- Spec artifacts (proposal, design, tasks, specs) are written in English, as set in `openspec/config.yaml`; UI strings stay in French.

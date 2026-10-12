@@ -1,9 +1,8 @@
 schema: spec-driven
 
 context: |
-  Language: fr
-  All artifacts must be written in fr.
-  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Language: en
+  All artifacts must be written in English. The app's UI strings stay in French.
 
   Tsuyu: privileged access service for Android TV / Google TV, compatible with the Shizuku API, fully usable with the remote.
   It starts a server with shell rights on the TV itself (local adb, the app's own RSA key, "Always allow" once), restarts it after every reboot
@@ -24,7 +23,7 @@ rules:
     - "List the capabilities touched and the changes this one depends on."
     - "If an assumption changes along the way, rework every document of the change and the PR description: no trace of the old assumption may remain."
     - "A Non-goals section is mandatory: what is deferred, and to which phase."
-    - "Any product choice Sygix has not decided goes into an « Questions ouvertes » section and appears nowhere else as a decision (not as a SHALL, not in design or tasks) until it is approved."
+    - "Any product choice Sygix has not decided goes into an \"Open questions\" section and appears nowhere else as a decision (not as a SHALL, not in design or tasks) until it is approved."
   specs:
     - "Every requirement that depends on the system (adb, settings, app-ops, other apps) covers these scenarios: success, user refusal, feature missing on the device, timeout, state after a TV reboot."
     - "Every focusable UI specifies D-pad navigation: initial focus, moves at the edges (no wrap-around unless stated), the Back key, focus restoration when returning from a sub-screen or another app, and the case where the focused element has disappeared."
@@ -43,7 +42,7 @@ rules:
     - "Include tests: JUnit for pure logic (adb protocol, states, permissions), Compose D-pad navigation tests with @Config(qualifiers = \"w960dp-h540dp-xhdpi\"), and for P2 a test with the Shizuku-API demo app on the TV."
     - "Include: French strings in resources, testTags, license headers and NOTICE when code is taken, README update if visible behavior changes, validation on the real TV with assembleRelease, openspec archive."
     - "No machine-specific path, variable or configuration: only ./gradlew <task>."
-    - "Every task has a verifiable done criterion; no « study » or « consider » task: decide it in design or put it in Questions ouvertes."
+    - "Every task has a verifiable done criterion; no \"study\" or \"consider\" task: decide it in design or put it in Open questions."
 
 operations:
   apply:
