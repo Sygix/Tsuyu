@@ -1,123 +1,175 @@
-# AGENTS.md — instructions pour agents IA
+# AGENTS.md — instructions for AI agents
 
-## Vue d'ensemble
-Tsuyu (露, « rosée ») : service d'accès privilégié pour Android TV / Google TV, compatible avec l'API Shizuku, utilisable entièrement à la télécommande. Il démarre un serveur avec les droits shell (ADB) sur la TV elle-même, sans ordinateur ni téléphone, le relance après chaque redémarrage et le met à disposition des apps clientes de Shizuku (dont SygixOs). Propriétaire : Sygix. Langue UI : français.
+## Overview
+Tsuyu (露, "dew") is a privileged access service for Android TV / Google TV. It is compatible with the Shizuku API and fully usable with the remote. Tsuyu:
+- starts a server with shell (ADB) rights on the TV itself, with no computer and no phone;
+- restarts it after every reboot;
+- makes it available to Shizuku client apps, including SygixOs.
 
-Tsuyu est une réécriture propre pour la TV, pas un fork. Shizuku et Shevery servent de référence et de source de code. On ne reprend que ce que le périmètre exige, sans les couches annexes : modules, WebUI, terminal, IA, Dhizuku, root, rish, Sui, thèmes.
+Owner: Sygix. UI language: French.
 
-## Feuille de route
-- P0 — Socle : projet Gradle, CI `test`, en-têtes de licence, `NOTICE` à jour.
-- P1 — Démarrage local : connexion adb à la TV elle-même avec la clé de l'app, « Toujours autoriser » au premier usage, lancement du serveur, état visible dans l'app.
-- P2 — Compatibilité API Shizuku : binder, livraison aux apps clientes, écran d'autorisation au D-pad, apps autorisées et révocation. Validé avec l'app de démo de Shizuku-API et avec SygixOs.
-- P3 — Persistance : accès que Tsuyu s'accorde à lui-même une fois démarré, relance au démarrage de la TV.
-- P4 — Distribution : APK signé par la CI depuis un tag, releases GitHub.
+Tsuyu is a clean rewrite for TV, not a fork. Shizuku and Shevery are references and a source of code. Take only what the scope needs, and leave out their side layers: modules, WebUI, terminal, AI, Dhizuku, root, rish, Sui, themes.
 
-Rien n'est spécifié à ce stade. Chaque phase devient un change OpenSpec, et les sujets non tranchés sont dans `openspec/backlog.md`.
+## Roadmap
+- **P0 — Foundation:** delivered.
+  - Minimal Gradle project: `app` module with an empty screen.
+  - CI: `test`, `release` and `codeql`, plus Dependabot.
+  - The module layout (server, AIDL) is decided in the P1 change.
+- **P1 — Local start:** adb connection to the TV itself with the app's own key, a one-time "Always allow", server launch, and the state shown in the app.
+- **P2 — Shizuku API compatibility:**
+  - binder, and its delivery to client apps;
+  - D-pad permission screen;
+  - authorized apps, with revocation.
+  - Validated with the Shizuku-API demo app and with SygixOs.
+- **P3 — Persistence:** the access Tsuyu grants itself once started, and the restart when the TV boots.
+- **P4 — Distribution:** APK signed by CI from a tag, published as a GitHub release.
 
-## Faits vérifiés sur la TV de référence (TCL Google TV, Android 14)
-- **Appairage :** le code d'appairage du débogage sans fil change dès que l'écran de code perd le focus (ouverture du panneau de notifications) et s'arrête quand on change d'app. Aucun appairage n'est donc possible depuis la TV elle-même : ni écran de l'app, ni notification, ni fenêtre superposée qui prend le focus.
-- **Port 5555 :** le firmware fixe `service.adb.tcp.port=5555` à chaque démarrage. Dès qu'adbd tourne (débogage USB ou sans fil activé), il écoute aussi en TCP sur ce port, en protocole adb classique avec authentification RSA.
-- **Autorisation d'une clé :** une clé inconnue déclenche « Autoriser le débogage ? » sur la TV. « Toujours autoriser » se coche et se valide à la télécommande.
-- **Après un redémarrage :**
-  - le débogage USB (`adb_enabled=1`) reste actif, et adbd démarre seul au boot puis réécoute sur 5555 ;
-  - le débogage sans fil, lui, peut être désactivé, et son port TLS change à chaque démarrage.
-- **AUTO_START (app-op constructeur) :**
-  - **Par défaut :** `ignore` pour les apps tierces. Tant que le processus de l'app ne tourne pas, cela bloque `BOOT_COMPLETED` et la liaison d'un service d'accessibilité.
-  - **Accord par le shell :** `appops set --uid <package> AUTO_START allow` fonctionne et la valeur persiste.
-- **Expiration :** une clé adb autorisée expire après 7 jours sans connexion, sauf si `adb_allowed_connection_time` vaut 0 (réglage global, qui exige `WRITE_SECURE_SETTINGS`).
+Nothing is specified yet. Each phase becomes an OpenSpec change. Undecided topics live in `openspec/backlog.md`.
 
-Toute autre hypothèse sur l'appareil se vérifie sur la TV avant d'être spécifiée.
+## Verified facts on the reference TV (TCL Google TV, Android 14)
+- **Pairing is impossible from the TV:**
+  - the wireless debugging pairing code changes as soon as the code screen loses focus, for example when the notification panel opens;
+  - it stops when the user switches apps;
+  - so no app screen, notification or focus-taking overlay can carry out the pairing.
+- **Port 5555:**
+  - the firmware sets `service.adb.tcp.port=5555` at every boot;
+  - whenever adbd runs (USB or wireless debugging enabled), it also listens on that TCP port with the legacy adb protocol and RSA authentication.
+- **Key prompt:** an unknown key triggers "Allow debugging?" on the TV. "Always allow" can be ticked and confirmed with the remote.
+- **After a reboot:**
+  - USB debugging (`adb_enabled=1`) stays on; adbd then starts by itself at boot and listens on 5555 again;
+  - wireless debugging may be switched off, and its TLS port changes at every boot.
+- **AUTO_START (vendor app-op):**
+  - It is `ignore` by default for third-party apps. While the app process isn't running, this blocks `BOOT_COMPLETED` and the binding of an accessibility service.
+  - The shell can grant it with `appops set --uid <package> AUTO_START allow`, and the value persists.
+- **Key expiry:** an authorized adb key expires after 7 days without a connection, unless `adb_allowed_connection_time` is 0. This is a global setting, and writing it requires `WRITE_SECURE_SETTINGS`.
 
-## Compatibilité API Shizuku
-- **Interface :** l'AIDL de Shizuku-API (`moe.shizuku.server.IShizukuService` et les interfaces associées). Les apps clientes appellent `rikka.shizuku.Shizuku` sans modification.
-- **Livraison du binder :**
-  - le serveur, avec l'uid shell, appelle la méthode `sendBinder` du `ShizukuProvider` (autorité `<package client>.shizuku`) ; le binder est passé dans l'extra `moe.shizuku.privileged.api.intent.extra.BINDER` ;
-  - il le fait pour chaque app qui *demande* `moe.shizuku.manager.permission.API_V23` dans son manifeste, au démarrage du serveur puis à chaque démarrage d'un processus client.
-- **Autorisation :** gérée par le serveur, ce n'est pas une permission Android. Une demande ouvre l'écran d'autorisation de Tsuyu.
-- **Noms `moe.shizuku.*` :** les actions, extras et permissions demandées par les clients font partie de l'API et se réutilisent tels quels. Tsuyu ne *déclare* aucune permission `moe.shizuku.manager.permission.*` (voir Licences).
-- **Limite assumée :** une app qui vérifie la présence du package `moe.shizuku.privileged.api` indique Shizuku comme absent.
+Any other assumption about the device must be checked on the TV before it is specified.
 
-## Workflow de spécification (OpenSpec)
-- **À lire avant tout travail :** contexte, conventions et règles de rédaction sont dans `openspec/config.yaml` (`context`, `rules` par document, `operations`). `openspec instructions` les injecte.
-- **Skills OpenSpec :** passer par eux (`openspec-propose`, `openspec-apply-change`, `openspec-verify-change`, `openspec-archive-change`…), car ils appliquent les règles du repo. Ne pas rédiger les documents d'un change à la main sans eux.
-- **Exigences courantes :** une spec par capability, dans `openspec/specs/<capability>/spec.md`.
-- **Feature ou changement de comportement :**
-  1. créer d'abord `openspec/changes/<id>/proposal.md`, avec `tasks.md` et les deltas dans `specs/` ;
-  2. le faire valider, puis implémenter ;
-  3. archiver dans `changes/archive/`.
-- **Specs courantes :** ne jamais éditer `openspec/specs/` directement. Elles évoluent uniquement par des changes implémentés.
-- **Avant d'ouvrir ou de mettre à jour une PR de feature :** lancer `openspec-verify-change` sur le change et `./gradlew test`. Ne cocher une tâche, ou déclarer un point de review traité, qu'après vérification.
-- **Après merge et validation sur la TV :** `openspec archive <id>`.
+## Shizuku API compatibility
+- **Interface:** the Shizuku-API AIDL (`moe.shizuku.server.IShizukuService` and related interfaces). Client apps call `rikka.shizuku.Shizuku` unchanged.
+- **Binder delivery:**
+  - The server runs with the shell uid. It calls the `sendBinder` method of the client's `ShizukuProvider` (authority `<client package>.shizuku`), with the binder in the extra `moe.shizuku.privileged.api.intent.extra.BINDER`.
+  - Targets: every app that *requests* `moe.shizuku.manager.permission.API_V23` in its manifest.
+  - When: when the server starts, and whenever a client process starts.
+- **Permission:** the server manages it; it is not an Android permission. A request opens Tsuyu's permission screen.
+- **`moe.shizuku.*` names:**
+  - Actions, extras and permissions requested by clients are part of the API, so they are reused as is.
+  - Tsuyu *declares* no `moe.shizuku.manager.permission.*` permission (see Licenses).
+- **Accepted limit:** an app that checks for the `moe.shizuku.privileged.api` package reports Shizuku as missing.
 
-## Conventions de code (non négociables)
-- SOLID, KISS, DRY : petites classes à responsabilité unique, interfaces aux frontières (connexion adb, serveur, réglages système), aucune logique dans les composables.
-- State uniflow : ViewModel → StateFlow → Compose, sans état dupliqué.
-- Aucun commentaire dans le code ni dans les tests, sauf l'en-tête de licence de chaque fichier.
-- Toute opération système ou réseau : états chargement/vide/erreur en UI, timeout borné, jamais d'erreur avalée ni de crash silencieux. Une erreur dit à l'utilisateur quoi faire.
-- Le serveur privilégié n'expose que l'API Shizuku et ce que l'app utilise. Aucune commande shell construite à partir d'une saisie non validée.
-- Tests JUnit sur la logique (protocole adb, état du démarrage, autorisations), UI validée sur la TV réelle.
+## Specification workflow (OpenSpec)
+- **Before any work:**
+  - read `openspec/config.yaml` (`context`, per-document `rules`, `operations`): it holds the context, conventions and writing rules;
+  - `openspec instructions` injects them.
+- **Skills:** go through the OpenSpec skills (`openspec-propose`, `openspec-apply-change`, `openspec-verify-change`, `openspec-archive-change`…). They apply the repo rules, so never write a change's documents by hand without them.
+- **Current requirements:** one file per capability, `openspec/specs/<capability>/spec.md`.
+- **New feature or behavior change:**
+  1. First create `openspec/changes/<id>/proposal.md`, plus `tasks.md` and the deltas in `specs/`.
+  2. Get it approved.
+  3. Implement it.
+  4. Archive it into `changes/archive/`.
+- **`openspec/specs/`:** never edit it directly. Current specs only change through implemented changes.
+- **Before opening or updating a feature PR:**
+  - run `openspec-verify-change` on the change and `./gradlew test`;
+  - only tick a task, or report a review point as handled, after checking it.
+- **After merge and validation on the TV:** `openspec archive <id>`.
 
-## Licences
-- Licence du dépôt : AGPL-3.0-or-later. Tout fichier `.kt` / `.kts` / `.java` / `.aidl` écrit pour Tsuyu commence par cet en-tête, suivi d'une ligne vide (tests compris) :
+## Code conventions (non-negotiable)
+- **SOLID, KISS, DRY:**
+  - small single-purpose classes;
+  - interfaces at the boundaries: adb connection, server, system settings;
+  - no logic in composables.
+- **Uniflow state:** ViewModel → StateFlow → Compose, with no duplicated state.
+- **Comments:** none in code or tests, except each file's license header.
+- **System and network operations:**
+  - loading, empty and error states in the UI;
+  - bounded timeouts;
+  - never a swallowed error or a silent crash;
+  - every error tells the user what to do.
+- **Privileged server:**
+  - it exposes only the Shizuku API and what the app uses;
+  - no shell command is built from unvalidated input.
+- **Tests:**
+  - JUnit on the logic: adb protocol, start state, permissions;
+  - the UI is validated on the real TV.
+
+## Licenses
+- **Repository license:** AGPL-3.0-or-later.
+- **Files written for Tsuyu:** every `.kt` / `.kts` / `.java` / `.aidl` file starts with this header, then a blank line (tests included):
   ```
   /*
-   * Copyright (C) <année> Sygix
+   * Copyright (C) <year> Sygix
    * SPDX-License-Identifier: AGPL-3.0-or-later
    */
   ```
-- **Fichier repris ou adapté de Shizuku ou de Shevery :**
-  - il reste en Apache-2.0 et garde le copyright d'origine ;
-  - il ajoute la ligne Sygix et indique sa provenance :
+- **Files taken or adapted from Shizuku or Shevery:**
+  - they stay Apache-2.0 and keep the original copyright;
+  - they add the Sygix line and state where they come from:
   ```
   /*
-   * Copyright (C) <année d'origine> <auteur d'origine>
-   * Copyright (C) <année> Sygix
+   * Copyright (C) <original year> <original author>
+   * Copyright (C) <year> Sygix
    * SPDX-License-Identifier: Apache-2.0
-   * Modified by Sygix from <projet>/<chemin d'origine>.
+   * Modified by Sygix from <project>/<original path>.
    */
   ```
-- **Code repris de Shizuku-API :**
-  - il reste en MIT ;
-  - en-tête avec `Copyright (c) 2021 RikkaW` et `SPDX-License-Identifier: MIT`.
-- **Interdits de Shizuku (section 6 de sa licence) :**
-  - le nom « Shizuku » comme nom d'app ;
-  - ses icônes ;
-  - l'application id `moe.shizuku.privileged.api` ;
-  - toute déclaration de permission `moe.shizuku.manager.permission.*`.
-  - « Shizuku » ne peut apparaître que pour décrire la compatibilité.
-- **Ne rien reprendre d'autre :** pas de code d'autres projets crédités par Shevery (Dhizuku, aShellYou…), puisque ce code est hors périmètre.
-- **Mise à jour de `NOTICE` :** à chaque nouveau projet d'origine.
-- **Vérification avant de pousser :** `git ls-files '*.kt' '*.kts' '*.java' '*.aidl' | xargs grep -L 'SPDX-License-Identifier'` doit être vide.
-- **Dépendances externes :** uniquement des libs éprouvées et maintenues, sous licence compatible AGPL-3.0 (Apache-2.0, MIT, BSD, LGPL, GPL-3.0…).
+- **Code taken from Shizuku-API:** stays MIT, with a header holding `Copyright (c) 2021 RikkaW` and `SPDX-License-Identifier: MIT`.
+- **Forbidden by Shizuku (section 6 of its license):**
+  - the name "Shizuku" as an app name;
+  - its icons;
+  - the application id `moe.shizuku.privileged.api`;
+  - any declaration of a `moe.shizuku.manager.permission.*` permission.
+
+  "Shizuku" may only appear to describe compatibility.
+- **Other projects credited by Shevery** (Dhizuku, aShellYou…): take nothing from them; that code is out of scope.
+- **`NOTICE`:** update it whenever code comes from a new origin project.
+- **Check before pushing:** `git ls-files '*.kt' '*.kts' '*.java' '*.aidl' | xargs grep -L 'SPDX-License-Identifier'` must be empty.
+- **External dependencies:** only proven, maintained libraries, under a license compatible with AGPL-3.0 (Apache-2.0, MIT, BSD, LGPL, GPL-3.0…).
 
 ## Git & packaging
-- **Commits et branches :** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`…) ; branches `feat/`, `fix/`, `chore/`. Aucun commit direct sur main après le commit initial.
-- **Signature :** commits signés, avec un auteur cohérent avec le compte GitHub.
-- **Package :** `fr.sygix.tsuyu`.
-- **Cible :** Android TV 14+ (minSdk 34, compileSdk 37).
+- **Commits:** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`…), messages in English, short and in the imperative.
+- **Branches:** `feat/`, `fix/`, `chore/`. No direct commit on main.
+- **Signing:** signed commits, with an author consistent with the GitHub account.
+- **Package:** `fr.sygix.tsuyu`.
+- **Target:** Android TV 14+ (minSdk 34, compileSdk 37).
 
-## Repo privé, à traiter comme public
-Le repo passera public. Tout ce qui est poussé reste lisible dans l'historique : code, specs, messages de commit, descriptions et commentaires de PR, issues, logs de CI.
-- **Jamais de secret :** clés, tokens, mots de passe, keystore, URL avec identifiants.
-- **Jamais de détail de l'environnement local :**
-  - chemins absolus (`/home/…`) ;
-  - noms d'utilisateur, de machine ou de VM ;
-  - adresses IP et ports d'appareils ;
-  - noms de réseau, numéro de série ou modèle exact d'un appareil ;
-  - comptes.
-  - Dans les specs, les PR et les commits, l'appareil de test se désigne de façon générique : « TV Google TV TCL sous Android 14 ».
-- **Données d'appareil :** des sorties de `adb shell`, `logcat` ou `dumpsys`, ne publier que la structure (propriétés, états, packages), jamais de données personnelles.
-- **Jamais de sortie de build ni de cache :** `build/`, `.gradle/`, `.kotlin/`, APK.
-- **Avant de pousser :** `git diff origin/main... | grep -nE '/home/|/Users/|([0-9]{1,3}\.){3}[0-9]{1,3}'` doit être vide, hors versions de dépendances et adresse de bouclage.
+## CI and release
+- **`test`:** runs `./gradlew test` on every PR and on main. It is the required check for merging.
+- **`codeql`:** runs only while the repository is public, because code scanning is unavailable on a private repository.
+- **`release`:**
+  - a signed tag `vX.Y.Z` or `vX.Y.Z-(alpha|beta|rc).N` builds the APK, signs it with the key of the `production` environment, and publishes the GitHub release;
+  - the versionCode is derived from the tag (`app/build.gradle.kts`);
+  - tags and releases belong to Sygix, never to an agent.
+- **Actions:**
+  - pinned by full SHA;
+  - minimal permissions per job, with `permissions: {}` at workflow level;
+  - the action allowlist is a repository setting: Sygix must add a new third-party action before it can be used.
+- **Merging:** rebase only, linear history, signed commits, branch deleted after merge.
 
-## Environnement
-- Messages de commit en anglais, à l'impératif, courts.
-- Repo : github.com/Sygix/Tsuyu.
-- TV de référence : TCL Google TV, Android 14. Tests sur la TV réelle avec `adb connect <IP-TV>` en `assembleRelease`.
+## Private repository, treated as public
+The repository will become public. Everything pushed stays readable in the history: code, specs, commit messages, PR descriptions and comments, issues, CI logs.
+- **Never a secret:** keys, tokens, passwords, keystores, URLs with credentials.
+- **Never a detail of the local environment:**
+  - absolute paths (`/home/…`);
+  - user, machine or VM names;
+  - device IP addresses and ports;
+  - network names;
+  - a device's serial number or exact model;
+  - accounts.
 
-## Outils
-- OpenSpec CLI (`openspec`) :
-  - valider avec `openspec validate --all --strict` ;
-  - archiver un change avec `openspec archive <id>`.
-- pnpm obligatoire à la place de npm pour tout paquet Node.
-- Format strict des specs : `### Requirement:` (SHALL/MUST) et `#### Scenario:` avec `- **WHEN** / **THEN**`.
+  In specs, PRs and commits, name the test device generically: "TCL Google TV running Android 14".
+- **Device output** (`adb shell`, `logcat`, `dumpsys`): publish only its structure (properties, states, packages), never personal data.
+- **Never build output or caches:** `build/`, `.gradle/`, `.kotlin/`, APKs.
+- **Check before pushing:** `git diff origin/main... | grep -nE '/home/|/Users/|([0-9]{1,3}\.){3}[0-9]{1,3}'` must be empty, except for dependency versions and the loopback address.
+
+## Environment
+- Repository: github.com/Sygix/Tsuyu.
+- Reference TV: TCL Google TV, Android 14. Test on the real TV with `adb connect <TV-IP>`, using `assembleRelease`.
+
+## Tools
+- OpenSpec CLI (`openspec`):
+  - validate with `openspec validate --all --strict`;
+  - archive a change with `openspec archive <id>`.
+- Use pnpm, not npm, for any Node package.
+- Strict spec format: `### Requirement:` (SHALL/MUST), `#### Scenario:` with `- **WHEN** / **THEN**`.
+- Spec artifacts (proposal, design, tasks, specs) are written in French, as set in `openspec/config.yaml`.

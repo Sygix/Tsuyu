@@ -5,57 +5,57 @@ context: |
   All artifacts must be written in fr.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
 
-  Tsuyu : service d'accès privilégié pour Android TV / Google TV, compatible avec l'API Shizuku, utilisable entièrement à la télécommande.
-  Il démarre un serveur avec les droits shell sur la TV elle-même (adb local, clé RSA de l'app, « Toujours autoriser » une fois), le relance après chaque redémarrage
-  et livre le binder Shizuku aux apps clientes. Réécriture propre inspirée de Shizuku et de Shevery, pas un fork.
-  Priorités : 1) fiabilité du démarrage et de la relance, sans ordinateur ni téléphone ; 2) compatibilité stricte avec les clients Shizuku-API existants ;
-  3) parcours compréhensible à la télécommande (DESIGN.md) ; 4) sécurité : aucun accès sans accord explicite de l'utilisateur.
+  Tsuyu: privileged access service for Android TV / Google TV, compatible with the Shizuku API, fully usable with the remote.
+  It starts a server with shell rights on the TV itself (local adb, the app's own RSA key, "Always allow" once), restarts it after every reboot
+  and delivers the Shizuku binder to client apps. Clean rewrite inspired by Shizuku and Shevery, not a fork.
+  Priorities: 1) reliable start and restart, with no computer and no phone; 2) strict compatibility with existing Shizuku-API clients;
+  3) a flow people understand with the remote (DESIGN.md); 4) security: no access without the user's explicit consent.
 
-  Stack : Kotlin, Jetpack Compose for TV, StateFlow, DataStore. Namespace fr.sygix.tsuyu, minSdk 34, compileSdk 37. Langue UI : français uniquement.
-  Architecture : SOLID/KISS/DRY, interfaces aux frontières (connexion adb, serveur, réglages système), aucune logique dans les composables. Uniflow ViewModel -> StateFlow -> Compose.
+  Stack: Kotlin, Jetpack Compose for TV, StateFlow, DataStore. Namespace fr.sygix.tsuyu, minSdk 34, compileSdk 37. UI language: French only.
+  Architecture: SOLID/KISS/DRY, interfaces at the boundaries (adb connection, server, system settings), no logic in composables. Uniflow ViewModel -> StateFlow -> Compose.
 
-  Faits vérifiés sur l'appareil et contrat de compatibilité Shizuku : AGENTS.md (sections « Faits vérifiés » et « Compatibilité API Shizuku »). Licences et interdits de Shizuku : AGENTS.md, section Licences.
-  Roadmap : P0 socle, P1 démarrage local, P2 compatibilité API Shizuku, P3 persistance, P4 distribution. Sujets non tranchés : openspec/backlog.md.
+  Verified device facts and the Shizuku compatibility contract: AGENTS.md ("Verified facts" and "Shizuku API compatibility"). Licenses and Shizuku restrictions: AGENTS.md, Licenses.
+  Roadmap: P0 foundation (delivered), P1 local start, P2 Shizuku API compatibility, P3 persistence, P4 distribution. Undecided topics: openspec/backlog.md.
 
-  Repo à traiter comme public : aucun secret ni détail de l'environnement local (chemins absolus, IP, ports d'appareils, noms d'utilisateur, de machine ou de VM, modèle exact d'appareil) dans les documents, commits et PR.
+  Treat the repository as public: no secret and no local environment detail (absolute paths, IPs, device ports, user, machine or VM names, exact device model) in documents, commits and PRs.
 
 rules:
   proposal:
-    - "Lister explicitement les capabilities touchées et les changes dont celui-ci dépend."
-    - "Si une hypothèse change en cours de route, reprendre tous les documents du change et la description de la PR : aucune trace de l'ancienne hypothèse ne doit rester."
-    - "Section Non-goals obligatoire : ce qui est reporté et à quelle phase."
-    - "Tout choix produit non tranché par Sygix va dans une section « Questions ouvertes » et n'apparaît nulle part ailleurs comme décision (ni en SHALL, ni dans design ou tasks) tant qu'il n'est pas validé."
+    - "List the capabilities touched and the changes this one depends on."
+    - "If an assumption changes along the way, rework every document of the change and the PR description: no trace of the old assumption may remain."
+    - "A Non-goals section is mandatory: what is deferred, and to which phase."
+    - "Any product choice Sygix has not decided goes into an « Questions ouvertes » section and appears nowhere else as a decision (not as a SHALL, not in design or tasks) until it is approved."
   specs:
-    - "Chaque exigence qui dépend du système (adb, réglages, app-ops, autres apps) couvre les scénarios : succès, refus de l'utilisateur, fonction absente sur l'appareil, délai dépassé, état après redémarrage de la TV."
-    - "Toute UI focalisable spécifie la navigation D-pad : focus initial, déplacements aux bords (pas de boucle sauf mention), touche Retour, restauration du focus au retour d'un sous-écran ou d'une autre app, et le cas où l'élément focalisé a disparu."
-    - "Toute exigence touchant l'API Shizuku nomme le comportement attendu côté client Shizuku-API (méthode appelée, résultat observé) pour qu'un test avec un vrai client puisse la vérifier."
-    - "Ne jamais s'appuyer sur un comportement de l'appareil non listé dans les faits vérifiés d'AGENTS.md ; sinon le marquer comme hypothèse et prévoir une tâche de vérification sur la TV."
-    - "Pas de contradiction avec une autre spec ou un autre change ouvert : une seule capability décrit un comportement, les autres y renvoient."
-    - "Si une exigence existante change, écrire un delta MODIFIED sur cette exigence, jamais un ADDED parallèle qui la contredirait après archivage."
-    - "Format strict : '### Requirement:' avec SHALL/MUST, '#### Scenario:' avec des puces '- **WHEN**' / '- **THEN**' séparées, jamais sur une seule ligne."
+    - "Every requirement that depends on the system (adb, settings, app-ops, other apps) covers these scenarios: success, user refusal, feature missing on the device, timeout, state after a TV reboot."
+    - "Every focusable UI specifies D-pad navigation: initial focus, moves at the edges (no wrap-around unless stated), the Back key, focus restoration when returning from a sub-screen or another app, and the case where the focused element has disappeared."
+    - "Every requirement touching the Shizuku API names the expected behavior on the Shizuku-API client side (method called, observed result) so a test with a real client can verify it."
+    - "Never rely on a device behavior that is not in the verified facts of AGENTS.md; otherwise mark it as an assumption and plan a verification task on the TV."
+    - "No contradiction with another spec or open change: one capability describes a behavior, the others refer to it."
+    - "If an existing requirement changes, write a MODIFIED delta on that requirement, never a parallel ADDED one that would contradict it after archiving."
+    - "Strict format: '### Requirement:' with SHALL/MUST, '#### Scenario:' with separate '- **WHEN**' / '- **THEN**' bullets, never on a single line."
   design:
-    - "Pour chaque élément repris de Shizuku ou de Shevery : fichier d'origine, ce qui est gardé, ce qui est retiré et pourquoi, licence de l'en-tête."
-    - "Préférer la solution la plus simple qui couvre la spec ; pas d'option, de préférence persistée ou de couche sans besoin exprimé."
-    - "Surface privilégiée minimale : ce que le serveur expose et avec quels droits, et comment une app non autorisée en est tenue à l'écart."
-    - "Erreurs : jamais avalées ; une opération renvoie un Result (ou équivalent) pour que l'UI distingue chaque cause et propose l'action suivante. Timeout borné sur toute connexion et tout appel système."
+    - "For every element taken from Shizuku or Shevery: origin file, what is kept, what is removed and why, license of the header."
+    - "Prefer the simplest solution that covers the spec; no option, persisted preference or layer without an expressed need."
+    - "Minimal privileged surface: what the server exposes and with which rights, and how an unauthorized app is kept out."
+    - "Errors: never swallowed; an operation returns a Result (or equivalent) so the UI can tell each cause apart and offer the next action. Bounded timeout on every connection and system call."
   tasks:
-    - "Si un comportement de l'appareil n'est pas vérifié, la 1re tâche est un test sur la TV avant tout code."
-    - "Inclure les tests : JUnit pour la logique pure (protocole adb, états, autorisations), tests Compose de navigation D-pad avec @Config(qualifiers = \"w960dp-h540dp-xhdpi\"), et pour P2 un test avec l'app de démo Shizuku-API sur la TV."
-    - "Inclure : chaînes FR en ressources, testTags, en-têtes de licence et NOTICE si du code est repris, mise à jour du README si le comportement visible change, validation sur la TV réelle en assembleRelease, openspec archive."
-    - "Aucun chemin, variable ou configuration propre à une machine : uniquement ./gradlew <tâche>."
-    - "Chaque tâche a un critère de fin vérifiable ; pas de tâche « étudier » ou « envisager » : trancher dans design ou la mettre en Questions ouvertes."
+    - "If a device behavior is not verified, the first task is a test on the TV, before any code."
+    - "Include tests: JUnit for pure logic (adb protocol, states, permissions), Compose D-pad navigation tests with @Config(qualifiers = \"w960dp-h540dp-xhdpi\"), and for P2 a test with the Shizuku-API demo app on the TV."
+    - "Include: French strings in resources, testTags, license headers and NOTICE when code is taken, README update if visible behavior changes, validation on the real TV with assembleRelease, openspec archive."
+    - "No machine-specific path, variable or configuration: only ./gradlew <task>."
+    - "Every task has a verifiable done criterion; no « study » or « consider » task: decide it in design or put it in Questions ouvertes."
 
 operations:
   apply:
     guidance:
-      - "Aucun commentaire dans le code ni dans les tests, sauf l'en-tête de licence de chaque fichier ; vérifier le diff avant de committer."
-      - "Ne cocher une tâche qu'après l'avoir vérifiée dans le code et par un test qui échouerait sans le changement."
-      - "Code repris de Shizuku ou de Shevery : seulement ce que la spec exige, réécrit aux conventions du repo, avec l'en-tête de provenance d'AGENTS.md."
-      - "Chaque test contient une assertion qui échouerait sans le comportement testé ; pas de Thread.sleep, attendre un état (first { … } sous withTimeout, runTest)."
-      - "Ne rien ajouter qui ne soit ni dans la spec ni demandé (une idée va en suggestion dans la PR)."
-      - "Réponse à une review : reprendre tous les points sans exception, chacun avec un statut (traité / partiel / non traité / traité autrement) et une preuve (fichier:ligne, nom du test)."
-      - "Avant d'ouvrir ou de mettre à jour la PR : lancer openspec-verify-change sur le change et ./gradlew test."
+      - "No comments in code or tests, except each file's license header; check the diff before committing."
+      - "Only tick a task after checking it in the code and with a test that would fail without the change."
+      - "Code taken from Shizuku or Shevery: only what the spec requires, rewritten to the repo conventions, with the provenance header from AGENTS.md."
+      - "Every test holds an assertion that would fail without the tested behavior; no Thread.sleep, await a state (first { … } under withTimeout, runTest)."
+      - "Add nothing that is neither in the spec nor requested (an idea goes as a suggestion in the PR)."
+      - "Review replies: address every point without exception, each with a status (handled / partial / not handled / handled differently) and a proof (file:line, test name)."
+      - "Before opening or updating the PR: run openspec-verify-change on the change and ./gradlew test."
   archive:
     guidance:
-      - "Archiver seulement après le merge sur main et la validation sur la TV réelle."
-      - "Vérifier que openspec validate --all --strict passe après la fusion des deltas."
+      - "Archive only after the merge on main and validation on the real TV."
+      - "Check that openspec validate --all --strict passes after the deltas are merged."

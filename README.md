@@ -24,7 +24,7 @@ Tsuyu is not Shizuku and uses its own package name. An app that only checks whet
 Tsuyu is a clean rewrite for TV. Its design and parts of its code come from:
 
 - [RikkaApps/Shizuku](https://github.com/RikkaApps/Shizuku) (Apache-2.0) and [RikkaApps/Shizuku-API](https://github.com/RikkaApps/Shizuku-API) (MIT), by RikkaW;
-- [HmnDev-Tech/shevery](https://github.com/HmnDev-Tech/shevery) (Apache-2.0), a Shizuku fork whose TV work inspired this project.
+- [HmnDev-Tech/shevery](https://github.com/HmnDev-Tech/shevery) (Apache-2.0), a Shizuku fork that served as the starting point.
 
 Details are in [NOTICE](NOTICE).
 

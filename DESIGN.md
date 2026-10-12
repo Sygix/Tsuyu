@@ -1,43 +1,67 @@
-# DESIGN.md — design de Tsuyu
+# DESIGN.md — Tsuyu design
 
-## Pour qui, dans quel moment
-On ouvre Tsuyu rarement. La première fois, pour l'activer. Ensuite, seulement quand une app demande l'accès ou quand quelque chose ne marche plus. On le fait depuis un canapé, à environ 3 m de l'écran, avec une télécommande à 5 touches, souvent sans savoir ce qu'est ADB.
+## Who, and in what moment
+People rarely open Tsuyu: once to enable it, then only when an app asks for access or when something stops working. They do it from a couch, about 3 m from the screen, with a 5-key remote, often without knowing what ADB is.
 
-Une réussite se mesure ainsi : l'utilisateur active Tsuyu une fois, en comprenant ce qu'il autorise, puis l'oublie. Quand une app demande l'accès, il sait qui demande et ce que ça permet. Quand ça casse, l'écran lui dit quoi faire.
+Success means:
+- the user enables Tsuyu once, understands what they allow, then forgets about it;
+- when an app asks for access, they know who is asking and what it allows;
+- when something breaks, the screen tells them what to do.
 
-## Principes
-- **Une seule chose à faire par écran :** l'action principale porte le focus initial.
-- **État lisible à distance :** Tsuyu est actif, arrêté, ou à configurer. On le comprend en un coup d'œil, sans lire de détail technique.
-- **Honnêteté :**
-  - dire ce qui va être modifié sur la TV avant de le faire (débogage, accès accordés à Tsuyu), et le montrer ensuite ;
-  - les accès sont nommés par leur effet, pas par leur nom technique.
-- **Jamais d'impasse :** chaque erreur dit la cause probable et propose l'action suivante, réessayer ou ouvrir le bon réglage. Retour ramène toujours à l'écran précédent.
-- **Rien au repos :** pas d'animation ni de rafraîchissement quand rien ne change.
+## Principles
+- **One thing to do per screen.** The main action holds the initial focus.
+- **State readable from across the room.** Running, stopped, or needs setup: clear at a glance, with no technical detail.
+- **Honesty.**
+  - Say what will change on the TV (debugging, access Tsuyu grants itself) before doing it, and show it afterwards.
+  - Name each access by its effect, not by its technical name.
+- **Never a dead end.**
+  - Every error gives the likely cause and offers the next action: retry, or open the right setting.
+  - Back always returns to the previous screen.
+- **Nothing at rest.** No animation or refresh when nothing changes.
 
-## Écrans
-- **Accueil :** l'état du service et son action principale (activer, démarrer, réessayer), les apps autorisées, l'aide.
-- **Activation guidée :**
-  - activer les options pour les développeurs et le débogage ;
-  - confirmer « Toujours autoriser » sur l'écran système ;
-  - chaque étape montre où l'on en est et détecte toute seule quand elle est faite.
-- **Demande d'autorisation :** s'ouvre par-dessus l'app qui demande. Elle affiche l'icône et le nom de l'app, ce que l'accès permet, puis « Autoriser » et « Refuser ». « Refuser » porte le focus initial.
-- **Apps autorisées :** la liste des apps autorisées, avec la révocation de chacune.
+## Screens
+- **Home:** the service state with its main action (enable, start, retry), the authorized apps, and help.
+- **Guided setup:**
+  - turn on developer options and debugging;
+  - confirm "Always allow" on the system prompt;
+  - each step shows progress and detects by itself when it is done.
+- **Permission request:**
+  - opens over the requesting app;
+  - shows the app's icon and name, and what the access allows;
+  - two buttons, "Autoriser" and "Refuser"; "Refuser" holds the initial focus.
+- **Authorized apps:** the list, with revocation per app.
 
-Le périmètre exact de chaque écran se décide dans les changes OpenSpec.
+The exact scope of each screen is decided in OpenSpec changes.
 
-## Navigation à la télécommande
-- Chaque écran a un focus initial défini. Au retour d'un sous-écran, le focus revient sur l'élément qui l'a ouvert.
-- Pas de boucle aux bords, pas d'appui long caché. Une action secondaire est visible à l'écran.
-- L'élément focalisé se distingue nettement : changement d'échelle léger, contraste, ombre. Jamais sa taille dans la mise en page.
-- Retour quitte un sous-écran. Sur l'accueil, il quitte l'app.
+## Remote navigation
+- **Focus:**
+  - every screen defines its initial focus;
+  - when returning from a sub-screen, focus goes back to the element that opened it.
+- **Edges and actions:**
+  - no wrap-around at the edges;
+  - no hidden long press: secondary actions are visible on screen.
+- **Focused element:** it stands out clearly through a slight scale, contrast or shadow, never through a change of its layout size.
+- **Back:** leaves a sub-screen; on Home, it exits the app.
 
-## Langage visuel
-- Même famille que SygixOs : thème sombre uniquement, surfaces sobres, animations de 250 à 400 ms sans saut sec, respect de l'échelle d'animation du système.
-- Couleur d'accent unique, froide, évoquant la rosée. Elle sert au focus et à l'état actif, et n'est jamais la seule porteuse d'une information.
-- Texte lisible à 3 m : aucun texte courant sous 16 sp, titres nettement plus grands, au plus deux niveaux d'information par écran.
-- Marges de sécurité TV respectées : aucun contenu interactif dans les bords coupés par l'overscan.
-- Composants : Compose for TV. Les composants communs (surface, bouton, ligne de liste avec état, étape numérotée) se définissent une fois et se réutilisent.
+## Visual language
+- **Style:** same family as SygixOs:
+  - dark theme only;
+  - quiet surfaces;
+  - 250–400 ms animations, never an abrupt jump;
+  - the system animation scale is respected.
+- **Accent color:** a single cool accent evoking dew.
+  - It marks focus and the active state.
+  - It is never the only carrier of information.
+- **Text readable at 3 m:**
+  - no body text under 16 sp;
+  - titles clearly larger;
+  - at most two levels of information per screen.
+- **Safe areas:** TV safe areas are respected, so nothing interactive sits in the edges that overscan crops.
+- **Components:**
+  - built with Compose for TV;
+  - shared components (surface, button, list row with state, numbered step) are defined once and reused.
 
-## Textes
-- Français, même ton que SygixOs, phrases courtes, verbe d'action sur les boutons.
-- Termes techniques (ADB, shell, binder) seulement dans « Détails ».
+## Copy
+- **Tone:** French UI, same tone as SygixOs.
+- **Sentences:** short, with action verbs on buttons.
+- **Technical terms:** ADB, shell and binder appear only under "Détails".
