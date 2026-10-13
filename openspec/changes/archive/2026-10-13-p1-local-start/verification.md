@@ -7,7 +7,7 @@ the original assessment below; historical emulator checks are not TV proof.
 
 | Dimension | Result |
 | --- | --- |
-| Completeness | 18/19 active tracked tasks complete; 3.4 withdrawn and 5.3 superseded by Sygix without marking them complete; only the archive/validation follow-up remains |
+| Completeness | 19/19 active tracked tasks complete; 3.4 withdrawn and 5.3 superseded by Sygix without marking them complete; archive/spec synchronization and strict validation succeeded |
 | Correctness | Logic, host-shell readiness, release compilation and the three corrected-release TV recovery scenarios passed; package-lifecycle and some UI/runtime coverage remain partial |
 | Coherence | Approved debugging-enabled contract propagated through proposal, design, delta, tasks, README and French resources; P3 remains unimplemented |
 
@@ -175,7 +175,7 @@ check should record the exact text after returning to home, the value of
 | Key reuse after reactivation and manual reboot | `AdbKeyStore`, `LocalAdbLauncher`, existing `AdbTest` / `StartTest` | Persistence/retry unit tests and published alpha.2 real-TV reactivation/reboot sequence passed |
 | Singleton handoff | `ServerMain.kt:43` writes readiness only after successful existing-server handoff | Corrected runtime handoff pending |
 
-### Closure decisions and remaining archive operation
+### Closure decisions and completed archive operation
 
 - **3.4 withdrawn, not passed:** Sygix removed this task because replacement
   of the base APK kills the application process. INSTALL_DONT_KILL_APP concerns
@@ -187,12 +187,20 @@ check should record the exact text after returning to home, the value of
 - **5.3 superseded, not passed by inference:** PR #4 is merged with signed
   commits and independent review. Sygix accepted the actual delivery and
   retired the unverifiable original stacked/rebase/retarget sequence.
-- **6.6 pending archive operation:** signed correction delivery, exact-head
+- **6.6 completed archive operation:** signed correction delivery, exact-head
   review, authorized merge and real-TV correction validation are complete.
   Sygix expressly authorized merging PR #7 with the closure decisions, then
-  archiving P1, syncing deltas and merging an archive PR after green CI. Mark
-  this final operation complete only after archive and strict validation of
-  the resulting specs succeed.
+  archiving P1, syncing deltas and merging an archive PR after green CI.
+  PR #7 merged as `80298b21c979188b14f8151c39963ae94b82e2a7` with successful
+  local tests and CI. The archive workflow created canonical local-start and
+  tv-navigation specs, preserving Purpose and all approved requirement/scenario
+  bodies. Automated content comparison against both deltas passed. After
+  inline synchronization, `openspec archive p1-local-start --yes --skip-specs`
+  moved the change to `openspec/changes/archive/2026-10-13-p1-local-start`;
+  `--skip-specs` avoided repeating the already verified inline sync, not
+  omitting it. The CLI warned about this archive-operation checkbox itself;
+  Sygix had explicitly authorized the operation. The checkbox was completed
+  only after `openspec validate --all --strict` passed: 4 passed, 0 failed.
 
 **Accepted coverage limits:** runtime package-observation failures, singleton
 handoff and some TV settings/refusal/error/navigation/presentation scenarios
@@ -202,9 +210,10 @@ proof and accepted these limits for P1 closure.
 
 **Assessment:** implemented P1 is merged and its three correction scenarios
 passed on the published same-signature release. There is no remaining
-implementation or TV gate under Sygix's closure decision. The one pending
-checkbox records the authorized archive/spec-sync/validation operation itself;
-it is not evidence that this operation has already run. P2/P3 remain untouched.
+implementation or TV gate under Sygix's closure decision. Archive, delta
+synchronization and resulting-spec validation are complete; 19 active tasks
+are checked based on their recorded evidence. The two retired items remain
+explicitly withdrawn/superseded, not checked as passed. P2/P3 remain untouched.
 
 ### Procedure for Sygix's TV tester
 
