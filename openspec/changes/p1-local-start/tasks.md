@@ -17,7 +17,7 @@
 - [ ] 3.1 Implement validated APK launch and shell-only provider handoff with manager identity enforcement; verify wrong uid/token rejection, shell uid reporting and release-build launch on the emulator.
 - [ ] 3.2 Implement singleton start coordination, liveness and lifecycle StateFlow; verify JUnit tests cover concurrent requests, late completion, cancellation, server death and reboot reconciliation.
 - [ ] 3.3 Implement typed settings and operation errors with bounded workers and resource release; verify success, denied/missing APIs and blocked-operation timeout using deterministic fakes.
-- [ ] 3.4 Implement session detachment, stream redirection and package replacement/removal exit; verify emulator binder survival after ADB close and debugging disabling, old binder death on update/uninstall, and same-signature private-key survival. Add lifecycle failure tests and release diagnostics.
+- [ ] 3.4 Implement session detachment, stream redirection and package replacement/removal exit; verify emulator binder survival after ADB close, old binder death on update/uninstall including a process-preserving replacement, and same-signature private-key survival. Verify debugging-off survival with unit evidence and mark emulator observability limits explicitly. Add lifecycle failure tests and release diagnostics; Sygix validates debugging-off behavior on the TV.
 
 ## 4. TV setup and home
 

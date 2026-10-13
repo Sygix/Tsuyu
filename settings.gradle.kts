@@ -19,3 +19,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Tsuyu"
 include(":app")
+include(":ipc", ":server")

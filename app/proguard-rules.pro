@@ -1,0 +1,2 @@
+-keep class fr.sygix.tsuyu.server.** { *; }
+-keep class fr.sygix.tsuyu.ipc.** { *; }

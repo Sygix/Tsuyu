@@ -107,6 +107,10 @@ The running server SHALL exit when Tsuyu is replaced or removed, releasing owned
 - **WHEN** Tsuyu is replaced by an update signed with the same key
 - **THEN** the old server exits and its binder dies, app-private key storage survives and a subsequent launch uses the current installed APK
 
+#### Scenario: Replacement keeps the manager process alive
+- **WHEN** an update replaces Tsuyu without killing its manager process
+- **THEN** protected replacement delivery makes the manager terminate the old server through authenticated control and verify binder death
+
 #### Scenario: Uninstall while running
 - **WHEN** Tsuyu is uninstalled while the server is running
 - **THEN** the server exits rather than remaining privileged with a removed manager package

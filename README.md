@@ -1,6 +1,6 @@
 # Tsuyu
 
-Tsuyu (露, "dew") gives Android TV / Google TV apps the privileged access they need, through the [Shizuku API](https://github.com/RikkaApps/Shizuku-API), and is driven entirely with the remote. It starts its service with ADB (shell) rights on the TV itself, with no computer and no phone, and starts it again after each reboot.
+Tsuyu (露, "dew") is a remote-driven privileged access service for Android TV / Google TV. It starts a service with ADB (shell) rights on the TV itself, with no computer and no phone. The complete v1 will expose the [Shizuku API](https://github.com/RikkaApps/Shizuku-API) and restart after each reboot; the phase status below describes what currently works.
 
 > Work in progress: no release yet.
 
@@ -13,9 +13,23 @@ Shizuku and its forks were designed for phones. On a TV, their way to start with
 
 Tsuyu starts through the TV's own ADB daemon instead, with a one-time "Always allow" confirmation on the TV screen.
 
-## Shizuku API compatibility
+## Local startup (P1)
 
-Apps built with Shizuku-API work with Tsuyu without any change. Tsuyu delivers its service to every app that requests the Shizuku API permission, and asks you, on the TV, before an app gets access.
+The current implementation starts a local shell-uid server. Client API support and automatic restart are planned in P2 and P3 respectively.
+
+1. Open Tsuyu with the TV remote and enable developer options and USB debugging when requested.
+2. Choose **Démarrer**. On the first system prompt, select **Always allow**, then **Allow**.
+3. **Service actif** appears only after the manager binder reports shell uid and lifecycle observation is ready. **Détails** shows technical status; **Aide** explains recovery.
+
+Debugging leaves a port open on the local network, accessible only to authorized devices. Tsuyu uses a private, non-backed-up RSA key and supports legacy local TCP debugging; TVs offering only TLS wireless pairing are outside v1.
+
+The server runs in a detached session and survives closure of the launch connection and later debugging disabling. It exits on manager replacement/removal or when required lifecycle observation cannot be restored. Same-signature updates preserve its private key; P1 requires manual restart after an update or TV reboot. Tsuyu never re-enables debugging automatically.
+
+Tests use `./gradlew test` and `./gradlew assembleRelease`. The Android TV emulator simulates the reference TV's legacy endpoint after each boot; vendor behavior and couch-distance UI rendering still require validation on the real TV.
+
+## Planned Shizuku API compatibility
+
+P2 will let apps built with Shizuku-API work without changes. Tsuyu will deliver its service to every app that requests the Shizuku API permission, and ask you, on the TV, before an app gets access. The upstream demo is required validation; SygixOs is optional evidence when an API-client build is available.
 
 Tsuyu is not Shizuku and uses its own package name. An app that only checks whether the Shizuku app (`moe.shizuku.privileged.api`) is installed will still report it as missing.
 

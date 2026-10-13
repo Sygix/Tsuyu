@@ -10,6 +10,10 @@ Shizuku
   https://github.com/RikkaApps/Shizuku
   Copyright (C) RikkaW and contributors
   Licensed under the Apache License, Version 2.0 (LICENSES/Apache-2.0.txt)
+  P1 adapts the legacy ADB message framing, authentication sequence and RSA wire
+  representation from manager/src/main/java/moe/shizuku/manager/adb/
+  AdbMessage.kt, AdbClient.kt and AdbKey.kt. Source files without dated upstream
+  headers retain the project attribution above; no original year is invented.
   Under section 6 of that license, as required by the Shizuku authors, Tsuyu does
   not use the Shizuku name as its app name, the Shizuku launcher icons, the
   application id moe.shizuku.privileged.api, or any declaration of a

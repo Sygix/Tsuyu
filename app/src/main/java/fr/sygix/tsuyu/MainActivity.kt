@@ -5,25 +5,59 @@
 
 package fr.sygix.tsuyu
 
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import fr.sygix.tsuyu.ui.*
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private lateinit var model: HomeViewModel
+    private var observer: AutoCloseable? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val graph = TsuyuGraph.get(this)
+        model = ViewModelProvider(this, object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return HomeViewModel(graph.coordinator) as T
+            }
+        })[HomeViewModel::class.java]
+        lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
         setContent {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                BasicText(stringResource(R.string.app_name), style = TextStyle(color = Color.White))
+            val ui = model.ui.collectAsStateWithLifecycle().value
+            BackHandler { handleBack(ui.screen) }
+            HomeScreen(ui) { action ->
+                handleAction(action)
             }
         }
+    }
+    private fun handleBack(screen: Screen) {
+        if (screen == Screen.HOME) { model.cancelPending(); finish() }
+        else model.back()
+    }
+    private fun handleAction(action: Action) {
+        if (action == Action.SETTINGS) {
+            try { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }
+            catch (unavailable: Exception) { model.settingsFailed() }
+        } else model.act(action)
+    }
+    override fun onStart() {
+        super.onStart()
+        try { observer = TsuyuGraph.get(this).settings.observe { model.resume() } }
+        catch (unavailable: Exception) { model.settingsFailed() }
+    }
+    override fun onResume() { super.onResume(); model.resume() }
+    override fun onStop() {
+        try { observer?.close() } catch (failure: Exception) { model.settingsFailed() }
+        observer = null
+        super.onStop()
     }
 }

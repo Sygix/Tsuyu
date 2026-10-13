@@ -1,4 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tsuyu</string>
+    <string name="setup_title">Préparer votre TV</string>
+    <string name="setup_body">Activez le débogage USB pour permettre à Tsuyu de démarrer sur cette TV.</string>
+    <string name="setup_developer_title">1 · Ouvrir les options développeur</string>
+    <string name="setup_developer_body">Dans les paramètres, ouvrez « À propos » et appuyez sept fois sur « Build ». Revenez ensuite ici pour continuer.</string>
+    <string name="setup_debug_title">2 · Activer le débogage USB</string>
+    <string name="setup_debug_body">Activez « Débogage USB » dans les options développeur. Le port reste ouvert sur le réseau local, mais seuls les appareils autorisés peuvent s’y connecter.</string>
+    <string name="auth_title">3 · Autoriser cette TV</string>
+    <string name="auth_body">Sur la demande système, cochez « Toujours autoriser », puis confirmez avec la télécommande. Tsuyu attend votre réponse.</string>
+    <string name="starting_title">Démarrage en cours</string>
+    <string name="starting_body">Tsuyu prépare le service et vérifie son accès. Vous pouvez annuler.</string>
+    <string name="running_title">Service actif</string>
+    <string name="running_body">Le service fonctionne sur votre TV.</string>
+    <string name="stopped_title">Service arrêté</string>
+    <string name="stopped_body">Démarrez le service pour retrouver son accès sur cette TV.</string>
+    <string name="checking_title">Vérification en cours</string>
+    <string name="checking_body">Tsuyu vérifie le service et la configuration de votre TV.</string>
+    <string name="error_title">Le démarrage demande votre attention</string>
+    <string name="error_settings">Ouvrez manuellement les paramètres de la TV et vérifiez le débogage USB. Revenez ici, puis réessayez.</string>
+    <string name="error_unknown_settings">L’état du débogage USB n’est pas accessible. Vérifiez-le dans les paramètres de la TV, puis revenez ici pour réessayer.</string>
+    <string name="error_endpoint">Aucun accès local compatible n’est disponible. Vérifiez le débogage USB, puis réessayez. Cette version nécessite un débogage TCP local.</string>
+    <string name="error_key">La clé privée est illisible. Réinstallez Tsuyu pour en créer une nouvelle, puis autorisez-la sur la demande système.</string>
+    <string name="error_auth">La connexion locale a échoué. Vérifiez la demande d’autorisation, puis réessayez.</string>
+    <string name="error_timeout">Le délai d’attente est écoulé. Vérifiez la demande système et le débogage USB, puis réessayez.</string>
+    <string name="error_busy">Une vérification précédente ne répond plus. Attendez sa fin ou rouvrez Tsuyu, puis réessayez.</string>
+    <string name="error_launch">Le service n’a pas pu confirmer son démarrage. Réessayez ; si le problème persiste, réinstallez Tsuyu.</string>
+    <string name="help_title">Aide</string>
+    <string name="help_body">Activez le débogage USB, puis démarrez Tsuyu. À la première demande système, cochez « Toujours autoriser ». Après un redémarrage de la TV, ouvrez Tsuyu pour le démarrer à nouveau.</string>
+    <string name="details_title">Détails</string>
+    <string name="details_running">Serveur local actif · UID shell : 2000. La connexion ADB de démarrage est fermée. Le serveur reste actif si le débogage est désactivé ; il s’arrête au redémarrage ou lors d’une mise à jour de Tsuyu.</string>
+    <string name="details_stopped">Le serveur local n’est pas actif. Le démarrage utilise une connexion ADB locale avec la clé privée de Tsuyu.</string>
+    <string name="enable">Activer Tsuyu</string>
+    <string name="start">Démarrer</string>
+    <string name="cancel">Annuler</string>
+    <string name="retry">Réessayer</string>
+    <string name="refresh">Actualiser</string>
+    <string name="open_settings">Ouvrir les paramètres</string>
+    <string name="return_home">Revenir à l’accueil</string>
 </resources>
