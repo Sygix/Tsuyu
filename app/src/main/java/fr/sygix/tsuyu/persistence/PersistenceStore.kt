@@ -18,6 +18,7 @@ interface PersistenceStorage {
     suspend fun enable()
     suspend fun reserve(id: String, now: Long): RestartRecord?
     suspend fun complete(record: RestartRecord, result: String)
+    suspend fun recovered() { complete(read().record, "RECOVERED") }
 }
 class PersistenceStore(private val context: Context) : PersistenceStorage {
     private val enabled = booleanPreferencesKey("enabled")
@@ -29,6 +30,7 @@ class PersistenceStore(private val context: Context) : PersistenceStorage {
     val state = context.persistenceData.data.map(::decode)
     override suspend fun read() = state.first()
     override suspend fun enable() { context.persistenceData.edit { it[enabled] = true } }
+    override suspend fun recovered() { context.persistenceData.edit { it[outcome] = "RECOVERED" } }
     override suspend fun reserve(id: String, now: Long): RestartRecord? {
         var reserved: RestartRecord? = null
         context.persistenceData.edit { value ->

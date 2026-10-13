@@ -31,7 +31,7 @@ class PersistenceController(private val store: PersistenceStorage, private val c
             return@operation
         }
         val snapshot = io.call(35000) { requireNotNull(server()).preparePersistence() }
-        if (snapshot.getBoolean("schedulable")) withTimeout(5000) { store.enable() }
+        if (snapshot.getBoolean("schedulable")) withTimeout(5000) { store.enable(); store.recovered() }
         update(snapshot)
     }
     suspend fun disableExpiry() = operation {
@@ -59,6 +59,6 @@ class PersistenceController(private val store: PersistenceStorage, private val c
         try { block() }
         catch (timeout: TimeoutCancellationException) { android.util.Log.e("Tsuyu", "Persistence operation timed out", timeout); mutable.value = mutable.value.copy(loading = false, error = true, uid = "UNKNOWN", pkg = "UNKNOWN", expiry = null) }
         catch (cancelled: CancellationException) { throw cancelled }
-        catch (failure: Exception) { android.util.Log.e("Tsuyu", "Persistence operation failed", failure); mutable.value = mutable.value.copy(loading = false, error = true) }
+        catch (failure: Exception) { android.util.Log.e("Tsuyu", "Persistence operation failed", failure); mutable.value = mutable.value.copy(loading = false, error = true, uid = "UNKNOWN", pkg = "UNKNOWN", expiry = null) }
     }
 }

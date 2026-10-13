@@ -10,7 +10,7 @@ object RestartBudget {
     fun reserve(previous: RestartRecord, event: String, now: Long): RestartRecord? {
         require(event.isNotBlank() && now >= 0)
         val record = if (previous.event == event) previous else RestartRecord(event, now)
-        if (record.attempts >= 3 || remaining(record, now) <= 0 || record.outcome in setOf("RUNNING", "SETUP", "AUTHENTICATION", "KEY", "UNSUPPORTED", "UNKNOWN", "EXHAUSTED")) return null
+        if (record.attempts >= 3 || remaining(record, now) <= 0 || record.outcome in setOf("RUNNING", "RECOVERED", "SETUP", "AUTHENTICATION", "KEY", "UNSUPPORTED", "UNKNOWN", "EXHAUSTED")) return null
         return record.copy(attempts = record.attempts + 1, outcome = "ATTEMPT")
     }
     fun remaining(record: RestartRecord, now: Long): Long = (300000 - (now - record.started).coerceAtLeast(0)).coerceAtLeast(0)
