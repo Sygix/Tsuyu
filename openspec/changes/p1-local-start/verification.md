@@ -7,8 +7,8 @@ the original assessment below; historical emulator checks are not TV proof.
 
 | Dimension | Result |
 | --- | --- |
-| Completeness | 16/21 tracked tasks complete; implementation mapping exists for all seven requirements; five incomplete tasks remain |
-| Correctness | Logic, host-shell readiness and release compilation passed; corrected-release TV scenario coverage is not verified |
+| Completeness | 18/21 tracked tasks complete; implementation mapping exists for all seven requirements; three incomplete tasks remain |
+| Correctness | Logic, host-shell readiness, release compilation and the three corrected-release TV recovery scenarios passed; package-lifecycle and some UI/runtime coverage remain partial |
 | Coherence | Approved debugging-enabled contract propagated through proposal, design, delta, tasks, README and French resources; P3 remains unimplemented |
 
 ### Real-TV diagnosis supplied by Sygix
@@ -101,45 +101,107 @@ launch regressions and strict OpenSpec validation. Code approval is distinct
 from corrected-release TV validation and merge authorization.
 
 Sygix chose delivery through the existing signed CI release workflow rather
-than a locally signed production build. Consequently TV verification awaits
-Sygix's explicit merge/release decisions and a compatible signed APK. No tag,
-merge or archive is authorized by that choice alone.
+than a locally signed production build. After explicit authorization, PR #6
+was merged into main as `2b316700e2c7c4e8007612480b94f7c6dd30f42d` and signed
+tag `v0.1.0-alpha.2` was published. Main CI and the signed-release workflow
+passed. The corrected release's TV results are recorded below. Archive is
+still conditional on the unresolved task criteria.
+
+### Published release validation on the real TV
+
+Sygix supplied these results, collected by an external tester on a TCL Google
+TV running Android 14. They are real-device evidence reported by Sygix, not
+observations collected from the agent VM.
+
+- Release: `v0.1.0-alpha.2`, commit
+  `2b316700e2c7c4e8007612480b94f7c6dd30f42d`.
+- Published APK SHA-256:
+  `764cf89b31e77faa5c1b402768bda5a054bca39965cb72a8c1ae8ea5f647c725`.
+  The tester's downloaded checksum matches the published digest, independently
+  rechecked against the immutable GitHub release metadata.
+- Installed in place with `adb install -r`: versionCode 100001 to 100002,
+  without uninstall, data clearing or authorization revocation. App data and
+  the private key were retained.
+
+| Scenario | Observed proof | Result |
+| --- | --- | --- |
+| Start and survive launch-ADB closure | D-pad start at 20:27:11; server ready reporting uid 2000 at 20:27:12.321; launch connection closed at 20:27:12.468. Diagnostic log contained detached and generation-scoped ready markers. The shell-owned server was reparented to init and remained alive 15 seconds after Home/reopening; UI showed Running with the keep-debugging-enabled guidance | Passed |
+| Manual restart after reboot with USB debugging retained | After reboot `adb_enabled=1`, server absent and UI Stopped. D-pad start at 20:31:27; accepted-key authorization at 20:31:27.590 without a public-key exchange/new prompt; server ready uid 2000 at 20:31:28.237 and UI Running | Passed |
+| Disable/re-enable debugging and recover with retained authorization | Disabling debugging at 20:32:16 caused init to SIGKILL adbd's cgroup and the server disappeared. No authorization clear occurred. Debugging was re-enabled at 20:32:35. D-pad start at 20:33:22 authenticated the accepted key at 20:33:22.937 without a new public key/prompt; server ready uid 2000 at 20:33:23.566 and UI Running | Passed |
+
+The tester left USB debugging enabled, Tsuyu Running and its key authorized;
+temporary test files were removed. No device access or manipulation was
+performed by this agent while recording these results.
+
+These results satisfy correction tasks 6.3 and 6.5. They do not establish
+process-preserving package replacement, old-server exit during the in-place
+update, uninstall cleanup, singleton handoff, all settings/refusal/error
+screens, or reduced-motion/couch-distance presentation on the TV.
+
+### Disabled-debugging UI observation
+
+Sygix reported a possible Stopped label while debugging was disabled, but
+neither the exact text nor the underlying setting read was captured. Keep
+this observation unconfirmed; the three successful recovery scenarios above
+are unaffected.
+
+Code inspection explains two states:
+
+- `StartCoordinator.kt:62` changes Running to Stopped immediately on Binder
+  death, keeping the previous debugging reading. This transient death state
+  is consistent with the lifecycle scenario requiring stopped/start.
+- `MainActivity.kt:57` refreshes on return, and the active settings observer
+  also refreshes on debugging changes. `StartCoordinator.kt:30-35` reads
+  current liveness/settings: an absent server and disabled debugging produce
+  Setup. `HomeViewModel.kt:111-118` then offers debugging setup, or manual
+  settings guidance if the read is unknown (`HomeViewModel.kt:107-109`).
+
+Thus a stable Stopped screen after a refresh has read disabled debugging is
+not the intended spec/code behavior. There is insufficient evidence to call
+this a reproduced defect or to infer a failed settings read. A further TV
+check should record the exact text after returning to home, the value of
+`adb_enabled` while disabled and whether the setup/settings action is offered.
 
 ### Corrected scenario mapping
 
 | Scenario | Implementation / regression | Proof and limit |
 | --- | --- | --- |
-| Launch connection closes after deterministic readiness | `LaunchCommand.kt:13`, `ServerMain.kt:52`, `ServerMain.kt:117`, `LaunchCommandTest` | Host fixture and scoped-marker emulator check passed; corrected real-TV Binder/process survival pending |
-| Launch deadline after successful authentication | `LocalAdbLauncher.kt:44`, `StartCoordinator.kt:51`, `LocalAdbLauncherTest` | Typed launch error and key-preserving retry passed; user recovery on corrected TV build pending |
-| Debugging disabled while running | Binder-death observation, `StartCoordinator.died`, `HomeViewModel`, French running/help/details resources | Old-build process death proved on TV; corrected text and setup/recovery need TV validation |
-| Key reuse after reactivation and manual reboot | `AdbKeyStore`, `LocalAdbLauncher`, existing `AdbTest` / `StartTest` | Persistence and retry unit evidence passed; corrected real-TV sequence pending |
+| Launch connection closes after deterministic readiness | `LaunchCommand.kt:13`, `ServerMain.kt:52`, `ServerMain.kt:117`, `LaunchCommandTest` | Host fixture, scoped-marker emulator check and published alpha.2 real-TV process/UI survival passed |
+| Launch deadline after successful authentication | `LocalAdbLauncher.kt:44`, `StartCoordinator.kt:51`, `LocalAdbLauncherTest` | Typed launch error and key-preserving retry passed in tests; corrected recovery sequence passed on TV, but no forced launch-timeout screen was captured on alpha.2 |
+| Debugging disabled while running | Binder-death observation, `StartCoordinator.died`, `HomeViewModel`, French running/help/details resources | Alpha.2 process termination and prompt-free recovery passed on TV; exact disabled-state setup presentation remains unconfirmed |
+| Key reuse after reactivation and manual reboot | `AdbKeyStore`, `LocalAdbLauncher`, existing `AdbTest` / `StartTest` | Persistence/retry unit tests and published alpha.2 real-TV reactivation/reboot sequence passed |
 | Singleton handoff | `ServerMain.kt:43` writes readiness only after successful existing-server handoff | Corrected runtime handoff pending |
 
 ### Issues and archive blockers
 
 **CRITICAL — incomplete tasks:**
 
-- 3.4: process-preserving package replacement and corrected TV lifecycle
-  evidence remain absent. Do not tick the composite task based on this fix.
-- 5.3: the original implementation PR is merged into main, but all historical
-  handoff/review obligations have not been independently established here.
-  Leave the task unchecked until its full criterion is reconciled.
-- 6.3: obtain corrected real-TV key/authorization reuse after debugging changes
-  and manual reboot; unit/fake evidence alone is insufficient.
-- 6.5: install a same-signature corrected release without uninstall/revocation,
-  record its identity, and execute the TV procedure below.
-- 6.6: signed correction PR and exact-head review are part of delivery;
-  merge and archive require subsequent explicit authorization and TV evidence.
+- 3.4: process-preserving package replacement runtime proof remains absent.
+  The TV correction checks and update key retention are now established, but
+  cannot complete this composite task. Exercise replacement with the manager
+  process demonstrably unchanged and verify old-server/Binder exit. Historical
+  normal-update/uninstall runtime evidence is emulator-only.
+- 5.3: GitHub confirms PR #4 merged into main and its body records signed
+  commits, scans, evidence and independent review at its merged head. Signed
+  history was inspected. The originally planned stacked-PR/rebase/retarget
+  sequence is not established by those final-state records. Reconcile that
+  workflow criterion explicitly rather than silently marking it complete.
+- 6.6: signed correction delivery, exact-head review, authorized merge and
+  real-TV correction validation are complete. Archive/spec-sync and strict
+  validation of the resulting specs remain pending, conditional on the above.
 
-**WARNING — scenario coverage not verified:** corrected TV launch, closed-ADB
-survival, debugging-off/re-enabled recovery, manual reboot recovery and current
-TV presentation. Historical process-preserving replacement, observation-failure
-runtime and vendor settings/navigation coverage remain partial as listed below.
+**WARNING — scenario coverage not verified:** process-preserving replacement,
+runtime package-observation failures, singleton handoff and some TV settings,
+refusal/error/navigation/presentation scenarios remain partial. The exact
+disabled-debugging setup display is an unconfirmed observation, not a
+reproduced defect. Obtain the missing runtime evidence without revoking keys
+or uninstalling the TV app unless Sygix expressly authorizes such a test.
 
-**Assessment:** five incomplete tasks prevent archive. Corrected TV scenario
-coverage is not verified because this VM has no device access and Sygix has
-not yet supplied results for a corrected, same-signature release. No product
-decision remains open for the debugging-enabled contract.
+**Assessment:** the three real-TV correction scenarios passed on the published
+same-signature release and implementation is merged. Three tasks remain
+incomplete; under Sygix's conditional archive request, leave the change open
+and do not synchronize current specs until those criteria are resolved.
+No product decision remains open for the debugging-enabled contract.
 
 ### Procedure for Sygix's TV tester
 
@@ -238,7 +300,7 @@ under `app/src/test/java/fr/sygix/tsuyu/`, and server paths under
 - Screenshots were delivered directly. The isolated emulator was stopped and its
   heavy lock released. No runtime retest of the PR build is planned.
 
-## Pending real-TV checklist
+## Original pending real-TV checklist (historical; superseded above)
 
 - Settings/property visibility, manual recovery/refusal and remote return focus.
 - APK classpath launch, authenticated provider callback, singleton and shell uid.

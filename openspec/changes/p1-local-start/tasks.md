@@ -40,7 +40,15 @@
 
 - [x] 6.1 Obtain real-TV diagnosis distinguishing authentication, pre-VM launch failure, server death, Binder loss and UI state. Sygix supplied retained-key authentication logs, six failed immediate-return trials, cgroup membership, init SIGKILL and denied migration observations; approve the debugging-enabled contract before implementation.
 - [x] 6.2 Gate shell completion on deterministic server readiness with bounded failure reporting; add regression tests that fail for immediate shell return and launch timeouts misreported as authorization problems.
-- [ ] 6.3 Verify repeat launch retains the private key and accepted authorization across debugging changes and manual reboot recovery; separate fake/unit evidence from actual TV evidence.
+- [x] 6.3 Verify repeat launch retains the private key and accepted authorization across debugging changes and manual reboot recovery; separate fake/unit evidence from actual TV evidence.
 - [x] 6.4 Run `./gradlew test`, `./gradlew assembleRelease`, `openspec validate --all --strict` and openspec-verify-change for the corrected head, and reconcile the report without checking unrelated pending tasks.
-- [ ] 6.5 Validate the corrected release on the real TV: repeat starts without revocation, Binder/process survival after launch-ADB close, debugging-off termination, re-enabled recovery, and manual restart after reboot with USB debugging retained. Record the tested build identity and actual errors/recovery.
+- [x] 6.5 Validate the corrected release on the real TV: repeat starts without revocation, Binder/process survival after launch-ADB close, debugging-off termination, re-enabled recovery, and manual restart after reboot with USB debugging retained. Record the tested build identity and actual errors/recovery.
 - [ ] 6.6 Prepare signed correction commits, independent exact-head review and a correction PR. Archive only after explicit merge authorization, merge and real-TV validation, then validate resulting specs.
+
+## Evidence reconciliation
+
+- Tasks 6.3 and 6.5: Sygix supplied real-TV results for the published, production-signed `v0.1.0-alpha.2` APK, matching its published checksum. An in-place update preserved data/key; start survived launch-ADB closure, debugging-off termination recovered without a new prompt, and manual reboot recovery reused the accepted key. See verification.md for exact build identity, observations and limits.
+- Task 3.4 remains unchecked: the new TV evidence covers launch-stream closure, debugging-off termination/recovery and update key preservation, but not replacement keeping the manager process alive. Historical normal-update/uninstall evidence is emulator-only.
+- Task 5.3 remains unchecked: PR #4 is merged into main and its body records signed commits, scans and independent review, but the full originally planned stacked-PR/rebase/retarget sequence has not been established. Do not infer that history from the final merge alone.
+- Task 6.6 is partial: correction PR #6 is merged with signed commits and exact-head review; `v0.1.0-alpha.2` passed real-TV validation. Archive/spec-sync and post-sync strict validation remain pending until the remaining criteria are resolved.
+- The reported stopped label while debugging was disabled lacks an exact TV text/state capture. Code inspection expects transient Stopped on Binder death, then Setup after a refresh reads debugging disabled. This does not invalidate the three successful correction scenarios, but disabled-state presentation is not signed off by that report.
