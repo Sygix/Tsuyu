@@ -10,6 +10,8 @@ import fr.sygix.tsuyu.start.*
 
 class TsuyuGraph private constructor(context: Context) {
     val consent = fr.sygix.tsuyu.access.ConsentStorage(context)
+    val requestEnded = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val compatibility = kotlinx.coroutines.flow.MutableStateFlow(true)
     val broker = ServerBroker(context)
     val settings = AndroidSettings(context)
     private val io = BoundedIo()

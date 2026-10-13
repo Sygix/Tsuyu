@@ -21,10 +21,13 @@ data class AccessApp(val name: String, val icon: Bitmap)
 data class AccessRow(val uid: Int, val apps: List<AccessApp>)
 data class AccessUi(val loading: Boolean = true, val rows: List<AccessRow> = emptyList(), val error: Boolean = false, val finished: Boolean = false, val focus: Int? = null)
 
-class AccessViewModel(private val context: Context, private val server: () -> ITsuyuServer?, private val token: String?, private val io: BoundedIo = BoundedIo()) : ViewModel() {
+class AccessViewModel(private val context: Context, private val server: () -> ITsuyuServer?, private val token: String?, private val io: BoundedIo = BoundedIo(), ended: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.emptyFlow()) : ViewModel() {
     private val mutable = MutableStateFlow(AccessUi())
     val ui = mutable.asStateFlow()
-    init { refresh() }
+    init {
+        viewModelScope.launch { ended.collect { if (it == token) mutable.value = mutable.value.copy(finished = true) } }
+        refresh()
+    }
     fun refresh() { viewModelScope.launch {
         mutable.value = mutable.value.copy(loading = true, error = false)
         try {

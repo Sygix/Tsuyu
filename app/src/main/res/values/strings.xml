@@ -48,4 +48,6 @@
     <string name="access_allow">Autoriser</string>
     <string name="access_deny">Refuser</string>
     <string name="access_revoke">Retirer l’accès</string>
+    <string name="access_revoke_named">Retirer l’accès : %1$s</string>
+    <string name="compatibility_error">Le service est actif, mais un accès client a échoué. Rouvrez l’application concernée et réessayez sa demande. Si le problème persiste, redémarrez Tsuyu.</string>
 </resources>

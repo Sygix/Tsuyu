@@ -48,4 +48,15 @@ class AccessAuthorityTest {
         assertThrows(IllegalStateException::class.java) { authority.decide(group.uid, true) }
         assertFalse(authority.allowed(group.uid))
     }
+    @Test fun restoringOldMembershipDoesNotRestoreInvalidatedConsent() {
+        val storage = Storage()
+        val original = AccessGroup(10001, mapOf("first" to "signer"))
+        var group = original
+        val authority = AccessAuthority({ group }, storage)
+        authority.decide(group.uid, true)
+        group = original.copy(members = original.members + ("second" to "signer"))
+        assertFalse(authority.allowed(group.uid))
+        group = original
+        assertFalse(authority.allowed(group.uid))
+    }
 }

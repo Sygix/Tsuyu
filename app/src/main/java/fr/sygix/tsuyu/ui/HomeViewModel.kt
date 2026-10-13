@@ -26,10 +26,12 @@ object FocusPolicy {
     fun restore(wanted: String, controls: List<String>): String = if (wanted in controls) wanted else controls.first()
 }
 
-class HomeViewModel(private val coordinator: StartCoordinator) : ViewModel() {
+class HomeViewModel(private val coordinator: StartCoordinator, compatibility: kotlinx.coroutines.flow.StateFlow<Boolean> = MutableStateFlow(true)) : ViewModel() {
     private val navigation = MutableStateFlow(Navigation())
     private var startup: Job? = null
-    val ui = combine(coordinator.state, navigation) { state, nav -> present(state, nav.screen, nav.returnFocus) }
+    val ui = combine(coordinator.state, navigation, compatibility) { state, nav, compatible ->
+        present(state, nav.screen, nav.returnFocus).let { if (!compatible && state.phase == Phase.RUNNING && nav.screen in listOf(Screen.HOME, Screen.DETAILS)) it.copy(body = R.string.compatibility_error) else it }
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, present(StartState(), Screen.HOME, "action-main"))
     fun resume() { viewModelScope.launch {
         coordinator.refresh()

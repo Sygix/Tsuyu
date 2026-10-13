@@ -29,9 +29,9 @@ Status: partial; not ready for merge or archive. The accepted contract is unchan
 ## Known gaps and decisions to validate
 
 - Full scenario regression coverage is incomplete; tasks requiring that evidence remain open.
-- Delivery and consent callback failures currently reach logs and exceptions rather than a dedicated persistent compatibility diagnostic on Home. Implement actionable Home diagnostics before claiming that requirement complete.
-- Permission screens do not yet receive immediate server-side expiry/death notifications. Late confirmation cannot grant, but the visible actions may remain until the user acts; add expiry/death UI invalidation before completing the screen-disappearance task.
-- Infrastructure uses a bounded executor, but UserService callbacks currently run in the lifecycle lock; move external callbacks outside the lock and bound infrastructure callback dispatch.
+- Delivery and consent callback failures now emit an actionable compatibility diagnostic on Home; it is conservative for the live manager process and still needs failure/recovery runtime proof.
+- Expiry/client-death events now close the matching permission screen through authenticated manager IPC; event loss during manager-process death and caller return still need runtime proof.
+- UserService callbacks are dispatched outside lifecycle locks with a bounded infrastructure deadline; callback failure/death cleanup still needs lifecycle regression coverage.
 - The child PID check uses the Android process implementation's hidden `pid` field; the release E2E must verify it. Failures reject attachment rather than bypass identity checks.
 - Keep shared-UID consent and the accepted non-Sui behavior; no upstream manager permission is declared. No contract change is proposed.
 
@@ -40,3 +40,12 @@ Status: partial; not ready for merge or archive. The accepted contract is unchan
 One final combined P2/P3 emulator pass will use the release APK and pinned upstream demo. Emulator fixture changes are not product behavior. Vendor/hardware TV validation remains open for Claude: demo permission with D-pad, successful Binder call and revocation; then first AUTO_START preparation with independent UID/package modes and one cold boot with the manager process absent.
 
 TV tasks are never completed using emulator evidence. No archive before merge and TV proof.
+
+## Independent review corrections
+
+- Revocation/publication race: handled with `PrivilegeLifecycle` shared by remote-process creation, UserService creation and revocation. `PrivilegeLifecycleTest` failed without exclusion and passes with per-UID locks.
+- Stdin EOF: handled by returning the owning write descriptor, letting AIDL's return-value marshalling close the server writer. Real write/close/EOF completion remains a runtime proof to collect.
+- Caller task return: handled by empty permission-activity task affinity; list entry from Home remains in the existing task. Actual task return remains a runtime proof.
+- Revoke association: handled by keyed group cards and named actions; `eachRevokeActionIdentifiesItsOwnGroup` asserts both groups.
+- Flag mask semantics: handled by masked transitions, zero-mask no-op and invalid-combination rejection. `zeroMaskAndClearingDenialDoNotRevokeAnExistingGrant` failed before the fix.
+- Identity invalidation: handled by committing removal of mismatched stored identities. `restoringOldMembershipDoesNotRestoreInvalidatedConsent` failed before the fix.

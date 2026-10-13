@@ -30,14 +30,11 @@ fun AccessScreen(ui: AccessUi, permission: Boolean, confirm: (Boolean) -> Unit, 
         Column(Modifier.fillMaxSize().background(Color(0xff10161e)).padding(56.dp, 40.dp).verticalScroll(rememberScrollState()).testTag("access-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(if (permission) R.string.access_request else R.string.access_apps), fontSize = 32.sp)
             Text(stringResource(if (ui.error) R.string.access_error else if (ui.loading) R.string.checking_body else if (permission) R.string.access_effect else if (ui.rows.isEmpty()) R.string.access_empty else R.string.access_revoke_effect), fontSize = 20.sp)
-            ui.rows.forEach { row -> key(row.uid) {
-                row.apps.forEach { app -> Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Image(app.icon.asImageBitmap(), contentDescription = null, modifier = Modifier.size(48.dp))
-                    Text(app.name, fontSize = 22.sp)
-                } }
-                if (row.apps.size > 1) Text(stringResource(R.string.access_group), fontSize = 20.sp, modifier = Modifier.testTag("access-group"))
-            } }
-            val actions: @Composable () -> Unit = { ids.forEachIndexed { index, id ->
+            if (permission) ui.rows.forEach { row -> key(row.uid) { AppNames(row) } }
+            val actions: @Composable () -> Unit = { ids.forEachIndexed { index, id -> key(id) {
+                val row = ui.rows.firstOrNull { "revoke-${it.uid}" == id }
+                Column(Modifier.testTag("group-$id"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (row != null) AppNames(row)
                 Button(onClick = {
                     when (id) {
                         "access-deny" -> confirm(false)
@@ -51,11 +48,21 @@ fun AccessScreen(ui: AccessUi, permission: Boolean, confirm: (Boolean) -> Unit, 
                     down = if (permission || index == ids.lastIndex) FocusRequester.Cancel else requesters.getValue(ids[index + 1])
                     left = if (permission && index > 0) requesters.getValue(ids[index - 1]) else FocusRequester.Cancel
                     right = if (permission && index < ids.lastIndex) requesters.getValue(ids[index + 1]) else FocusRequester.Cancel
-                }) { Text(stringResource(when (id) { "access-deny" -> R.string.access_deny; "access-allow" -> R.string.access_allow; "access-retry" -> R.string.retry; "access-back" -> R.string.return_home; else -> R.string.access_revoke }), fontSize = 20.sp) }
-            } }
+                }) { Text(if (row == null) stringResource(when (id) { "access-deny" -> R.string.access_deny; "access-allow" -> R.string.access_allow; "access-retry" -> R.string.retry; else -> R.string.return_home }) else stringResource(R.string.access_revoke_named, row.apps.joinToString { it.name }), fontSize = 20.sp) }
+                }
+            } } }
             if (permission) Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) { actions() }
             else Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { actions() }
         }
         LaunchedEffect(ids, ui.focus) { requesters[if (permission) ids.first() else "revoke-${ui.focus}" ]?.requestFocus(FocusDirection.Enter) ?: requesters.getValue(ids.first()).requestFocus(FocusDirection.Enter) }
     }
+}
+
+@Composable
+private fun AppNames(row: AccessRow) {
+    row.apps.forEach { app -> Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Image(app.icon.asImageBitmap(), contentDescription = null, modifier = Modifier.size(48.dp))
+        Text(app.name, fontSize = 22.sp)
+    } }
+    if (row.apps.size > 1) Text(stringResource(R.string.access_group), fontSize = 20.sp, modifier = Modifier.testTag("access-group"))
 }

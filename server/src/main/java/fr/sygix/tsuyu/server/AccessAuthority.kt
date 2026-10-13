@@ -16,7 +16,12 @@ interface AccessStorage {
 class AccessAuthority(private val resolve: (Int) -> AccessGroup, private val storage: AccessStorage) {
     @Synchronized private fun decision(uid: Int): AccessDecision? {
         val group = resolve(uid)
-        return storage.read().singleOrNull { it.group == group }
+        val decisions = storage.read()
+        if (decisions.any { it.group.uid == uid && it.group != group }) {
+            storage.write(decisions.filterNot { it.group.uid == uid })
+            return null
+        }
+        return decisions.singleOrNull { it.group == group }
     }
     fun allowed(uid: Int): Boolean = decision(uid)?.allowed == true
     fun rationale(uid: Int): Boolean = decision(uid)?.allowed == false
@@ -24,4 +29,5 @@ class AccessAuthority(private val resolve: (Int) -> AccessGroup, private val sto
         val group = resolve(uid)
         storage.write(storage.read().filterNot { it.group.uid == uid } + AccessDecision(group, allowed))
     }
+    @Synchronized fun clear(uid: Int) { storage.write(storage.read().filterNot { it.group.uid == uid }) }
 }

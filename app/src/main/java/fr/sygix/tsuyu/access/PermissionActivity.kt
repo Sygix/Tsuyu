@@ -24,7 +24,7 @@ class PermissionActivity : ComponentActivity() {
         val model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return AccessViewModel(applicationContext, { graph.broker.server.value }, token) as T
+                return AccessViewModel(applicationContext, { graph.broker.server.value }, token, ended = graph.requestEnded) as T
             }
         })[AccessViewModel::class.java]
         setContent {

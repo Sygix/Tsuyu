@@ -66,7 +66,12 @@ object ServerMain {
         val deadline = Deadline()
         val storage = ManagerStorage(bridge, deadline)
         val identities = ClientIdentity(deadline)
-        val clients = ClientService(managerUid, AccessAuthority(identities::resolve, storage), identities, storage, deadline, { exitProcess(0) }, UserServices(args[0], managerUid / 100000))
+        fun event(method: String, data: android.os.Bundle) {
+            try { deadline.call { bridge.call("fr.sygix.tsuyu.manager", method, data) } }
+            catch (failure: Exception) { Log.e("TsuyuServer", "Manager status delivery failed", failure) }
+        }
+        val failure = { event("compatibilityFailure", android.os.Bundle()) }
+        val clients = ClientService(managerUid, AccessAuthority(identities::resolve, storage), identities, storage, deadline, { exitProcess(0) }, UserServices(args[0], managerUid / 100000), onRequestEnded = { event("requestEnded", android.os.Bundle().apply { putString("request", it) }) }, reportFailure = failure)
         Runtime.getRuntime().addShutdownHook(Thread { clients.shutdown() })
         val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients)
         fun snapshot(): PackageStamp? = try {
@@ -101,7 +106,7 @@ object ServerMain {
             }
         }
         publish(generation)
-        ClientDelivery(clients, managerUid / 100000, deadline).start()
+        ClientDelivery(clients, managerUid / 100000, deadline, failure).start()
         Thread {
             try {
                 while (true) socket.accept().use { peer ->

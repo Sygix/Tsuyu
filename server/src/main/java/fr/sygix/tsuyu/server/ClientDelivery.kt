@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-internal class ClientDelivery(private val binder: IBinder, private val userId: Int, private val deadline: Deadline) {
+internal class ClientDelivery(private val binder: IBinder, private val userId: Int, private val deadline: Deadline, private val reportFailure: () -> Unit) {
     private val pending = ConcurrentHashMap.newKeySet<String>()
     private val events = Executors.newScheduledThreadPool(2)
     private val uidObserver = object : UidObserverAdapter() {
@@ -47,7 +47,7 @@ internal class ClientDelivery(private val binder: IBinder, private val userId: I
                     val info = deadline.call { PackageManagerApis.getPackageInfo(name, PackageManager.GET_PERMISSIONS.toLong(), uid / 100000) }
                     if (info?.requestedPermissions?.contains("moe.shizuku.manager.permission.API_V23") == true) deliver(name, uid / 100000)
                 }
-            } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Client enumeration failed", failure) }
+            } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Client enumeration failed", failure); reportFailure() }
         }
     }
     private fun deliver(name: String, user: Int, attempt: Int = 0) {
@@ -59,6 +59,7 @@ internal class ClientDelivery(private val binder: IBinder, private val userId: I
                 pending.remove(key)
             } catch (failure: Exception) {
                 android.util.Log.e("TsuyuServer", "Client binder delivery failed", failure)
+                reportFailure()
                 if (attempt < 2) events.schedule({ deliver(name, user, attempt + 1) }, 1, TimeUnit.SECONDS) else pending.remove(key)
             }
         }

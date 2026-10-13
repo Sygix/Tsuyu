@@ -74,4 +74,14 @@ class ClientServiceTest {
         assertEquals(1, BINDER_TRANSACTION_transact)
         deadline.close()
     }
+    @Test fun zeroMaskAndClearingDenialDoNotRevokeAnExistingGrant() {
+        attach(); access.decide(uid, true)
+        val clientUid = uid
+        uid = 10002
+        service.updateFlagsForUid(clientUid, 0, 0)
+        assertTrue(access.allowed(clientUid))
+        service.updateFlagsForUid(clientUid, 4, 0)
+        assertTrue(access.allowed(clientUid))
+        deadline.close()
+    }
 }

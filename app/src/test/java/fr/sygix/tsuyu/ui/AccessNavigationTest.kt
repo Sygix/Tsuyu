@@ -41,4 +41,12 @@ class AccessNavigationTest {
         assertEquals(3, AccessViewModel.fallback(2, listOf(3, 4)))
         assertNull(AccessViewModel.fallback(2, emptyList()))
     }
+    @Test fun eachRevokeActionIdentifiesItsOwnGroup() {
+        val icon = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+        val rows = listOf(AccessRow(10001, listOf(AccessApp("First", icon))), AccessRow(10002, listOf(AccessApp("Second", icon))))
+        compose.setContent { AccessScreen(AccessUi(loading = false, rows = rows), false, {}, {}, {}, {}) }
+        compose.onNodeWithTag("group-revoke-10001").assert(hasAnyDescendant(hasText("First")))
+        compose.onNodeWithTag("revoke-10001").assertTextContains("First", substring = true)
+        compose.onNodeWithTag("revoke-10002").assertTextContains("Second", substring = true)
+    }
 }

@@ -32,6 +32,8 @@ class ManagerProvider : ContentProvider() {
                     moe.shizuku.server.IShizukuService.Stub.asInterface(server).attachUserService(requireNotNull(extras.getBinder("service")), extras)
                     Bundle().apply { putBinder("server", server) }
                 }
+                "requestEnded" -> Bundle().apply { check(graph.requestEnded.tryEmit(requireNotNull(extras.getString("request")))) }
+                "compatibilityFailure" -> Bundle().apply { graph.compatibility.value = false }
                 else -> throw IllegalArgumentException("Unknown manager operation")
             }
         }

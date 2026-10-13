@@ -21,6 +21,14 @@ internal class UserServices(private val apk: String, private val managerUser: In
     private data class Record(val uid: Int, val key: String, val version: Int, var daemon: Boolean, val token: String, var process: java.lang.Process? = null, var binder: IBinder? = null, val callbacks: MutableMap<IBinder, IShizukuServiceConnection> = mutableMapOf())
     private val records = mutableMapOf<String, Record>()
     private val events = Executors.newSingleThreadScheduledExecutor()
+    private val deadline = Deadline()
+    private fun connected(record: Record, conn: IShizukuServiceConnection) {
+        events.execute {
+            val binder = synchronized(this) { record.binder?.takeIf { records[record.key] == record && conn.asBinder() in record.callbacks } } ?: return@execute
+            try { deadline.call { conn.connected(binder) } }
+            catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); synchronized(this) { record.callbacks.remove(conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
+        }
+    }
     private fun component(uid: Int, group: AccessGroup, args: Bundle): ComponentName {
         val component = requireNotNull(args.getParcelable(USER_SERVICE_ARG_COMPONENT, ComponentName::class.java))
         require(group.uid == uid && component.packageName in group.members)
@@ -40,7 +48,7 @@ internal class UserServices(private val apk: String, private val managerUser: In
         if (args.getBoolean(USER_SERVICE_ARG_NO_CREATE)) {
             if (record?.binder?.isBinderAlive != true) return if (api >= 13) -1 else 1
             register(record, conn)
-            conn.connected(record.binder)
+            connected(record, conn)
             return if (api >= 13) record.version else 0
         }
         if (record != null && record.version != version) { remove(record); record = null }
@@ -66,7 +74,7 @@ internal class UserServices(private val apk: String, private val managerUser: In
         }
         record.daemon = args.getBoolean(USER_SERVICE_ARG_DAEMON, true)
         register(record, conn)
-        record.binder?.let { conn.connected(it) }
+        record.binder?.let { connected(record, conn) }
         return 0
     }
     private fun register(record: Record, conn: IShizukuServiceConnection) {
@@ -82,7 +90,7 @@ internal class UserServices(private val apk: String, private val managerUser: In
         require(ownedPid == pid) { "Child identity mismatch" }
         record.binder = binder
         binder.linkToDeath({ synchronized(this) { remove(record) } }, 0)
-        record.callbacks.values.toList().forEach { callback -> try { callback.connected(binder) } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); record.callbacks.remove(callback.asBinder()) } }
+        record.callbacks.values.toList().forEach { connected(record, it) }
     }
     @Synchronized fun unbind(uid: Int, group: AccessGroup, conn: IShizukuServiceConnection, args: Bundle): Int {
         val record = records[key(uid, component(uid, group, args), args)] ?: return 1
@@ -91,11 +99,13 @@ internal class UserServices(private val apk: String, private val managerUser: In
         return 0
     }
     @Synchronized fun revoke(uid: Int) { records.values.filter { it.uid == uid }.toList().forEach(::remove) }
-    @Synchronized fun close() { records.values.toList().forEach(::remove); events.shutdownNow() }
+    @Synchronized fun close() { records.values.toList().forEach(::remove); events.shutdown(); deadline.close() }
     private fun remove(record: Record) {
         if (!records.remove(record.key, record)) return
         record.process?.destroyForcibly()
-        record.callbacks.values.toList().forEach { try { it.died() } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService death callback failed", failure) } }
+        record.callbacks.values.toList().forEach { callback -> events.execute {
+            try { deadline.call { callback.died() } } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService death callback failed", failure) }
+        } }
         record.callbacks.clear()
     }
 }

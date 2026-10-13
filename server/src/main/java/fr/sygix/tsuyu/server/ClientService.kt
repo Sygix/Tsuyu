@@ -33,6 +33,8 @@ internal class ClientService(
     private val uid: () -> Int = Binder::getCallingUid,
     private val pid: () -> Int = Binder::getCallingPid,
     private val securityContext: () -> String = { Class.forName("android.os.SELinux").getMethod("getContext").invoke(null) as String },
+    private val onRequestEnded: (String) -> Unit = {},
+    private val reportFailure: () -> Unit = {},
 ) : IShizukuService.Stub() {
     private data class Client(val uid: Int, val pid: Int, val group: AccessGroup, val api: Int, val callback: IShizukuApplication)
     private data class Request(val token: String, val client: Client, val code: Int)
@@ -40,10 +42,11 @@ internal class ClientService(
     private val requests = ConcurrentHashMap<String, Request>()
     private val processes = ConcurrentHashMap<RemoteProcess, Client>()
     private val events = Executors.newSingleThreadScheduledExecutor()
+    private val lifecycle = PrivilegeLifecycle()
     fun shutdown() { processes.keys.forEach { it.close() }; processes.clear(); userServices.close(); events.shutdownNow() }
     private fun manager() { if (uid() != managerUid) throw SecurityException("Manager identity required") }
     private fun client(): Client = clients[uid() to pid()] ?: throw SecurityException("Attach first")
-    private fun allowed(): Client = client().also { if (!shell { identities.resolve(it.uid) == it.group && access.allowed(it.uid) }) throw SecurityException("Permission denied") }
+    private fun allowed(): Client = client().also { if (!shell { access.allowed(it.uid) && identities.resolve(it.uid) == it.group }) throw SecurityException("Permission denied") }
     private fun <T> shell(block: () -> T): T {
         val token = Binder.clearCallingIdentity()
         try { return block() } finally { Binder.restoreCallingIdentity(token) }
@@ -57,7 +60,7 @@ internal class ClientService(
         val key = uid to pid
         application.asBinder().linkToDeath({
             clients.remove(key, record)
-            requests.values.filter { it.client == record }.forEach { requests.remove(it.token) }
+            requests.values.filter { it.client == record }.forEach { requests.remove(it.token); onRequestEnded(it.token) }
             processes.entries.filter { it.value == record }.forEach { it.key.close(); processes.remove(it.key) }
         }, 0)
         clients[key] = record
@@ -83,7 +86,18 @@ internal class ClientService(
     override fun dispatchPackageChanged(intent: Intent) { manager() }
     override fun exit() { manager(); stop() }
     override fun getFlagsForUid(uid: Int, mask: Int): Int { manager(); return shell { (if (access.allowed(uid)) 2 else if (access.rationale(uid)) 4 else 0) and mask } }
-    override fun updateFlagsForUid(uid: Int, mask: Int, value: Int) { manager(); require(mask and 6 == mask); if (value and 2 != 0) shell { access.decide(uid, true) } else revoke(uid) }
+    override fun updateFlagsForUid(uid: Int, mask: Int, value: Int) {
+        manager(); require(mask and 6 == mask)
+        if (mask == 0) return
+        lifecycle.withUid(uid) {
+            val old = getFlagsForUid(uid, 6)
+            val next = (old and mask.inv()) or (value and mask)
+            require(next != 6) { "Conflicting permission flags" }
+            if (next == old) return@withUid
+            if (next and 2 != 0) shell { access.decide(uid, true) }
+            else { revoke(uid); if (next == 0) shell { access.clear(uid) } }
+        }
+    }
     override fun requestPermission(requestCode: Int) {
         val record = client()
         check(requests.size < 8) { "Too many pending requests" }
@@ -103,15 +117,16 @@ internal class ClientService(
     fun confirm(token: String, allowed: Boolean) { manager(); complete(token, allowed) }
     private fun complete(token: String, allowed: Boolean) {
         val request = requests.remove(token) ?: return
+        onRequestEnded(token)
         if (clients[request.client.uid to request.client.pid] != request.client) return
         val result = try {
             shell {
                 check(identities.resolve(request.client.uid) == request.client.group)
                 access.decide(request.client.uid, allowed)
             }; allowed
-        } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Consent commit failed", failure); false }
+        } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Consent commit failed", failure); reportFailure(); false }
         try { deadline.call { request.client.callback.dispatchRequestPermissionResult(request.code, Bundle().apply { putBoolean(REQUEST_PERMISSION_REPLY_ALLOWED, result) }) } }
-        catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Permission callback failed", failure) }
+        catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Permission callback failed", failure); reportFailure() }
     }
     override fun dispatchPermissionConfirmationResult(requestUid: Int, requestPid: Int, requestCode: Int, data: Bundle) {
         manager()
@@ -125,15 +140,16 @@ internal class ClientService(
     }
     fun revoke(uid: Int) {
         manager()
-        shell {
+        lifecycle.withUid(uid) { shell {
             val group = identities.resolve(uid)
             access.decide(uid, false)
             processes.entries.filter { it.value.uid == uid }.forEach { it.key.close(); processes.remove(it.key) }
             userServices.revoke(uid)
             group.members.keys.forEach { name -> deadline.call { ActivityManagerApis.forceStopPackage(name, uid / 100000) } }
-        }
+        } }
     }
     override fun newProcess(cmd: Array<out String>, env: Array<out String>?, dir: String?): IRemoteProcess {
+        return lifecycle.withUid(uid()) {
         val owner = allowed()
         require(cmd.isNotEmpty() && cmd.size <= 256 && cmd.all { it.length <= 32768 && '\u0000' !in it })
         val process = shell { ProcessBuilder(cmd.toList()).apply {
@@ -145,7 +161,8 @@ internal class ClientService(
             allowed()
         }
         processes[remote] = owner
-        return remote
+        remote
+        }
     }
     override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
         if (code != BINDER_TRANSACTION_transact) return super.onTransact(code, data, reply, flags)
@@ -159,7 +176,7 @@ internal class ClientService(
         try { payload.appendFrom(data, data.dataPosition(), data.dataAvail()); return shell { target.transact(targetCode, payload, reply, targetFlags) } }
         finally { payload.recycle() }
     }
-    override fun addUserService(conn: IShizukuServiceConnection, args: Bundle): Int { val owner = allowed(); return shell { userServices.add(owner.uid, identities.resolve(owner.uid), owner.api, conn, args) } }
+    override fun addUserService(conn: IShizukuServiceConnection, args: Bundle): Int = lifecycle.withUid(uid()) { val owner = allowed(); shell { userServices.add(owner.uid, identities.resolve(owner.uid), owner.api, conn, args) } }
     override fun removeUserService(conn: IShizukuServiceConnection, args: Bundle): Int { val owner = allowed(); return shell { userServices.unbind(owner.uid, identities.resolve(owner.uid), conn, args) } }
     override fun attachUserService(binder: IBinder, options: Bundle) {
         manager()

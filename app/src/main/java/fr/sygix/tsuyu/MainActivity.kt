@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(graph.coordinator) as T
+                return HomeViewModel(graph.coordinator, graph.compatibility) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }

@@ -28,7 +28,7 @@ internal class RemoteProcess(private val process: java.lang.Process, private val
             catch (failure: java.io.IOException) { if (!closed.get()) android.util.Log.e("TsuyuServer", "Process stream failed", failure) }
         }.apply { isDaemon = true; start() }
     }
-    override fun getOutputStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(stdin[1].fileDescriptor) }
+    override fun getOutputStream(): ParcelFileDescriptor { authorize(); return stdin[1] }
     override fun getInputStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(stdout[0].fileDescriptor) }
     override fun getErrorStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(stderr[0].fileDescriptor) }
     override fun waitFor(): Int { authorize(); return process.waitFor() }
