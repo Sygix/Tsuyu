@@ -8,6 +8,9 @@ lifecycle = "2.11.0"
 robolectric = "4.17"
 
 [libraries]
+hidden-compat = { module = "dev.rikka.hidden:compat", version = "4.4.0" }
+hidden-stub = { module = "dev.rikka.hidden:stub", version = "4.4.0" }
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version = "1.2.1" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.13.0" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.19.1" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }

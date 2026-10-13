@@ -22,7 +22,7 @@ class ServerShutdownTest {
     private val direct = object : BoundedIo() {
         override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block()
     }
-    private class Server(private val die: Boolean) : ITsuyuServer.Stub() {
+    private class Server(private val die: Boolean) : TestServerStub() {
         var recipient: IBinder.DeathRecipient? = null
         var exits = 0
         var unlinks = 0

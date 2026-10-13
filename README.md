@@ -15,7 +15,7 @@ Tsuyu starts through the TV's own ADB daemon instead, with a one-time "Always al
 
 ## Local startup (P1)
 
-The current implementation starts a local shell-uid server. Client API support and automatic restart are planned in P2 and P3 respectively.
+The implementation starts a local shell-uid server and includes the P2 client contract. P2 integration validation is pending; automatic restart follows in P3.
 
 1. Open Tsuyu with the TV remote and enable developer options and USB debugging when requested.
 2. Choose **Démarrer**. On the first system prompt, select **Always allow**, then **Allow**.
@@ -27,9 +27,13 @@ The launch shell waits for confirmed server readiness before returning. The serv
 
 Tests use `./gradlew test` and `./gradlew assembleRelease`. The Android TV emulator simulates the reference TV's legacy endpoint after each boot; vendor behavior and couch-distance UI rendering still require validation on the real TV.
 
-## Planned Shizuku API compatibility
+## Shizuku API compatibility (P2, validation in progress)
 
-P2 will let apps built with Shizuku-API work without changes. Tsuyu will deliver its service to every app that requests the Shizuku API permission, and ask you, on the TV, before an app gets access. The upstream demo is required validation; SygixOs is optional evidence when an API-client build is available.
+The server implements the upstream API 13 / patch 6 wire contract (client library 13.1.5). Startup enumeration and UID/process observers deliver the binder to manifests requesting `moe.shizuku.manager.permission.API_V23`, without requiring an Android grant. Binder possession alone grants no access.
+
+Permission requests identify installed applications, initially focus **Refuser**, and persist decisions in app-private DataStore. Applications sharing a UID are a disclosed access group: signer or membership changes invalidate consent. **Applications autorisées** exposes revocation, which denies new operations, terminates owned children and force-stops affected clients to discard cached capabilities. An incomplete cleanup is an error with retry.
+
+Remote processes and UserServices are implemented, including shell identity, descriptors, bind/peek/unbind/remove and native package class loading. Runtime compatibility is not claimed until the upstream demo verifies these paths. See [verification evidence and gaps](docs/verification-p2.md). The upstream demo is required validation; SygixOs is optional evidence when an API-client build is available. Same-signature updates preserve consent storage; pending requests and launch tokens are process-local.
 
 Tsuyu is not Shizuku and uses its own package name. An app that only checks whether the Shizuku app (`moe.shizuku.privileged.api`) is installed will still report it as missing.
 

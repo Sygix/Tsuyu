@@ -66,6 +66,8 @@ android {
 
 dependencies {
     implementation(project(":ipc"))
+    implementation(project(":api"))
+    implementation(libs.datastore.preferences)
     implementation(project(":server"))
     implementation(libs.tv.material)
     implementation(libs.lifecycle.runtime.compose)

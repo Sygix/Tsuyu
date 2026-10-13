@@ -3,16 +3,16 @@
 ## 1. Validation boundary and API contracts
 
 - [ ] 1.1 Record pending Sygix real-TV checks for provider/observer signatures, background process starts, permission-screen launch and demo native UserService loading; verify the PR separates these assumptions from emulator evidence. TV execution is deferred to Sygix by the explicit task authorization.
-- [ ] 1.2 Add all four upstream AIDL interfaces, BinderContainer/constants and API module wiring; verify generated descriptors/transaction codes against the pinned upstream contract and `./gradlew assembleRelease`.
-- [ ] 1.3 Retain upstream MIT/Apache-2.0 copyrights and provenance, add license texts and NOTICE origins; verify all source headers and dependency licenses and exclude rish/Sui/root layers.
+- [x] 1.2 Add all four upstream AIDL interfaces, BinderContainer/constants and API module wiring; verify generated descriptors/transaction codes against the pinned upstream contract and `./gradlew assembleRelease`.
+- [x] 1.3 Retain upstream MIT/Apache-2.0 copyrights and provenance, add license texts and NOTICE origins; verify all source headers and dependency licenses and exclude rish/Sui/root layers.
 
 ## 2. Binder service and delivery
 
 - [ ] 2.1 Implement authenticated attachment, metadata and permission checks; verify JUnit coverage for spoofed packages, unattached/denied callers, uid reuse, death and grant lookup failure.
 - [ ] 2.2 Implement startup enumeration and process/UID-driven provider delivery with finite retries; verify requesting-but-not-granted clients receive a binder, unrelated manifests do not and one blocked provider does not block others.
 - [ ] 2.3 Implement every API-matrix endpoint and remote transaction forwarding; verify allowed and denied cases, malformed parcels, flags, actual shell identity and failure propagation with contract tests.
-- [ ] 2.4 Update README with upstream API version, binder delivery and package-presence-check limitation; verify wording matches observed client results rather than claiming root capabilities.
-- [ ] 2.5 Preserve authenticated non-Sui `dispatchPackageChanged` no-op and `isHidden=false`; verify contract tests cover legitimate calls, unauthorized administrative dispatch and unchanged package/access state.
+- [x] 2.4 Update README with upstream API version, binder delivery and package-presence-check limitation; verify wording matches observed client results rather than claiming root capabilities.
+- [x] 2.5 Preserve authenticated non-Sui `dispatchPackageChanged` no-op and `isHidden=false`; verify contract tests cover legitimate calls, unauthorized administrative dispatch and unchanged package/access state.
 
 ## 3. Consent and revocation
 

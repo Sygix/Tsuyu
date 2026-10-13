@@ -16,10 +16,25 @@ import fr.sygix.tsuyu.TsuyuGraph
 class ManagerProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
-        require(method == "sendServer" && extras != null)
         val uid = Binder.getCallingUid()
+        val pid = Binder.getCallingPid()
+        require(uid == 2000 && extras != null)
         val identity = Binder.clearCallingIdentity()
-        try { return TsuyuGraph.get(requireNotNull(context)).broker.receive(uid, extras) }
+        try {
+            val graph = TsuyuGraph.get(requireNotNull(context))
+            return when (method) {
+                "sendServer" -> graph.broker.receive(uid, extras)
+                "readAccess" -> Bundle().apply { putString("access", graph.consent.read()) }
+                "writeAccess" -> Bundle().apply { graph.consent.write(requireNotNull(extras.getString("access"))); putBoolean("saved", true) }
+                "attachUserService" -> {
+                    val server = requireNotNull(graph.broker.server.value).clientService
+                    extras.putInt("childPid", pid)
+                    moe.shizuku.server.IShizukuService.Stub.asInterface(server).attachUserService(requireNotNull(extras.getBinder("service")), extras)
+                    Bundle().apply { putBinder("server", server) }
+                }
+                else -> throw IllegalArgumentException("Unknown manager operation")
+            }
+        }
         finally { Binder.restoreCallingIdentity(identity) }
     }
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null

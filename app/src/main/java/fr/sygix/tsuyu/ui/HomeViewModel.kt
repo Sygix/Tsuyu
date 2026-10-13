@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class Screen { HOME, SETUP, HELP, DETAILS }
-enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH }
+enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS }
 data class Control(val id: String, val label: Int, val action: Action)
 data class HomeUi(val screen: Screen, val title: Int, val body: Int, val controls: List<Control>, val focus: String)
 private data class Navigation(val screen: Screen = Screen.HOME, val returnFocus: String = "action-main")
@@ -56,6 +56,7 @@ class HomeViewModel(private val coordinator: StartCoordinator) : ViewModel() {
             Action.BACK -> back()
             Action.REFRESH -> resume()
             Action.SETTINGS -> Unit
+            Action.APPS -> navigation.value = navigation.value.copy(returnFocus = "action-apps")
         }
     }
     private fun start() {
@@ -127,7 +128,7 @@ class HomeViewModel(private val coordinator: StartCoordinator) : ViewModel() {
                     }
                 }
             }
-            val controls = listOf(main) + if (screen == Screen.HOME) listOf(Control("action-help", R.string.help_title, Action.HELP)) else emptyList()
+            val controls = listOf(main) + if (screen == Screen.HOME) listOf(Control("action-apps", R.string.access_apps, Action.APPS), Control("action-help", R.string.help_title, Action.HELP)) else emptyList()
             val wanted = if (screen == Screen.HOME) restore else main.id
             return HomeUi(screen, title, body, controls, FocusPolicy.restore(wanted, controls.map { it.id }))
         }

@@ -23,6 +23,12 @@ Shizuku-API
   https://github.com/RikkaApps/Shizuku-API
   Copyright (c) 2021 RikkaW
   Licensed under the MIT License (LICENSES/MIT-Shizuku-API.txt)
+  P2 includes the four aidl/src/main/aidl/moe/shizuku/server interfaces,
+  shared/src/main/java/rikka/shizuku/ShizukuApiConstants.java and adapts
+  provider/src/main/java/moe/shizuku/api/BinderContainer.java.
+  Remote forwarding and process descriptor semantics are adapted from
+  server-shared/src/main/java/rikka/shizuku/server/Service.java and
+  api/src/main/java/rikka/shizuku/RemoteProcessHolder.java.
 
 Shevery
   https://github.com/HmnDev-Tech/shevery

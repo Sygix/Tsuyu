@@ -43,7 +43,7 @@ class LocalAdbLauncher(private val context: Context, private val broker: ServerB
                 progress(Phase.LAUNCHING)
                 try {
                     val path = io.call(5000) { context.packageManager.getApplicationInfo(context.packageName, 0).sourceDir }
-                    val command = LaunchCommand.create(path, identity.first, identity.second)
+                    val command = LaunchCommand.create(path, identity.first, identity.second, android.os.Process.myUid() / 100000)
                     val output = io.call(30_000, { connection.close() }) { connection.shell(command) }
                     if (output.lineSequence().none { it == "TSUYU_LAUNCHED" }) throw StartException(Failure.LAUNCH)
                     withTimeout(30_000) {

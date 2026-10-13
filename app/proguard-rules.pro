@@ -1,2 +1,5 @@
 -keep class fr.sygix.tsuyu.server.** { *; }
 -keep class fr.sygix.tsuyu.ipc.** { *; }
+-keep class moe.shizuku.** { *; }
+-dontwarn android.**
+-dontwarn com.android.internal.**

@@ -16,6 +16,9 @@ android {
 }
 dependencies {
     implementation(project(":ipc"))
+    implementation(project(":api"))
+    implementation(libs.hidden.compat)
+    compileOnly(libs.hidden.stub)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }

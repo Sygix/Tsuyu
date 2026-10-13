@@ -35,11 +35,11 @@ object ServerMain {
     }
     private fun run(args: Array<String>) {
         check(Os.getuid() == 2000) { "Shell uid required" }
-        require(args.size == 3 && args[1].matches(Regex("[a-f0-9]{32}")) && args[2].matches(Regex("[a-f0-9]{32}")))
+        require(args.size == 4 && args[1].matches(Regex("[a-f0-9]{32}")) && args[2].matches(Regex("[a-f0-9]{32}")))
         val runtime = Class.forName("dalvik.system.VMRuntime")
         val instance = runtime.getDeclaredMethod("getRuntime").invoke(null)
         runtime.getDeclaredMethod("setHiddenApiExemptions", Array<String>::class.java).invoke(instance, arrayOf("L"))
-        val userId = Os.getuid() / 100000
+        val userId = args[3].toInt().also { require(it in 0..21474) }
         val socketName = "$PACKAGE.server.$userId"
         val socket = try { LocalServerSocket(socketName) } catch (occupied: java.io.IOException) {
             LocalSocket().use { peer ->
@@ -57,16 +57,22 @@ object ServerMain {
         val activityThread = thread.getDeclaredMethod("systemMain").invoke(null)
         val context = thread.getDeclaredMethod("getSystemContext").invoke(activityThread) as Context
         val executor = ThreadPoolExecutor(0, 2, 30, TimeUnit.SECONDS, SynchronousQueue())
-        val info = executor.submit<android.content.pm.ApplicationInfo> { context.packageManager.getApplicationInfo(PACKAGE, 0) }.get(5, TimeUnit.SECONDS)
+        val info = executor.submit<android.content.pm.ApplicationInfo> { requireNotNull(rikka.hidden.compat.PackageManagerApis.getApplicationInfo(PACKAGE, 0, userId)) }.get(5, TimeUnit.SECONDS)
         check(info.sourceDir == args[0]) { "Installed APK changed" }
         val managerUid = info.uid
         val bridge = ProviderBridge(managerUid / 100000)
         val events = Executors.newSingleThreadScheduledExecutor()
         val ready = AtomicBoolean(false)
-        val binder = ServerControl(managerUid, ready::get, { exitProcess(0) })
+        val deadline = Deadline()
+        val storage = ManagerStorage(bridge, deadline)
+        val identities = ClientIdentity(deadline)
+        val clients = ClientService(managerUid, AccessAuthority(identities::resolve, storage), identities, storage, deadline, { exitProcess(0) }, UserServices(args[0], managerUid / 100000))
+        Runtime.getRuntime().addShutdownHook(Thread { clients.shutdown() })
+        val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients)
         fun snapshot(): PackageStamp? = try {
-            val installed = context.packageManager.getPackageInfo(PACKAGE, 0)
-            PackageStamp(requireNotNull(installed.applicationInfo).sourceDir, installed.lastUpdateTime, requireNotNull(installed.applicationInfo).uid)
+            rikka.hidden.compat.PackageManagerApis.getPackageInfo(PACKAGE, 0, userId)?.let { installed ->
+                PackageStamp(requireNotNull(installed.applicationInfo).sourceDir, installed.lastUpdateTime, requireNotNull(installed.applicationInfo).uid)
+            }
         } catch (missing: android.content.pm.PackageManager.NameNotFoundException) { null }
         val installed = executor.submit<PackageStamp?> { snapshot() }.get(5, TimeUnit.SECONDS)
         val watch = PackageWatch(requireNotNull(installed), ::snapshot, { exitProcess(0) }, args[0], managerUid)
@@ -95,6 +101,7 @@ object ServerMain {
             }
         }
         publish(generation)
+        ClientDelivery(clients, managerUid / 100000, deadline).start()
         Thread {
             try {
                 while (true) socket.accept().use { peer ->

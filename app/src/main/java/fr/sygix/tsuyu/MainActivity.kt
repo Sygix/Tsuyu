@@ -44,6 +44,11 @@ class MainActivity : ComponentActivity() {
         else model.back()
     }
     private fun handleAction(action: Action) {
+        if (action == Action.APPS) {
+            model.act(action)
+            startActivity(Intent(this, fr.sygix.tsuyu.access.PermissionActivity::class.java))
+            return
+        }
         if (action == Action.SETTINGS) {
             try { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }
             catch (unavailable: Exception) { model.settingsFailed() }

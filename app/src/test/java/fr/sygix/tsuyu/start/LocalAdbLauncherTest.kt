@@ -40,7 +40,7 @@ class LocalAdbLauncherTest {
         broker.receive(2000, Bundle().apply {
             putString("token", preferences.getString("token", null))
             putString("generation", preferences.getString("generation", null))
-            putBinder("server", object : ITsuyuServer.Stub() {
+            putBinder("server", object : TestServerStub() {
                 override fun getUid() = 2000
                 override fun isReady() = true
                 override fun exit() = Unit

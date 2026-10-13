@@ -9,6 +9,7 @@ import android.content.Context
 import fr.sygix.tsuyu.start.*
 
 class TsuyuGraph private constructor(context: Context) {
+    val consent = fr.sygix.tsuyu.access.ConsentStorage(context)
     val broker = ServerBroker(context)
     val settings = AndroidSettings(context)
     private val io = BoundedIo()

@@ -8,4 +8,9 @@ interface ITsuyuServer {
     int getUid();
     boolean isReady();
     void exit();
+    IBinder getClientService();
+    Bundle getRequest(String token);
+    void confirm(String token, boolean allowed);
+    Bundle getAccess();
+    void revoke(int uid);
 }

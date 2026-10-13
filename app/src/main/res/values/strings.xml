@@ -38,4 +38,14 @@
     <string name="refresh">Actualiser</string>
     <string name="open_settings">Ouvrir les paramètres</string>
     <string name="return_home">Revenir à l’accueil</string>
+    <string name="access_request">Autoriser cet accès ?</string>
+    <string name="access_apps">Applications autorisées</string>
+    <string name="access_effect">Cette application pourra agir sur votre TV avec les droits du débogage. Autorisez uniquement les applications de confiance.</string>
+    <string name="access_group">Ces applications partagent un accès : autoriser ou retirer concerne tout le groupe.</string>
+    <string name="access_revoke_effect">Retirer l’accès arrête aussi les processus privilégiés et les applications concernées.</string>
+    <string name="access_empty">Aucune application autorisée.</string>
+    <string name="access_error">La demande a expiré ou le service est indisponible. Ouvrez Tsuyu, vérifiez le service et réessayez. Un retrait incomplet doit être réessayé.</string>
+    <string name="access_allow">Autoriser</string>
+    <string name="access_deny">Refuser</string>
+    <string name="access_revoke">Retirer l’accès</string>
 </resources>

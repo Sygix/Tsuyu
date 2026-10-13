@@ -22,7 +22,7 @@ class ServerBrokerTest {
         val (token, generation) = broker.prepare()
         fun extra(uid: Int = 2000, gen: String = generation) = Bundle().apply {
             putString("token", token); putString("generation", gen)
-            putBinder("server", object : ITsuyuServer.Stub() {
+            putBinder("server", object : TestServerStub() {
                 override fun getUid() = uid
                 override fun isReady() = true
                 override fun exit() = Unit
