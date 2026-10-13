@@ -135,7 +135,7 @@ internal class ClientService(
     }
     fun accessList(): Bundle {
         manager()
-        val decisions = shell { storage.read().filter { it.allowed && identities.resolve(it.group.uid) == it.group } }
+        val decisions = shell { storage.read().filter { it.allowed && access.allowed(it.group.uid) } }
         return Bundle().apply { putIntArray("uids", decisions.map { it.group.uid }.toIntArray()); decisions.forEach { putStringArrayList(it.group.uid.toString(), ArrayList(it.group.members.keys)) } }
     }
     fun revoke(uid: Int) {

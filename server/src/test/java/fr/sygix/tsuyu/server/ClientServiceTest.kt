@@ -84,4 +84,15 @@ class ClientServiceTest {
         assertTrue(access.allowed(clientUid))
         deadline.close()
     }
+    @Test fun listingChangedGroupPermanentlyInvalidatesItsConsent() {
+        val original = group
+        access.decide(uid, true)
+        val clientUid = uid
+        group = original.copy(members = original.members + ("second" to "signer"))
+        uid = 10002
+        assertEquals(0, service.accessList().getIntArray("uids")?.size)
+        group = original
+        assertFalse(access.allowed(clientUid))
+        deadline.close()
+    }
 }

@@ -43,9 +43,9 @@ class AccessViewModel(private val context: Context, private val server: () -> IT
                     })
                 }
             }
-            mutable.value = AccessUi(loading = false, rows = rows, focus = fallback(mutable.value.focus, rows.map { it.uid }))
+            if (!mutable.value.finished) mutable.value = AccessUi(loading = false, rows = rows, focus = fallback(mutable.value.focus, rows.map { it.uid }))
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (failure: Exception) { android.util.Log.e("Tsuyu", "Access lookup failed", failure); mutable.value = AccessUi(loading = false, error = true) }
+        catch (failure: Exception) { android.util.Log.e("Tsuyu", "Access lookup failed", failure); if (!mutable.value.finished) mutable.value = AccessUi(loading = false, error = true) }
     } }
     fun confirm(allowed: Boolean) { viewModelScope.launch {
         try { io.call(5000) { requireNotNull(server()).confirm(requireNotNull(token), allowed) }; mutable.value = mutable.value.copy(finished = true) }

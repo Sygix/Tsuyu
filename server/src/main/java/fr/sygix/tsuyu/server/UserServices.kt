@@ -21,9 +21,10 @@ internal class UserServices(private val apk: String, private val managerUser: In
     private data class Record(val uid: Int, val key: String, val version: Int, var daemon: Boolean, val token: String, var process: java.lang.Process? = null, var binder: IBinder? = null, val callbacks: MutableMap<IBinder, IShizukuServiceConnection> = mutableMapOf())
     private val records = mutableMapOf<String, Record>()
     private val events = Executors.newSingleThreadScheduledExecutor()
+    private val callbacks = java.util.concurrent.ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, java.util.concurrent.ArrayBlockingQueue(32))
     private val deadline = Deadline()
     private fun connected(record: Record, conn: IShizukuServiceConnection) {
-        events.execute {
+        callbacks.execute {
             val binder = synchronized(this) { record.binder?.takeIf { records[record.key] == record && conn.asBinder() in record.callbacks } } ?: return@execute
             try { deadline.call { conn.connected(binder) } }
             catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); synchronized(this) { record.callbacks.remove(conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
@@ -99,13 +100,13 @@ internal class UserServices(private val apk: String, private val managerUser: In
         return 0
     }
     @Synchronized fun revoke(uid: Int) { records.values.filter { it.uid == uid }.toList().forEach(::remove) }
-    @Synchronized fun close() { records.values.toList().forEach(::remove); events.shutdown(); deadline.close() }
+    @Synchronized fun close() { records.values.toList().forEach(::remove); events.shutdown(); callbacks.shutdown(); deadline.close() }
     private fun remove(record: Record) {
         if (!records.remove(record.key, record)) return
         record.process?.destroyForcibly()
-        record.callbacks.values.toList().forEach { callback -> events.execute {
+        record.callbacks.values.toList().forEach { callback -> try { callbacks.execute {
             try { deadline.call { callback.died() } } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService death callback failed", failure) }
-        } }
+        } } catch (failure: java.util.concurrent.RejectedExecutionException) { android.util.Log.e("TsuyuServer", "UserService callback capacity exceeded", failure) } }
         record.callbacks.clear()
     }
 }
