@@ -80,15 +80,40 @@ fixture and stopped the emulator after the tester returned. Manual reboot
 and the launch-error screen were not exercised by that runtime pass. These
 results neither validate the later scoped-marker build nor vendor behavior.
 
+### Scoped-marker runtime and independent review
+
+The runtime tester subsequently checked code commit
+`4ac96b1dd1e1d4c80d5af8a78963062e1eda87d6` with the current APK checksum above,
+updating the emulator in place while preserving app data and the accepted key.
+The scoped readiness marker matched the actual launch generation, the process
+reported shell uid, home showed Running, and the only remaining debugging
+socket was the daemon listener, not an established launch connection. The
+final Running screenshot was delivered directly. The TCP fixture was restored
+and the emulator stopped; the parent independently confirmed no connected
+device and a stopped emulator. This focused pass did not exercise reboot,
+production signing or real late-attempt contamination; the latter is covered
+by the host regression, not claimed as Android runtime evidence.
+
+Independent read-only review approved code commit
+`4ac96b1dd1e1d4c80d5af8a78963062e1eda87d6` after the marker-isolation fix, with
+no remaining code findings. The reviewer independently reran the two host
+launch regressions and strict OpenSpec validation. Code approval is distinct
+from corrected-release TV validation and merge authorization.
+
+Sygix chose delivery through the existing signed CI release workflow rather
+than a locally signed production build. Consequently TV verification awaits
+Sygix's explicit merge/release decisions and a compatible signed APK. No tag,
+merge or archive is authorized by that choice alone.
+
 ### Corrected scenario mapping
 
 | Scenario | Implementation / regression | Proof and limit |
 | --- | --- | --- |
-| Launch connection closes after deterministic readiness | `LaunchCommand.kt:13`, `ServerMain.kt:51`, `ServerMain.kt:116`, `LaunchCommandTest` | Host fixture passed; corrected real-TV Binder/process survival pending |
+| Launch connection closes after deterministic readiness | `LaunchCommand.kt:13`, `ServerMain.kt:52`, `ServerMain.kt:117`, `LaunchCommandTest` | Host fixture and scoped-marker emulator check passed; corrected real-TV Binder/process survival pending |
 | Launch deadline after successful authentication | `LocalAdbLauncher.kt:44`, `StartCoordinator.kt:51`, `LocalAdbLauncherTest` | Typed launch error and key-preserving retry passed; user recovery on corrected TV build pending |
 | Debugging disabled while running | Binder-death observation, `StartCoordinator.died`, `HomeViewModel`, French running/help/details resources | Old-build process death proved on TV; corrected text and setup/recovery need TV validation |
 | Key reuse after reactivation and manual reboot | `AdbKeyStore`, `LocalAdbLauncher`, existing `AdbTest` / `StartTest` | Persistence and retry unit evidence passed; corrected real-TV sequence pending |
-| Singleton handoff | `ServerMain.kt:42` writes readiness only after successful existing-server handoff | Corrected runtime handoff pending |
+| Singleton handoff | `ServerMain.kt:43` writes readiness only after successful existing-server handoff | Corrected runtime handoff pending |
 
 ### Issues and archive blockers
 
