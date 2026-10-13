@@ -43,6 +43,8 @@ Nothing is specified yet. Each phase becomes an OpenSpec change. Undecided topic
    - `appops set --uid <package> AUTO_START allow` changes only the uid mode; the package mode stays `ignore` until `appops set <package> AUTO_START allow` also runs. Both modes can be set to `allow` and persist.
    - Which mode the vendor boot policy reads is unverified. Prepare and read back both modes, and validate boot delivery with the app process absent.
 - **Key expiry:** an authorized adb key expires after 7 days without a connection, unless `adb_allowed_connection_time` is 0. This is a global setting, and writing it requires `WRITE_SECURE_SETTINGS`.
+- **Disabling debugging:** init kills adbd's process cgroup with SIGKILL. Shell children remain in that cgroup even after `setsid`; the shell cannot write the migration files. Keep USB debugging enabled while using the service.
+- **Legacy launch stream:** an immediate shell return can kill a background child before `setsid` and `app_process` complete. Wait for deterministic server readiness before releasing the shell; a fixed delay is not a readiness check.
 
 Any other assumption about the device must be checked on the TV before it is specified.
 

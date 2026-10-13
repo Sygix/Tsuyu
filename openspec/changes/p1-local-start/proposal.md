@@ -10,7 +10,7 @@ Tsuyu currently has only an empty TV screen. A first local shell server start mu
 - Explain that debugging leaves a local-network port open, accessible only to authorized devices; provide no close-port option.
 - Detect a usable local legacy ADB endpoint, authenticate with Tsuyu's private RSA key and start a shell-uid server.
 - Show verified running, stopped, setup, waiting and actionable error states.
-- Detach the server from its launch session so it survives ADB disconnection and later debugging disabling; exit on Tsuyu package replacement or removal.
+- Confirm server readiness before releasing the launch shell so it survives ADB disconnection; keep debugging enabled during use and explain that disabling it can terminate the server. Exit on Tsuyu package replacement or removal.
 - Detect unsupported TVs without a legacy TCP endpoint and explain the v1 limitation.
 
 ## Capabilities

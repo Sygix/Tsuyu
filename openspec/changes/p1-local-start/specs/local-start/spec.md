@@ -54,6 +54,10 @@ Tsuyu SHALL discover and validate a local legacy TCP ADB endpoint and authentica
 - **WHEN** the TV reboots and the user starts Tsuyu again
 - **THEN** the existing app-private key is reused; if authorization has expired, Tsuyu returns to the system confirmation step
 
+#### Scenario: Key reuse after debugging is re-enabled
+- **WHEN** the user re-enables debugging after it terminated the server and starts Tsuyu again
+- **THEN** Tsuyu reuses the existing private key and retained authorization without requiring revocation or reinstallation
+
 ### Requirement: Verified shell server lifecycle
 Tsuyu SHALL launch only its packaged server with shell rights through authenticated local ADB. Running state SHALL require an authenticated, live manager connection reporting shell uid. Duplicate starts SHALL converge on one server; server death SHALL invalidate running state.
 
@@ -71,7 +75,7 @@ Tsuyu SHALL launch only its packaged server with shell rights through authentica
 
 #### Scenario: Launch deadline exceeded
 - **WHEN** the server does not establish a valid manager connection within the launch deadline
-- **THEN** Tsuyu releases app-side resources and offers retry without starting duplicate live servers
+- **THEN** Tsuyu releases app-side resources and offers retry without starting duplicate live servers; it identifies a launch timeout rather than suggesting authorization failed after successful authentication
 
 #### Scenario: Concurrent requests and death
 - **WHEN** two starts overlap or the live server dies
@@ -82,7 +86,7 @@ Tsuyu SHALL launch only its packaged server with shell rights through authentica
 - **THEN** P1 exposes a manual start action; automatic reboot restart is owned by `boot-persistence` in P3
 
 ### Requirement: Detached server survival
-Tsuyu SHALL launch its server in a new session, with redirected standard streams and no hang-up dependency on the launch stream. Closing the ADB connection or disabling debugging SHALL NOT terminate an already running server; it continues until reboot, authenticated exit or package replacement/removal.
+Tsuyu SHALL launch its server in a new session, with redirected standard streams and no hang-up dependency on the launch stream. It SHALL wait for deterministic server readiness before releasing the launch shell. Closing the ADB connection SHALL NOT terminate an already running server. Tsuyu SHALL tell users to keep debugging enabled during use because disabling it can terminate the server through the device's adbd cgroup policy.
 
 #### Scenario: Launch connection closes
 - **WHEN** Tsuyu closes its ADB connection after verifying launch
@@ -90,7 +94,7 @@ Tsuyu SHALL launch its server in a new session, with redirected standard streams
 
 #### Scenario: Debugging disabled while running
 - **WHEN** the user disables debugging while the server is running
-- **THEN** the existing server and manager binder remain live without re-enabling debugging; a later new start still requires debugging
+- **THEN** Tsuyu observes actual server liveness, invalidates running state if the server dies and offers debugging setup followed by manual start with the stored key; it never re-enables debugging automatically or promises server survival
 
 #### Scenario: Detachment unavailable or timed out
 - **WHEN** session detachment, redirection or its launch verification is unavailable or exceeds its deadline

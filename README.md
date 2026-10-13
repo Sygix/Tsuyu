@@ -23,7 +23,7 @@ The current implementation starts a local shell-uid server. Client API support a
 
 Debugging leaves a port open on the local network, accessible only to authorized devices. Tsuyu uses a private, non-backed-up RSA key and supports legacy local TCP debugging; TVs offering only TLS wireless pairing are outside v1.
 
-The server runs in a detached session and survives closure of the launch connection and later debugging disabling. It exits on manager replacement/removal or when required lifecycle observation cannot be restored. Same-signature updates preserve its private key; P1 requires manual restart after an update or TV reboot. Tsuyu never re-enables debugging automatically.
+The launch shell waits for confirmed server readiness before returning. The server runs in a detached session and survives closure of the launch connection. Keep USB debugging enabled during use: on the reference TV, disabling it kills the daemon's entire cgroup, including the detached server. Re-enable debugging and start Tsuyu again using its retained key and authorization; do not revoke ADB authorizations or reinstall to recover a launch failure. The server also exits on manager replacement/removal or when required lifecycle observation cannot be restored. Same-signature updates preserve its private key; P1 requires manual restart after an update or TV reboot. Tsuyu never re-enables debugging automatically.
 
 Tests use `./gradlew test` and `./gradlew assembleRelease`. The Android TV emulator simulates the reference TV's legacy endpoint after each boot; vendor behavior and couch-distance UI rendering still require validation on the real TV.
 

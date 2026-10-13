@@ -27,6 +27,7 @@ object ServerMain {
     private var packageWatch: PackageWatch? = null
     @JvmStatic fun main(args: Array<String>) {
         try { run(args) } catch (error: Throwable) {
+            println("TSUYU_FAILED")
             Log.e("TsuyuServer", "Startup failed", error)
             exitProcess(1)
         }
@@ -47,6 +48,7 @@ object ServerMain {
                 DataOutputStream(peer.outputStream).apply { writeUTF(args[1]); writeUTF(args[2]); flush() }
                 check(DataInputStream(peer.inputStream).readBoolean()) { "Existing server handoff failed" }
             }
+            println("TSUYU_READY")
             return
         }
         Looper.prepareMainLooper()
@@ -111,6 +113,7 @@ object ServerMain {
             }
         }.start()
         Log.i("TsuyuServer", "Server ready uid=${Process.myUid()}")
+        println("TSUYU_READY")
         Looper.loop()
         socket.close()
         executor.shutdownNow()

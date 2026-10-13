@@ -17,7 +17,7 @@
 - [x] 3.1 Implement validated APK launch and shell-only provider handoff with manager identity enforcement; verify wrong uid/token rejection, shell uid reporting and release-build launch on the emulator.
 - [x] 3.2 Implement singleton start coordination, liveness and lifecycle StateFlow; verify JUnit tests cover concurrent requests, late completion, cancellation, server death and reboot reconciliation.
 - [x] 3.3 Implement typed settings and operation errors with bounded workers and resource release; verify success, denied/missing APIs and blocked-operation timeout using deterministic fakes.
-- [ ] 3.4 Implement session detachment, stream redirection and package replacement/removal exit; verify emulator binder survival after ADB close, old binder death on update/uninstall including a process-preserving replacement, and same-signature private-key survival. Verify debugging-off survival with unit evidence and mark emulator observability limits explicitly. Add lifecycle failure tests and release diagnostics; Sygix validates debugging-off behavior on the TV.
+- [ ] 3.4 Implement session detachment, stream redirection and package replacement/removal exit; verify emulator binder survival after ADB close, old binder death on update/uninstall including a process-preserving replacement, and same-signature private-key survival. Add lifecycle failure tests and release diagnostics; Sygix validates debugging-off termination and recovery with the stored key on the TV. Process-preserving replacement remains unverified.
 
 ## 4. TV setup and home
 
@@ -32,6 +32,15 @@
 
 ## Workflow follow-up
 
-- Sygix validates `./gradlew assembleRelease` on the TCL Google TV running Android 14: settings navigation, discovery, “Always allow”, shell server startup, binder survival after launch-stream close and debugging disabling, server exit on same-signature update/uninstall, private-key survival across update, UI at couch distance and key reuse after reboot.
+- Sygix validates `./gradlew assembleRelease` on the TCL Google TV running Android 14: settings navigation, discovery, “Always allow”, shell server startup, binder survival after launch-stream close, debugging-off termination and recovery, server exit on same-signature update/uninstall, private-key survival across update, UI at couch distance and key reuse after reboot.
 - Stack P2 on P1, then P3 on P2, one implementation PR per change. Sygix alone merges; no tag is created by the agent.
 - After merge and Sygix's real-TV validation, archive `p1-local-start`, then validate the archived specs. Archive in P1 → P2 → P3 order.
+
+## 6. P1 launch correction
+
+- [x] 6.1 Obtain real-TV diagnosis distinguishing authentication, pre-VM launch failure, server death, Binder loss and UI state. Sygix supplied retained-key authentication logs, six failed immediate-return trials, cgroup membership, init SIGKILL and denied migration observations; approve the debugging-enabled contract before implementation.
+- [x] 6.2 Gate shell completion on deterministic server readiness with bounded failure reporting; add regression tests that fail for immediate shell return and launch timeouts misreported as authorization problems.
+- [ ] 6.3 Verify repeat launch retains the private key and accepted authorization across debugging changes and manual reboot recovery; separate fake/unit evidence from actual TV evidence.
+- [x] 6.4 Run `./gradlew test`, `./gradlew assembleRelease`, `openspec validate --all --strict` and openspec-verify-change for the corrected head, and reconcile the report without checking unrelated pending tasks.
+- [ ] 6.5 Validate the corrected release on the real TV: repeat starts without revocation, Binder/process survival after launch-ADB close, debugging-off termination, re-enabled recovery, and manual restart after reboot with USB debugging retained. Record the tested build identity and actual errors/recovery.
+- [ ] 6.6 Prepare signed correction commits, independent exact-head review and a correction PR. Archive only after explicit merge authorization, merge and real-TV validation, then validate resulting specs.

@@ -12,6 +12,7 @@ import fr.sygix.tsuyu.adb.SocketAdbConnection
 import fr.sygix.tsuyu.adb.UnsupportedAdb
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.delay
@@ -40,15 +41,18 @@ class LocalAdbLauncher(private val context: Context, private val broker: ServerB
                 catch (failure: SocketTimeoutException) { throw StartException(Failure.TIMEOUT, failure) }
                 catch (failure: Exception) { throw StartException(Failure.AUTHENTICATION, failure) }
                 progress(Phase.LAUNCHING)
-                val path = io.call(5000) { context.packageManager.getApplicationInfo(context.packageName, 0).sourceDir }
-                val command = LaunchCommand.create(path, identity.first, identity.second)
-                val output = io.call(30_000, { connection.close() }) { connection.shell(command) }
-                if (!output.contains("TSUYU_LAUNCHED")) throw StartException(Failure.LAUNCH)
-                withTimeout(30_000) {
-                    val service = broker.server.filterNotNull().first()
-                    while (!io.call(5000) { service.isReady }) delay(100)
-                }
-                return
+                try {
+                    val path = io.call(5000) { context.packageManager.getApplicationInfo(context.packageName, 0).sourceDir }
+                    val command = LaunchCommand.create(path, identity.first, identity.second)
+                    val output = io.call(30_000, { connection.close() }) { connection.shell(command) }
+                    if (output.lineSequence().none { it == "TSUYU_LAUNCHED" }) throw StartException(Failure.LAUNCH)
+                    withTimeout(30_000) {
+                        val service = broker.server.filterNotNull().first()
+                        while (!io.call(5000) { service.isReady }) delay(100)
+                    }
+                    return
+                } catch (failure: TimeoutCancellationException) { throw StartException(Failure.LAUNCH, failure) }
+                catch (failure: SocketTimeoutException) { throw StartException(Failure.LAUNCH, failure) }
             } finally { connection.close() }
         }
         throw StartException(if (connected) Failure.AUTHENTICATION else Failure.ENDPOINT)

@@ -95,4 +95,52 @@ class LocalAdbLauncherTest {
         assertEquals(Failure.ENDPOINT, failure.failure)
         assertTrue(closed)
     }
+    @Test fun authenticatedLaunchDeadlineReportsLaunchFailureAndKeepsTheKeyForRetry() = runTest {
+        val context = context()
+        val broker = ServerBroker(context)
+        val keys = mutableListOf<ByteArray>()
+        var attempts = 0
+        var closes = 0
+        val factory = AdbConnectionFactory { object : AdbConnection {
+            override fun connect(port: Int) = Unit
+            override fun authenticate(key: AdbKey, awaiting: () -> Unit) { keys += key.publicKey() }
+            override fun shell(command: String): String {
+                attempts++
+                if (attempts == 1) return "TSUYU_LAUNCHED"
+                publish(context, broker)
+                return "TSUYU_LAUNCHED"
+            }
+            override fun close() { closes++ }
+        } }
+        val launcher = LocalAdbLauncher(context, broker, direct, factory) { listOf(5555) }
+        val coordinator = StartCoordinator(object : SystemSettings {
+            override fun read() = true to Debugging.ENABLED
+        }, object : ServerAccess {
+            override suspend fun alive() = broker.server.value != null
+        }, launcher, direct)
+        coordinator.start()
+        assertEquals(Phase.ERROR, coordinator.state.value.phase)
+        assertEquals(Failure.LAUNCH, coordinator.state.value.failure)
+        coordinator.start()
+        assertEquals(Phase.RUNNING, coordinator.state.value.phase)
+        assertArrayEquals(keys[0], keys[1])
+        assertEquals(2, closes)
+    }
+    @Test fun shellFailureAndSocketDeadlineAfterAuthenticationAreLaunchErrors() = runTest {
+        for (output in listOf("TSUYU_FAILED", "TSUYU_TIMEOUT", "prefixTSUYU_LAUNCHED", null)) {
+            val context = context()
+            var closed = false
+            val factory = AdbConnectionFactory { object : AdbConnection {
+                override fun connect(port: Int) = Unit
+                override fun authenticate(key: AdbKey, awaiting: () -> Unit) = Unit
+                override fun shell(command: String): String = output ?: throw SocketTimeoutException()
+                override fun close() { closed = true }
+            } }
+            val failure = runCatching {
+                LocalAdbLauncher(context, ServerBroker(context), direct, factory) { listOf(5555) }.launch {}
+            }.exceptionOrNull() as StartException
+            assertEquals(Failure.LAUNCH, failure.failure)
+            assertTrue(closed)
+        }
+    }
 }

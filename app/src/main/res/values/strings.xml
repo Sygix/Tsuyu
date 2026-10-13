@@ -12,7 +12,7 @@
     <string name="starting_title">Démarrage en cours</string>
     <string name="starting_body">Tsuyu prépare le service et vérifie son accès. Vous pouvez annuler.</string>
     <string name="running_title">Service actif</string>
-    <string name="running_body">Le service fonctionne sur votre TV.</string>
+    <string name="running_body">Le service fonctionne sur votre TV. Gardez le débogage USB activé : le désactiver peut arrêter le service.</string>
     <string name="stopped_title">Service arrêté</string>
     <string name="stopped_body">Démarrez le service pour retrouver son accès sur cette TV.</string>
     <string name="checking_title">Vérification en cours</string>
@@ -25,11 +25,11 @@
     <string name="error_auth">La connexion locale a échoué. Vérifiez la demande d’autorisation, puis réessayez.</string>
     <string name="error_timeout">Le délai d’attente est écoulé. Vérifiez la demande système et le débogage USB, puis réessayez.</string>
     <string name="error_busy">Une vérification précédente ne répond plus. Attendez sa fin ou rouvrez Tsuyu, puis réessayez.</string>
-    <string name="error_launch">Le service n’a pas pu confirmer son démarrage. Réessayez ; si le problème persiste, réinstallez Tsuyu.</string>
+    <string name="error_launch">La connexion locale est autorisée, mais le service n’a pas confirmé son démarrage. Gardez le débogage USB activé, puis réessayez. Il n’est pas nécessaire de supprimer les autorisations.</string>
     <string name="help_title">Aide</string>
-    <string name="help_body">Activez le débogage USB, puis démarrez Tsuyu. À la première demande système, cochez « Toujours autoriser ». Après un redémarrage de la TV, ouvrez Tsuyu pour le démarrer à nouveau.</string>
+    <string name="help_body">Activez le débogage USB, puis démarrez Tsuyu. À la première demande système, cochez « Toujours autoriser ». Gardez le débogage activé pendant l’utilisation. Après sa réactivation ou un redémarrage de la TV, ouvrez Tsuyu et démarrez le service avec l’autorisation conservée.</string>
     <string name="details_title">Détails</string>
-    <string name="details_running">Serveur local actif · UID shell : 2000. La connexion ADB de démarrage est fermée. Le serveur reste actif si le débogage est désactivé ; il s’arrête au redémarrage ou lors d’une mise à jour de Tsuyu.</string>
+    <string name="details_running">Serveur local actif · UID shell : 2000. La connexion ADB de démarrage est fermée. Gardez le débogage USB activé : sa désactivation peut tuer le serveur. Il s’arrête aussi au redémarrage ou lors d’une mise à jour de Tsuyu.</string>
     <string name="details_stopped">Le serveur local n’est pas actif. Le démarrage utilise une connexion ADB locale avec la clé privée de Tsuyu.</string>
     <string name="enable">Activer Tsuyu</string>
     <string name="start">Démarrer</string>

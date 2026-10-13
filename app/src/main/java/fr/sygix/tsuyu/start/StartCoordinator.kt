@@ -48,7 +48,7 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
         } catch (timeout: TimeoutCancellationException) {
             active.set(false)
             report(timeout)
-            mutable.value = mutable.value.copy(phase = Phase.ERROR, failure = Failure.TIMEOUT)
+            mutable.value = mutable.value.copy(phase = Phase.ERROR, failure = if (mutable.value.phase == Phase.LAUNCHING) Failure.LAUNCH else Failure.TIMEOUT)
         } catch (cancelled: CancellationException) {
             active.set(false)
             mutable.value = mutable.value.copy(phase = Phase.STOPPED, failure = null)

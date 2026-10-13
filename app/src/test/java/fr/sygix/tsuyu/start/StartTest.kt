@@ -23,7 +23,7 @@ class StartTest {
     private fun launcher(block: suspend ((Phase) -> Unit) -> Unit) = object : ServerLauncher {
         override suspend fun launch(progress: (Phase) -> Unit) = block(progress)
     }
-    @Test fun runningServerSurvivesDisabledDebugging() = runTest {
+    @Test fun liveBinderIsAuthoritativeEvenWhenDebuggingIsDisabled() = runTest {
         val coordinator = StartCoordinator(Settings(Debugging.DISABLED), Server(true), launcher { error("Must not start") }, direct)
         coordinator.start()
         assertEquals(Phase.RUNNING, coordinator.state.value.phase)
@@ -140,7 +140,7 @@ class StartTest {
         val token = "a".repeat(32)
         val command = LaunchCommand.create("/data/app/example/base.apk", token, token)
         assertTrue(command.contains("setsid sh -c "))
-        assertTrue(command.contains("</dev/null >/data/local/tmp/tsuyu-start.log 2>&1"))
+        assertTrue(command.contains("</dev/null >>/data/local/tmp/tsuyu-start.log 2>&1"))
         assertTrue(command.contains("umask 077"))
         assertTrue(command.contains("HUP"))
         assertThrows(IllegalArgumentException::class.java) { LaunchCommand.create("/tmp/base.apk", token, token) }
