@@ -8,11 +8,14 @@ package fr.sygix.tsuyu.start
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.file.Files
+import java.io.FileOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class LaunchCommandTest {
-    @Test fun launchShellWaitsForServerReadinessBeforeCompleting() {
+    @Test fun launchShellWaitsForServerReadinessBeforeCompleting() = checkLaunch(false)
+    @Test fun previousAttemptMarkersCannotCompleteOrFailTheCurrentLaunch() = checkLaunch(true)
+    private fun checkLaunch(staleMarkers: Boolean) {
         val directory = Files.createTempDirectory("tsuyu-launch-test").toFile()
         val started = directory.resolve("started")
         val proceed = directory.resolve("proceed")
@@ -25,7 +28,7 @@ class LaunchCommandTest {
             for (fifo in listOf(started, proceed, finish)) {
                 assertEquals(0, ProcessBuilder("mkfifo", fifo.path).start().waitFor())
             }
-            executable.writeText("#!/bin/sh\necho $$ > '${started.path}'\nread go < '${proceed.path}'\necho TSUYU_READY\nread done < '${finish.path}'\n")
+            executable.writeText("#!/bin/sh\necho $$ > '${started.path}'\nread go < '${proceed.path}'\necho TSUYU_READY_\"\$5\"\nread done < '${finish.path}'\n")
             assertTrue(executable.setExecutable(true))
             val token = "a".repeat(32)
             val command = LaunchCommand.create("/data/app/fixture/base.apk", token, token)
@@ -34,6 +37,16 @@ class LaunchCommandTest {
             shell = ProcessBuilder("sh", "-c", command).start()
             pid = executor.submit<String> { started.bufferedReader().use { it.readLine() } }.get(5, TimeUnit.SECONDS)
             assertFalse("The launch shell must not complete before the server is ready", shell.waitFor(200, TimeUnit.MILLISECONDS))
+            if (staleMarkers) {
+                FileOutputStream(directory.resolve("launch.log"), true).use { stale ->
+                    stale.write("TSUYU_FAILED\nTSUYU_FAILED_${"b".repeat(32)}\n".toByteArray())
+                    stale.flush()
+                    assertFalse("A previous failure must not fail the current launch", shell.waitFor(200, TimeUnit.MILLISECONDS))
+                    stale.write("TSUYU_READY\nTSUYU_READY_${"b".repeat(32)}\n".toByteArray())
+                    stale.flush()
+                    assertFalse("Previous readiness must not complete the current launch", shell.waitFor(200, TimeUnit.MILLISECONDS))
+                }
+            }
             executor.submit { proceed.bufferedWriter().use { it.write("ready\n") } }.get(5, TimeUnit.SECONDS)
             assertTrue(shell.waitFor(5, TimeUnit.SECONDS))
             assertEquals(0, shell.exitValue())

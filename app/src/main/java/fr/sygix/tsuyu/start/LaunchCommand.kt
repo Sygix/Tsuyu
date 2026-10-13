@@ -13,8 +13,8 @@ object LaunchCommand {
         val log = "/data/local/tmp/tsuyu-start.log"
         val inner = "trap '' HUP; export CLASSPATH=${quote(path)}; echo TSUYU_DETACHED; exec /system/bin/app_process /system/bin fr.sygix.tsuyu.server.ServerMain ${quote(path)} $token $generation"
         return "umask 077; : >$log || exit 1; setsid sh -c ${quote(inner)} </dev/null >>$log 2>&1 & " +
-            "attempt=0; while ! grep -qx TSUYU_READY $log; do " +
-            "if grep -qx TSUYU_FAILED $log; then echo TSUYU_FAILED; exit 1; fi; " +
+            "attempt=0; while ! grep -qx TSUYU_READY_$generation $log; do " +
+            "if grep -qx TSUYU_FAILED_$generation $log; then echo TSUYU_FAILED; exit 1; fi; " +
             "if [ \"\$attempt\" -ge 250 ]; then echo TSUYU_TIMEOUT; exit 1; fi; " +
             "sleep 0.1; attempt=\$((attempt + 1)); done; echo TSUYU_LAUNCHED"
     }

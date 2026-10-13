@@ -38,7 +38,7 @@ of the correction.
 ### Commands and regression evidence for the correction
 
 - `./gradlew test assembleRelease --no-daemon`, under the VM heavy-work lock:
-  passed, 40 app tests and 3 server tests, zero failures/errors/skips.
+  passed, 41 app tests and 3 server tests, zero failures/errors/skips.
 - `openspec validate --all --strict`: 3 passed, 0 failed.
 - `LaunchCommandTest.launchShellWaitsForServerReadinessBeforeCompleting` runs
   the generated shell with a FIFO-gated host fixture. It asserts that the
@@ -54,11 +54,31 @@ of the correction.
   of a malformed success marker. Existing auth, cancellation, Binder death,
   reboot reconciliation, private-key corruption and TV-size navigation tests
   passed.
+- Independent review found cross-attempt contamination through the shared
+  diagnostic log. Handled by matching only the current launch generation,
+  without writing the persistent authentication token or key. Regression
+  `LaunchCommandTest.previousAttemptMarkersCannotCompleteOrFailTheCurrentLaunch`
+  failed before this correction and passed afterward: old failure/readiness
+  markers cannot fail or complete the new attempt.
 - The locally built minified release APK is 1,435,653 bytes, SHA-256
-  `1b309dc8495551bf6517341ba6ede98b774fbfcbb678f59eb225f33640770113`.
+  `7d9c9e792a733e0b5ecb306c9cd21805845b958f9e66b47278331bf0a8d15cfa`.
   It uses the local development signing fallback. It must not replace the
   installed production-signed APK with a different certificate; real-TV
   validation needs a same-signature build with an acceptable version code.
+
+### Correction emulator evidence (first candidate)
+
+The runtime tester exercised commit
+`8d8973120e4b076a7b3aeb64b29fb94665203a89` with the previous unscoped-marker
+APK (SHA-256 `1b309dc8495551bf6517341ba6ede98b774fbfcbb678f59eb225f33640770113`).
+It reported initial Always-allow authorization, shell-uid process and ready
+markers, Running after launch ADB closure, settings-return survival, and
+server-only termination followed by manual restart without a new prompt.
+The running/details screenshots confirm the new debugging-enabled text and
+were delivered directly to Sygix. The parent agent restored the emulator TCP
+fixture and stopped the emulator after the tester returned. Manual reboot
+and the launch-error screen were not exercised by that runtime pass. These
+results neither validate the later scoped-marker build nor vendor behavior.
 
 ### Corrected scenario mapping
 
@@ -112,7 +132,8 @@ decision remains open for the debugging-enabled contract.
    Expect Running with the retained key, without a prompt. P1 does not
    automatically restart at boot.
 5. If any attempt fails, record the exact screen text, phase, elapsed time,
-   marker state (`TSUYU_DETACHED`, `TSUYU_READY`, `TSUYU_FAILED`), server presence,
+   marker state (`TSUYU_DETACHED`, generation-scoped `TSUYU_READY` /
+   `TSUYU_FAILED`), server presence,
    and sanitized server/startup logs. Retry must recover without revocation.
    Leave USB debugging enabled and stop/remove only test tools/files created
    during verification; do not uninstall Tsuyu or revoke authorizations.
