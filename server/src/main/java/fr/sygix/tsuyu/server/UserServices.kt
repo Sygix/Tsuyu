@@ -23,11 +23,19 @@ internal class UserServices(private val apk: String, private val managerUser: In
     private val events = Executors.newSingleThreadScheduledExecutor()
     private val callbacks = java.util.concurrent.ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, java.util.concurrent.ArrayBlockingQueue(32))
     private val deadline = Deadline()
-    private fun connected(record: Record, conn: IShizukuServiceConnection) {
+    private fun connected(record: Record, conn: IShizukuServiceConnection): Boolean {
+        try {
         callbacks.execute {
             val binder = synchronized(this) { record.binder?.takeIf { records[record.key] == record && conn.asBinder() in record.callbacks } } ?: return@execute
             try { deadline.call { conn.connected(binder) } }
             catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); synchronized(this) { record.callbacks.remove(conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
+        }
+        return true
+        } catch (failure: java.util.concurrent.RejectedExecutionException) {
+            record.callbacks.remove(conn.asBinder())
+            if (!record.daemon && record.callbacks.isEmpty()) remove(record)
+            android.util.Log.e("TsuyuServer", "UserService connection capacity exceeded", failure)
+            return false
         }
     }
     private fun component(uid: Int, group: AccessGroup, args: Bundle): ComponentName {
@@ -49,7 +57,7 @@ internal class UserServices(private val apk: String, private val managerUser: In
         if (args.getBoolean(USER_SERVICE_ARG_NO_CREATE)) {
             if (record?.binder?.isBinderAlive != true) return if (api >= 13) -1 else 1
             register(record, conn)
-            connected(record, conn)
+            check(connected(record, conn)) { "UserService connection capacity exceeded" }
             return if (api >= 13) record.version else 0
         }
         if (record != null && record.version != version) { remove(record); record = null }
@@ -75,7 +83,7 @@ internal class UserServices(private val apk: String, private val managerUser: In
         }
         record.daemon = args.getBoolean(USER_SERVICE_ARG_DAEMON, true)
         register(record, conn)
-        record.binder?.let { connected(record, conn) }
+        record.binder?.let { check(connected(record, conn)) { "UserService connection capacity exceeded" } }
         return 0
     }
     private fun register(record: Record, conn: IShizukuServiceConnection) {
