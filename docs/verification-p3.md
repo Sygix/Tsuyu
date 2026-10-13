@@ -42,7 +42,15 @@ Status: partial, not ready for merge/archive until remaining scenario coverage a
 
 ## Decisions to validate
 
-- Twenty-second initial work delay, thirty-second exponential retry backoff, maximum three persisted attempts and five-minute overall execution budget honor the accepted bounded/tolerant contract without a watchdog.
+- Twenty-second initial work delay, thirty-second exponential retry backoff, maximum three persisted attempts and five-minute overall execution budget per relevant event honor the accepted bounded/tolerant contract without a watchdog. Boot/update events have independently retained bounded ledgers within the same DataStore authority, so alternating retries cannot reset either budget; the single coordinator/shell singleton still prevents duplicate servers. Old-epoch work exits before reservation.
 - Prepare only after explicit disclosure/enablement. Read-only reopening and boot do not re-grant removed vendor access or change global expiry.
 - The optional expiry operation reconciles current read-back before another explicit mutation; previous opt-in is not a preference to reapply.
 - Use the existing tag-triggered release workflow; no signing/provisioning change, merge or tag is performed.
+
+## Independent review corrections
+
+- New boots cannot be suppressed by unfinished old work: event-specific unique names and current boot/update epoch checks; `RestartEventsTest` covers old epochs and interrupted third-attempt reset.
+- Independent event ledgers prevent alternating boot/update jobs from resetting the attempt/deadline counters. `RestartLedgerTest` failed with the single-last-record policy and passes with event-keyed reservation.
+- Failed fresh status reads invalidate cached modes and expiry, and Home rejects error/loading readiness; `failedFreshReadInvalidatesEarlierVerifiedModes` covers it.
+- Explicit successful repair records `RECOVERED`, distinct from automatic `RUNNING`; the controller test starts with `EXHAUSTED` and asserts recovery.
+- Main-action versus details entry preserves the actual initiating focus; `persistenceEntryRestoresTheActualInitiatingControl` covers both.

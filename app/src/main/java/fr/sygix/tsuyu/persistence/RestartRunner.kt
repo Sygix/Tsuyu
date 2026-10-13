@@ -17,7 +17,7 @@ class RestartRunner(private val store: PersistenceStorage, private val coordinat
     suspend fun run(event: String): RestartResult {
         var record: RestartRecord? = null
         try {
-            val saved = withTimeout(5000) { store.read() }
+            val saved = withTimeout(5000) { store.readEvent(event) }
             if (!saved.enabled) return RestartResult.SUCCESS
             record = withTimeout(5000) { store.reserve(event, clock()) }
             val attempt = record ?: run {
