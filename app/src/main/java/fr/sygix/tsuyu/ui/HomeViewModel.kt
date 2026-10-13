@@ -31,8 +31,9 @@ class HomeViewModel(private val coordinator: StartCoordinator, compatibility: ko
     private var startup: Job? = null
     val ui = combine(coordinator.state, navigation, compatibility, persistence) { state, nav, compatible, preparation ->
         present(state, nav.screen, nav.returnFocus).let { if (!compatible && state.phase == Phase.RUNNING && nav.screen in listOf(Screen.HOME, Screen.DETAILS)) it.copy(body = R.string.compatibility_error) else it }.let {
-            val failed = preparation.outcome !in listOf("NONE", "RUNNING", "ATTEMPT")
-            it.copy(persistenceStatus = if (failed) R.string.persistence_boot_failed else if (preparation.ready && preparation.enabled) R.string.persistence_home_ready else if (preparation.unsupported && preparation.enabled) R.string.persistence_home_standard else R.string.persistence_home_unverified,
+            val failed = preparation.outcome !in listOf("NONE", "RUNNING", "RECOVERED", "ATTEMPT")
+            val verified = !preparation.loading && !preparation.error
+            it.copy(persistenceStatus = if (failed) R.string.persistence_boot_failed else if (verified && preparation.ready && preparation.enabled) R.string.persistence_home_ready else if (verified && preparation.unsupported && preparation.enabled) R.string.persistence_home_standard else R.string.persistence_home_unverified,
                 focus = if (failed && nav.screen == Screen.HOME) "action-persistence" else it.focus)
         }
     }
@@ -46,6 +47,10 @@ class HomeViewModel(private val coordinator: StartCoordinator, compatibility: ko
         if (navigation.value.screen == Screen.HOME) navigation.value = navigation.value.copy(returnFocus = "action-main")
     }
     fun settingsFailed() = coordinator.settingsFailed()
+    fun persistenceEntry(fromMain: Boolean) {
+        cancelPending()
+        navigation.value = navigation.value.copy(returnFocus = if (fromMain) "action-main" else "action-persistence")
+    }
     fun cancelPending() { startup?.cancel() }
     fun back() {
         startup?.cancel()

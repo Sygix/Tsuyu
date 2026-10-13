@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
     private fun handleAction(action: Action) {
         val graph = TsuyuGraph.get(this)
         if (action == Action.PERSISTENCE || action in listOf(Action.START, Action.ENABLE) && !graph.persistenceController.state.value.enabled) {
-            model.act(Action.PERSISTENCE)
+            model.persistenceEntry(action != Action.PERSISTENCE)
             startActivity(Intent(this, fr.sygix.tsuyu.persistence.PersistenceActivity::class.java))
             return
         }

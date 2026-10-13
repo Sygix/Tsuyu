@@ -17,6 +17,19 @@ class HomeViewModelTest {
     private val direct = object : BoundedIo() {
         override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block()
     }
+    @Test fun persistenceEntryRestoresTheActualInitiatingControl() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = false }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+            val model = HomeViewModel(coordinator)
+            store.put("home", model)
+            model.persistenceEntry(true); model.resume(); advanceUntilIdle()
+            assertEquals("action-main", model.ui.value.focus)
+            model.persistenceEntry(false); model.resume(); advanceUntilIdle()
+            assertEquals("action-persistence", model.ui.value.focus)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
     @Test fun returningFromSettingsStartsAndBackRestoresHomeFocus() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val store = ViewModelStore()
