@@ -33,6 +33,8 @@ class NavigationTest {
         press("action-main", Key.DirectionDown)
         compose.onNodeWithTag("action-apps").assertIsFocused()
         press("action-apps", Key.DirectionDown)
+        compose.onNodeWithTag("action-persistence").assertIsFocused()
+        press("action-persistence", Key.DirectionDown)
         compose.onNodeWithTag("action-help").assertIsFocused()
         press("action-help", Key.DirectionDown)
         compose.onNodeWithTag("action-help").assertIsFocused()

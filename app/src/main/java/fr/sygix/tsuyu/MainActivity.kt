@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(graph.coordinator, graph.compatibility) as T
+                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
@@ -44,6 +44,12 @@ class MainActivity : ComponentActivity() {
         else model.back()
     }
     private fun handleAction(action: Action) {
+        val graph = TsuyuGraph.get(this)
+        if (action == Action.PERSISTENCE || action in listOf(Action.START, Action.ENABLE) && !graph.persistenceController.state.value.enabled) {
+            model.act(Action.PERSISTENCE)
+            startActivity(Intent(this, fr.sygix.tsuyu.persistence.PersistenceActivity::class.java))
+            return
+        }
         if (action == Action.APPS) {
             model.act(action)
             startActivity(Intent(this, fr.sygix.tsuyu.access.PermissionActivity::class.java))
@@ -59,7 +65,7 @@ class MainActivity : ComponentActivity() {
         try { observer = TsuyuGraph.get(this).settings.observe { model.resume() } }
         catch (unavailable: Exception) { model.settingsFailed() }
     }
-    override fun onResume() { super.onResume(); model.resume() }
+    override fun onResume() { super.onResume(); model.resume(); lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).persistenceController.refresh() } }
     override fun onStop() {
         try { observer?.close() } catch (failure: Exception) { model.settingsFailed() }
         observer = null

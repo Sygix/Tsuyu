@@ -15,7 +15,7 @@ Tsuyu starts through the TV's own ADB daemon instead, with a one-time "Always al
 
 ## Local startup (P1)
 
-The implementation starts a local shell-uid server and includes the P2 client contract. P2 integration validation is pending; automatic restart follows in P3.
+The implementation starts a local shell-uid server, includes the P2 client contract and P3 boot scheduling. Combined release integration validation is pending.
 
 1. Open Tsuyu with the TV remote and enable developer options and USB debugging when requested.
 2. Choose **Démarrer**. On the first system prompt, select **Always allow**, then **Allow**.
@@ -36,6 +36,16 @@ Permission requests identify installed applications, initially focus **Refuser**
 Remote processes and UserServices are implemented, including shell identity, descriptors, bind/peek/unbind/remove and native package class loading. Runtime compatibility is not claimed until the upstream demo verifies these paths. See [verification evidence and gaps](docs/verification-p2.md). The upstream demo is required validation; SygixOs is optional evidence when an API-client build is available. Same-signature updates preserve consent storage; pending requests and launch tokens are process-local.
 
 Tsuyu is not Shizuku and uses its own package name. An app that only checks whether the Shizuku app (`moe.shizuku.privileged.api`) is installed will still report it as missing.
+
+## Boot persistence (P3, validation in progress)
+
+**Démarrage au redémarrage** explains preparation before mutation. On explicit enablement, the shell verifies both UID and package vendor `AUTO_START` modes independently. A missing vendor operation enables ordinary Android scheduling but does not establish vendor readiness. The Home screen distinguishes live service from verified/unverified boot access; opening status never repairs access automatically.
+
+After completed enablement, normal boot and `MY_PACKAGE_REPLACED` schedule unique WorkManager startup without opening Tsuyu or requiring Internet. It shares the local coordinator, key, singleton server and client consent. Initial scheduling waits twenty seconds; at most three attempts share a persisted five-minute budget once execution begins. Permanent setup/authentication failures stop retries. Android scheduling may defer execution; this is not a permanent watchdog. Force-stop, uninstall or removed debugging access prevent the normal automatic path.
+
+USB debugging must remain enabled. Tsuyu never re-enables it. **Expiration des autorisations** offers a separate optional global change: disabling expiry for **all authorized ADB keys**, not just Tsuyu. Initial focus keeps the existing policy. Skip, Back, status viewing, boot and normal enablement never write that policy. Explicit disabling uses a fixed shell setting write and read-back, with no manager `WRITE_SECURE_SETTINGS` grant. A timeout is unverified until a fresh read reconciles it. Later system changes are never overwritten automatically. Keeping expiry can require renewed confirmation after a long powered-off interval.
+
+See [P3 verification](docs/verification-p3.md) and the [single TV procedure](docs/tv-validation-p2-p3.md). JVM/emulator proof does not prove vendor boot delivery.
 
 ## Credits
 

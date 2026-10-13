@@ -10,6 +10,7 @@ import fr.sygix.tsuyu.start.*
 
 class TsuyuGraph private constructor(context: Context) {
     val consent = fr.sygix.tsuyu.access.ConsentStorage(context)
+    val persistence = fr.sygix.tsuyu.persistence.PersistenceStore(context)
     val requestEnded = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 16)
     val compatibility = kotlinx.coroutines.flow.MutableStateFlow(true)
     val broker = ServerBroker(context)
@@ -25,6 +26,7 @@ class TsuyuGraph private constructor(context: Context) {
         }
     }, LocalAdbLauncher(context, broker, io), io) { failure -> android.util.Log.e("Tsuyu", "Startup operation failed", failure) }
     suspend fun stopReplacedServer() = ServerShutdown(io) { broker.server.value }.stop()
+    val persistenceController = fr.sygix.tsuyu.persistence.PersistenceController(persistence, coordinator, { broker.server.value }, io)
     companion object {
         @Volatile private var graph: TsuyuGraph? = null
         fun get(context: Context): TsuyuGraph = graph ?: synchronized(this) {

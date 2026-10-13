@@ -15,4 +15,7 @@ abstract class TestServerStub : ITsuyuServer.Stub() {
     override fun confirm(token: String, allowed: Boolean) = Unit
     override fun getAccess() = Bundle()
     override fun revoke(uid: Int) = Unit
+    override fun getPersistence() = Bundle()
+    override fun preparePersistence() = Bundle()
+    override fun disableKeyExpiry() = Bundle()
 }
