@@ -30,6 +30,8 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
     private suspend fun inspect(): Boolean {
         val alive = withTimeout(5000) { server.alive() }
         val result = io.call(5000) { settings.read() }
+        val previous = mutable.value
+        if (!alive && previous.phase == Phase.ERROR && previous.developer == result.first && previous.debugging == result.second) return false
         mutable.value = StartState(if (alive) Phase.RUNNING else if (result.second != Debugging.ENABLED) Phase.SETUP else Phase.STOPPED, result.first, result.second)
         return alive
     }
@@ -39,7 +41,7 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
         val owner = currentCoroutineContext().job
         try {
             if (inspect() || mutable.value.debugging != Debugging.ENABLED) return
-            mutable.value = mutable.value.copy(phase = Phase.CONNECTING)
+            mutable.value = mutable.value.copy(phase = Phase.CONNECTING, failure = null)
             launcher.launch { phase -> if (active.get() && owner.isActive) mutable.value = mutable.value.copy(phase = phase, failure = null) }
             check(withTimeout(5000) { server.alive() }) { "Server handshake missing" }
             mutable.value = mutable.value.copy(phase = Phase.RUNNING)

@@ -14,20 +14,20 @@ merges. Do not archive before merge and Sygix's real-TV validation.
 
 ## Commands and regression evidence
 
-- `./gradlew test`: passed, 35 app tests and 3 server tests, no failures or skips.
+- `./gradlew test`: passed, 37 app tests and 3 server tests, no failures or skips.
 - `./gradlew assembleRelease`: passed with minification and packaged server/AIDL.
 - `openspec validate --all --strict`: 3 changes passed, 0 failed.
 - License/privacy scans: no missing SPDX identifiers; the only IPv4 address in
   added source is loopback. No local environment detail is published.
 - Removing checksum validation made
   `AdbTest.invalidMagicLengthChecksumAndEofAreRejected` fail; restoration passed.
-- The three independent-review race regressions failed without their fixes and
+- The independent-review race regressions failed without their fixes and
   passed afterward.
 
-Runtime evidence belongs to the initial P1 release build. After review fixes,
-automated regressions and release compilation passed. The final settings-reader
-injection and ViewModel tests passed `./gradlew test`. The emulator flow was not
-repeated, as requested by Sygix.
+Runtime evidence belongs to the initial P1 release build. Release compilation
+passed after the first three race fixes. Subsequent settings-reader injection,
+error-preservation fixes and ViewModel tests passed `./gradlew test`. The emulator
+flow was not repeated, as requested by Sygix.
 
 ## Requirement/scenario mapping
 
@@ -52,6 +52,7 @@ under `app/src/test/java/fr/sygix/tsuyu/`, and server paths under
 | Replacement between launch lookup and lifecycle baseline could bless the new APK while executing the old one | Validate the initial package stamp against launched path and manager uid; keep before/after-publication reconciliation | `PackageWatchTest.replacementBetweenLaunchLookupAndBaselineCannotWatchTheNewApk` |
 | Cancellation could discard the only refresh behind the startup mutex | Queue refresh rather than silently discard it | `StartTest.queuedRefreshReconcilesServerAfterStartupCancellation`, `HomeViewModelTest.cancelAutomaticallyReconcilesLateLiveServerWithoutAnotherResume` |
 | Reconnection could publish before readiness without a later UI event | Bounded asynchronous reconciliation only while a published server is pending; no idle polling | `ServerReadinessTest.publicationWaitsForLifecycleReadinessBeforeReconnectingUi` |
+| Queued passive refresh could erase a failure and automatically retry setup | Preserve the typed failure until an explicit retry, a live server or changed prerequisites supersede it | `StartTest.queuedPassiveRefreshPreservesLaunchFailureUntilRetryOrPrerequisiteChange`, `HomeViewModelTest.queuedSetupResumePreservesFailureAndDoesNotAutomaticallyRetry` |
 
 ## Runtime results and limits
 

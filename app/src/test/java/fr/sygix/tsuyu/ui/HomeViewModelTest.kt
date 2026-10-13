@@ -73,4 +73,34 @@ class HomeViewModelTest {
             assertEquals(Action.DETAILS, model.ui.value.controls.first().action)
         } finally { store.clear(); Dispatchers.resetMain() }
     }
+    @Test fun queuedSetupResumePreservesFailureAndDoesNotAutomaticallyRetry() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var debugging = Debugging.DISABLED
+            var launches = 0
+            val gate = CompletableDeferred<Unit>()
+            val coordinator = StartCoordinator(object : SystemSettings {
+                override fun read() = true to debugging
+            }, object : ServerAccess {
+                override suspend fun alive() = false
+            }, object : ServerLauncher {
+                override suspend fun launch(progress: (Phase) -> Unit) {
+                    launches++; gate.await(); throw StartException(Failure.AUTHENTICATION)
+                }
+            }, direct)
+            val model = HomeViewModel(coordinator)
+            store.put("home", model)
+            model.resume(); runCurrent()
+            model.act(Action.ENABLE); runCurrent()
+            debugging = Debugging.ENABLED
+            model.resume(); runCurrent()
+            model.resume(); runCurrent()
+            gate.complete(Unit); advanceUntilIdle()
+            assertEquals(1, launches)
+            assertEquals(Phase.ERROR, coordinator.state.value.phase)
+            assertEquals(Failure.AUTHENTICATION, coordinator.state.value.failure)
+            assertEquals(Action.START, model.ui.value.controls.first().action)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
 }

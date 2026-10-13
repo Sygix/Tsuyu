@@ -100,6 +100,24 @@ class StartTest {
         startup.join(); refresh.join()
         assertEquals(Phase.RUNNING, coordinator.state.value.phase)
     }
+    @Test fun queuedPassiveRefreshPreservesLaunchFailureUntilRetryOrPrerequisiteChange() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val settings = Settings()
+        val coordinator = StartCoordinator(settings, Server(), launcher {
+            gate.await(); throw StartException(Failure.AUTHENTICATION)
+        }, direct)
+        val startup = launch { coordinator.start() }
+        runCurrent()
+        val refresh = launch { coordinator.refresh() }
+        runCurrent(); gate.complete(Unit)
+        startup.join(); refresh.join()
+        assertEquals(Phase.ERROR, coordinator.state.value.phase)
+        assertEquals(Failure.AUTHENTICATION, coordinator.state.value.failure)
+        settings.enabled = Debugging.DISABLED
+        coordinator.refresh()
+        assertEquals(Phase.SETUP, coordinator.state.value.phase)
+        assertNull(coordinator.state.value.failure)
+    }
     @Test fun settingsDeadlineShowsRecoveryRatherThanStayingLoading() = runTest {
         val timeout = object : BoundedIo() {
             override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = withTimeout(1) { awaitCancellation() }
