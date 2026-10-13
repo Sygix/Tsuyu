@@ -14,7 +14,7 @@ interface SystemSettings {
     fun read(): Pair<Boolean, Debugging>
 }
 interface ServerAccess {
-    fun alive(): Boolean
+    suspend fun alive(): Boolean
 }
 interface ServerLauncher {
     suspend fun launch(progress: (Phase) -> Unit)

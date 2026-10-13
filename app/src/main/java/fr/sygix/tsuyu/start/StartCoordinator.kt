@@ -7,6 +7,7 @@ package fr.sygix.tsuyu.start
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.TimeoutCancellationException
@@ -19,7 +20,7 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
     private val mutable = MutableStateFlow(StartState())
     val state = mutable.asStateFlow()
     suspend fun refresh() {
-        if (!mutex.tryLock()) return
+        mutex.lock()
         try { inspect() }
         catch (timeout: TimeoutCancellationException) { report(timeout); mutable.value = mutable.value.copy(phase = Phase.ERROR, failure = Failure.TIMEOUT) }
         catch (cancelled: CancellationException) { throw cancelled }
@@ -27,7 +28,7 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
         finally { mutex.unlock() }
     }
     private suspend fun inspect(): Boolean {
-        val alive = io.call(5000) { server.alive() }
+        val alive = withTimeout(5000) { server.alive() }
         val result = io.call(5000) { settings.read() }
         mutable.value = StartState(if (alive) Phase.RUNNING else if (result.second != Debugging.ENABLED) Phase.SETUP else Phase.STOPPED, result.first, result.second)
         return alive
@@ -40,7 +41,7 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
             if (inspect() || mutable.value.debugging != Debugging.ENABLED) return
             mutable.value = mutable.value.copy(phase = Phase.CONNECTING)
             launcher.launch { phase -> if (active.get() && owner.isActive) mutable.value = mutable.value.copy(phase = phase, failure = null) }
-            check(io.call(5000) { server.alive() }) { "Server handshake missing" }
+            check(withTimeout(5000) { server.alive() }) { "Server handshake missing" }
             mutable.value = mutable.value.copy(phase = Phase.RUNNING)
         } catch (timeout: TimeoutCancellationException) {
             active.set(false)

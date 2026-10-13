@@ -19,7 +19,7 @@ class StartTest {
     private class Settings(var enabled: Debugging = Debugging.ENABLED) : SystemSettings {
         override fun read() = true to enabled
     }
-    private class Server(var running: Boolean = false) : ServerAccess { override fun alive() = running }
+    private class Server(var running: Boolean = false) : ServerAccess { override suspend fun alive() = running }
     private fun launcher(block: suspend ((Phase) -> Unit) -> Unit) = object : ServerLauncher {
         override suspend fun launch(progress: (Phase) -> Unit) = block(progress)
     }
@@ -83,6 +83,22 @@ class StartTest {
         val coordinator = StartCoordinator(Settings(), server, launcher {}, direct)
         coordinator.refresh(); server.running = false; coordinator.refresh()
         assertEquals(Phase.STOPPED, coordinator.state.value.phase)
+    }
+    @Test fun queuedRefreshReconcilesServerAfterStartupCancellation() = runTest {
+        val server = Server()
+        val cleanup = CompletableDeferred<Unit>()
+        val coordinator = StartCoordinator(Settings(), server, launcher {
+            try { awaitCancellation() }
+            finally { withContext(NonCancellable) { cleanup.await(); server.running = true } }
+        }, direct)
+        val startup = launch { coordinator.start() }
+        runCurrent()
+        startup.cancel()
+        val refresh = launch { coordinator.refresh() }
+        runCurrent()
+        cleanup.complete(Unit)
+        startup.join(); refresh.join()
+        assertEquals(Phase.RUNNING, coordinator.state.value.phase)
     }
     @Test fun settingsDeadlineShowsRecoveryRatherThanStayingLoading() = runTest {
         val timeout = object : BoundedIo() {

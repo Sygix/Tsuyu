@@ -11,11 +11,11 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 
-class AndroidSettings(private val context: Context) : SystemSettings {
+class AndroidSettings(private val context: Context, private val readGlobal: (String) -> Int = { Settings.Global.getInt(context.contentResolver, it) }) : SystemSettings {
     override fun read(): Pair<Boolean, Debugging> {
-        val developer = runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1 }.getOrDefault(false)
+        val developer = runCatching { readGlobal(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1 }.getOrDefault(false)
         val debugging = runCatching {
-            if (Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED) == 1) Debugging.ENABLED else Debugging.DISABLED
+            if (readGlobal(Settings.Global.ADB_ENABLED) == 1) Debugging.ENABLED else Debugging.DISABLED
         }.getOrDefault(Debugging.UNKNOWN)
         return developer to debugging
     }

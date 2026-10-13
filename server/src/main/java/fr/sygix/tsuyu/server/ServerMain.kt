@@ -66,7 +66,7 @@ object ServerMain {
             PackageStamp(requireNotNull(installed.applicationInfo).sourceDir, installed.lastUpdateTime, requireNotNull(installed.applicationInfo).uid)
         } catch (missing: android.content.pm.PackageManager.NameNotFoundException) { null }
         val installed = executor.submit<PackageStamp?> { snapshot() }.get(5, TimeUnit.SECONDS)
-        val watch = PackageWatch(requireNotNull(installed), ::snapshot) { exitProcess(0) }
+        val watch = PackageWatch(requireNotNull(installed), ::snapshot, { exitProcess(0) }, args[0], managerUid)
         packageWatch = watch
         check(executor.submit<Boolean> { watch.reconcile() }.get(5, TimeUnit.SECONDS))
         var generation = args[2]
