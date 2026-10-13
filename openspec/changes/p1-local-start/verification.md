@@ -7,7 +7,7 @@ the original assessment below; historical emulator checks are not TV proof.
 
 | Dimension | Result |
 | --- | --- |
-| Completeness | 18/21 tracked tasks complete; implementation mapping exists for all seven requirements; three incomplete tasks remain |
+| Completeness | 18/19 active tracked tasks complete; 3.4 withdrawn and 5.3 superseded by Sygix without marking them complete; only the archive/validation follow-up remains |
 | Correctness | Logic, host-shell readiness, release compilation and the three corrected-release TV recovery scenarios passed; package-lifecycle and some UI/runtime coverage remain partial |
 | Coherence | Approved debugging-enabled contract propagated through proposal, design, delta, tasks, README and French resources; P3 remains unimplemented |
 
@@ -105,7 +105,7 @@ than a locally signed production build. After explicit authorization, PR #6
 was merged into main as `2b316700e2c7c4e8007612480b94f7c6dd30f42d` and signed
 tag `v0.1.0-alpha.2` was published. Main CI and the signed-release workflow
 passed. The corrected release's TV results are recorded below. Archive is
-still conditional on the unresolved task criteria.
+authorized after PR #7 records Sygix's closure decisions and merges with green CI.
 
 ### Published release validation on the real TV
 
@@ -134,16 +134,19 @@ temporary test files were removed. No device access or manipulation was
 performed by this agent while recording these results.
 
 These results satisfy correction tasks 6.3 and 6.5. They do not establish
-process-preserving package replacement, old-server exit during the in-place
-update, uninstall cleanup, singleton handoff, all settings/refusal/error
-screens, or reduced-motion/couch-distance presentation on the TV.
+old-server exit during the in-place update, uninstall cleanup, singleton
+handoff, all settings/refusal/error screens, or reduced-motion/couch-distance
+presentation on the TV. Sygix accepted these coverage limits for closure and
+requires no further real-TV evidence. The process-preserving base-replacement
+criterion was withdrawn, not verified.
 
 ### Disabled-debugging UI observation
 
 Sygix reported a possible Stopped label while debugging was disabled, but
 neither the exact text nor the underlying setting read was captured. Keep
 this observation unconfirmed; the three successful recovery scenarios above
-are unaffected.
+are unaffected. Sygix accepted it as non-blocking for closure; it is retained
+in openspec/backlog.md for investigation if reproduced.
 
 Code inspection explains two states:
 
@@ -172,36 +175,36 @@ check should record the exact text after returning to home, the value of
 | Key reuse after reactivation and manual reboot | `AdbKeyStore`, `LocalAdbLauncher`, existing `AdbTest` / `StartTest` | Persistence/retry unit tests and published alpha.2 real-TV reactivation/reboot sequence passed |
 | Singleton handoff | `ServerMain.kt:43` writes readiness only after successful existing-server handoff | Corrected runtime handoff pending |
 
-### Issues and archive blockers
+### Closure decisions and remaining archive operation
 
-**CRITICAL — incomplete tasks:**
+- **3.4 withdrawn, not passed:** Sygix removed this task because replacement
+  of the base APK kills the application process. INSTALL_DONT_KILL_APP concerns
+  adding splits; the historical `--dont-kill` base-replacement attempt killed
+  the manager as well. The criterion was judged neither provable nor useful
+  to the product. Remove the corresponding surviving-manager scenario from
+  the delta before sync; preserve actual lifecycle evidence without inventing
+  a successful test.
+- **5.3 superseded, not passed by inference:** PR #4 is merged with signed
+  commits and independent review. Sygix accepted the actual delivery and
+  retired the unverifiable original stacked/rebase/retarget sequence.
+- **6.6 pending archive operation:** signed correction delivery, exact-head
+  review, authorized merge and real-TV correction validation are complete.
+  Sygix expressly authorized merging PR #7 with the closure decisions, then
+  archiving P1, syncing deltas and merging an archive PR after green CI. Mark
+  this final operation complete only after archive and strict validation of
+  the resulting specs succeed.
 
-- 3.4: process-preserving package replacement runtime proof remains absent.
-  The TV correction checks and update key retention are now established, but
-  cannot complete this composite task. Exercise replacement with the manager
-  process demonstrably unchanged and verify old-server/Binder exit. Historical
-  normal-update/uninstall runtime evidence is emulator-only.
-- 5.3: GitHub confirms PR #4 merged into main and its body records signed
-  commits, scans, evidence and independent review at its merged head. Signed
-  history was inspected. The originally planned stacked-PR/rebase/retarget
-  sequence is not established by those final-state records. Reconcile that
-  workflow criterion explicitly rather than silently marking it complete.
-- 6.6: signed correction delivery, exact-head review, authorized merge and
-  real-TV correction validation are complete. Archive/spec-sync and strict
-  validation of the resulting specs remain pending, conditional on the above.
+**Accepted coverage limits:** runtime package-observation failures, singleton
+handoff and some TV settings/refusal/error/navigation/presentation scenarios
+remain partial. The exact disabled-debugging setup display is unconfirmed and
+tracked in backlog, not a reproduced defect. Sygix requires no further TV
+proof and accepted these limits for P1 closure.
 
-**WARNING — scenario coverage not verified:** process-preserving replacement,
-runtime package-observation failures, singleton handoff and some TV settings,
-refusal/error/navigation/presentation scenarios remain partial. The exact
-disabled-debugging setup display is an unconfirmed observation, not a
-reproduced defect. Obtain the missing runtime evidence without revoking keys
-or uninstalling the TV app unless Sygix expressly authorizes such a test.
-
-**Assessment:** the three real-TV correction scenarios passed on the published
-same-signature release and implementation is merged. Three tasks remain
-incomplete; under Sygix's conditional archive request, leave the change open
-and do not synchronize current specs until those criteria are resolved.
-No product decision remains open for the debugging-enabled contract.
+**Assessment:** implemented P1 is merged and its three correction scenarios
+passed on the published same-signature release. There is no remaining
+implementation or TV gate under Sygix's closure decision. The one pending
+checkbox records the authorized archive/spec-sync/validation operation itself;
+it is not evidence that this operation has already run. P2/P3 remain untouched.
 
 ### Procedure for Sygix's TV tester
 

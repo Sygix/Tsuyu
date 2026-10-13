@@ -23,3 +23,11 @@ None of these topics is specified or decided. Each one will become an OpenSpec c
 **Observation:** Shizuku-API is at version 13.1.5; Shevery reports 14.3.
 
 **To decide:** the version Tsuyu reports, and which AIDL methods it really implements (UserService, remote process, etc.), after checking what SygixOs and the demo app use.
+
+## 4. Stopped label while USB debugging is disabled
+
+**Observation:** during P1 release validation, Sygix reported that home might show “Service arrêté” while debugging was disabled. The exact screen text and settings read were not captured. This is unconfirmed and was explicitly accepted as non-blocking for P1 closure.
+
+**Expected current behavior:** Binder death first invalidates Running to Stopped; a subsequent refresh reading debugging disabled selects Setup and offers debugging guidance.
+
+**Follow-up:** if reproduced, record the exact home text/action after returning from settings and the contemporaneous `adb_enabled` value, then compare it with the lifecycle refresh. Do not revoke authorizations or uninstall merely to investigate this observation.

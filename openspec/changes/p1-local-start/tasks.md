@@ -17,7 +17,7 @@
 - [x] 3.1 Implement validated APK launch and shell-only provider handoff with manager identity enforcement; verify wrong uid/token rejection, shell uid reporting and release-build launch on the emulator.
 - [x] 3.2 Implement singleton start coordination, liveness and lifecycle StateFlow; verify JUnit tests cover concurrent requests, late completion, cancellation, server death and reboot reconciliation.
 - [x] 3.3 Implement typed settings and operation errors with bounded workers and resource release; verify success, denied/missing APIs and blocked-operation timeout using deterministic fakes.
-- [ ] 3.4 Implement session detachment, stream redirection and package replacement/removal exit; verify emulator binder survival after ADB close, old binder death on update/uninstall including a process-preserving replacement, and same-signature private-key survival. Add lifecycle failure tests and release diagnostics; Sygix validates debugging-off termination and recovery with the stored key on the TV. Process-preserving replacement remains unverified.
+Task 3.4 was withdrawn by Sygix, not completed. Replacing the base APK terminates the application process; `INSTALL_DONT_KILL_APP` applies to adding splits, not to preserving the process across a base-APK replacement. The historical `--dont-kill` attempt likewise killed the manager. Sygix judged this criterion neither provable nor useful to the product. Existing detachment, standard package-lifecycle, key-preservation and correction evidence remains recorded in verification.md; no missing test is represented as passed.
 
 ## 4. TV setup and home
 
@@ -28,7 +28,7 @@
 
 - [x] 5.1 Run emulator E2E using a release APK, enabling legacy TCP debugging after each emulator boot to simulate the reference TV; verify first authorization, repeat start, actual shell uid, error recovery and manual restart after reboot. Deliver screenshots to Sygix and stop the emulator and all started processes.
 - [x] 5.2 Run `./gradlew test`, `./gradlew assembleRelease`, `openspec validate --all --strict` and openspec-verify-change; verify a scenario-to-test/evidence report separates pending TV checks from completed automated checks.
-- [ ] 5.3 Open the P1 PR against `docs/v1-specs` while the specification PR is pending, then rebase and retarget it to main after that PR merges; include signed commits, license/privacy scans, verification evidence, pending real-TV checklist and Open questions, and obtain independent review before proposing a merge.
+Task 5.3 was superseded by Sygix's accepted delivery, not completed by inference. PR #4 is merged with signed commits and an independent review. The original stacked-PR/rebase/retarget sequence is no longer verifiable and provides no remaining delivery value. The signed correction PR #6, independent exact-head review and authorized fast-forward merge are separately established.
 
 ## Workflow follow-up
 
@@ -48,7 +48,6 @@
 ## Evidence reconciliation
 
 - Tasks 6.3 and 6.5: Sygix supplied real-TV results for the published, production-signed `v0.1.0-alpha.2` APK, matching its published checksum. An in-place update preserved data/key; start survived launch-ADB closure, debugging-off termination recovered without a new prompt, and manual reboot recovery reused the accepted key. See verification.md for exact build identity, observations and limits.
-- Task 3.4 remains unchecked: the new TV evidence covers launch-stream closure, debugging-off termination/recovery and update key preservation, but not replacement keeping the manager process alive. Historical normal-update/uninstall evidence is emulator-only.
-- Task 5.3 remains unchecked: PR #4 is merged into main and its body records signed commits, scans and independent review, but the full originally planned stacked-PR/rebase/retarget sequence has not been established. Do not infer that history from the final merge alone.
-- Task 6.6 is partial: correction PR #6 is merged with signed commits and exact-head review; `v0.1.0-alpha.2` passed real-TV validation. Archive/spec-sync and post-sync strict validation remain pending until the remaining criteria are resolved.
-- The reported stopped label while debugging was disabled lacks an exact TV text/state capture. Code inspection expects transient Stopped on Binder death, then Setup after a refresh reads debugging disabled. This does not invalidate the three successful correction scenarios, but disabled-state presentation is not signed off by that report.
+- Tasks 3.4 and 5.3 are explicitly withdrawn/superseded above, without completion checkboxes. Sygix requires no further real-TV evidence for P1 closure.
+- Task 6.6 is partial: correction PR #6 is merged with signed commits and exact-head review; `v0.1.0-alpha.2` passed real-TV validation. Sygix authorized PR #7 reconciliation and a subsequent archive/spec-sync PR, both merged by signed local fast-forward once CI is green. Check this task only after archive and resulting-spec validation actually succeed.
+- The reported stopped label while debugging was disabled lacks an exact TV text/state capture. Code inspection expects transient Stopped on Binder death, then Setup after a refresh reads debugging disabled. Sygix accepted it as non-blocking; the observation is retained in openspec/backlog.md without declaring a reproduced defect.

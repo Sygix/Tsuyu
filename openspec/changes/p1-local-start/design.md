@@ -28,7 +28,7 @@ On that TV, disabling debugging makes init SIGKILL the adbd cgroup. Detached chi
 
 Watch the installed package lifecycle and exit on replacement or removal, never keep executing the old classpath after an update. P3 receives MY_PACKAGE_REPLACED and restarts through the same coordinator; P1 exposes manual recovery. Same-signature updates preserve non-backed-up app-private key storage. Link a live manager callback binder to death before considering startup complete. Manager replacement/removal kills its process and triggers bounded reconciliation of installed APK path, last-update timestamp and uid. On a changed/missing installation the server exits; ordinary process death republishes the binder and renews observation. If observation cannot be restored after finite attempts, exit rather than run unmonitored. Reconcile before/after handoff to close replacement races. The upstream filesystem observer rejected registration on the emulator; Android 14 also refuses dynamic broadcast registration from an unattached app_process. Binder death is the verified event source; no idle polling or unauthenticated app broadcast is used.
 
-For updates that explicitly keep the manager process alive, a non-exported app-side MY_PACKAGE_REPLACED receiver calls the manager-authenticated exit operation and waits for binder death within a bounded budget. P3 extends this existing receiver with restart scheduling rather than creating a competing replacement handler. New launches resolve the current APK through PackageManager, not the process-cached ApplicationInfo.
+The non-exported app-side MY_PACKAGE_REPLACED receiver calls the manager-authenticated exit operation and waits for binder death within a bounded budget. P3 extends this existing receiver with restart scheduling rather than creating a competing replacement handler. New launches resolve the current APK through PackageManager, not the process-cached ApplicationInfo. At P1 closure, Sygix withdrew the base-APK replacement scenario with a surviving manager process: base replacement kills that process, while INSTALL_DONT_KILL_APP applies to split addition. The historical emulator attempt also killed the manager. The receiver remains defensive implementation; no process-preserving base-replacement guarantee or additional TV proof is required.
 
 ### Discovery and protocol
 
@@ -61,7 +61,7 @@ Verify original copyrights against each project's notices before copying, becaus
 ## Risks / Trade-offs
 
 - [Property visibility, settings intents and hidden provider APIs vary] → mark these as implementation assumptions; exercise emulator paths and list real-TV validation before release. Do not claim emulator results establish vendor behavior.
-- [Corrected launch and singleton handoff require new TV evidence] → Sygix supplies device observations; successful startup of the old build does not validate the corrected release. Keep TV sign-off pending until its exact build is tested.
+- [Vendor runtime evidence is build-specific] → Sygix supplied successful launch-stream closure, debugging recovery and manual reboot recovery for the exact published `v0.1.0-alpha.2` APK. Remaining coverage limits are recorded in verification.md and accepted for P1 closure; historical emulator evidence is not promoted to TV evidence.
 - [ADB refusal may look like a stalled prompt] → report a timeout honestly without inventing a refusal signal.
 - [Late launch after cancellation] → reconcile binder state and serialize retry; do not kill an unrelated shell process.
 
