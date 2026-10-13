@@ -27,6 +27,9 @@ class ServerControlTest {
         assertThrows(SecurityException::class.java) { server.uid }
         assertThrows(SecurityException::class.java) { server.isReady }
         assertThrows(SecurityException::class.java) { server.exit() }
+        assertThrows(SecurityException::class.java) { server.persistence }
+        assertThrows(SecurityException::class.java) { server.preparePersistence() }
+        assertThrows(SecurityException::class.java) { server.disableKeyExpiry() }
         assertFalse(stopped)
         caller = 10100
         server.exit()

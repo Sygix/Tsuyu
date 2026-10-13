@@ -53,4 +53,27 @@
     <string name="access_cleanup_error">Le retrait est incomplet. Réessayez pour terminer l’arrêt des processus et applications concernés. Actualiser la liste ne suffit pas.</string>
     <string name="access_delivery_error">Accès non transmis : %1$s. Rouvrez ces applications. Si le problème persiste, vérifiez qu’elles prennent en charge cette API ou réinstallez-les, puis redémarrez Tsuyu.</string>
     <string name="compatibility_error">Le service est actif, mais un accès client a échoué. Rouvrez l’application concernée et réessayez sa demande. Si le problème persiste, redémarrez Tsuyu.</string>
+    <string name="persistence_title">Démarrage au redémarrage</string>
+    <string name="persistence_disclosure">Tsuyu autorisera son démarrage au redémarrage sur les TV compatibles. Gardez le débogage USB activé. Cela ne désactive pas l’expiration des clés : après une longue période éteinte, une confirmation peut être nécessaire.</string>
+    <string name="persistence_ready">Le démarrage au redémarrage est préparé. Les deux accès de démarrage ont été vérifiés. Gardez le débogage USB activé.</string>
+    <string name="persistence_standard">Le démarrage Android est activé. Cette TV ne propose pas l’accès constructeur vérifié : son redémarrage automatique reste à confirmer.</string>
+    <string name="persistence_unverified">Les accès au redémarrage ne sont pas vérifiés. Vérifiez le débogage USB, puis réparez le démarrage. Le service actif reste indiqué séparément.</string>
+    <string name="persistence_error">La préparation ou sa vérification a échoué. Vérifiez le débogage USB dans les paramètres, puis actualisez ou réessayez.</string>
+    <string name="persistence_repair">Réparer le démarrage</string>
+    <string name="persistence_home_ready">Redémarrage : accès préparés</string>
+    <string name="persistence_home_standard">Redémarrage : programmation Android, constructeur non vérifié</string>
+    <string name="persistence_home_unverified">Redémarrage : préparation non vérifiée</string>
+    <string name="persistence_boot_failed">Le redémarrage a échoué : ouvrez « Démarrage au redémarrage » pour réparer.</string>
+    <string name="expiry_title">Expiration des autorisations</string>
+    <string name="expiry_body">Option facultative : éviter une nouvelle confirmation après une longue période éteinte. Désactiver l’expiration concerne toutes les clés de débogage autorisées, pas seulement Tsuyu. Conserver la politique ne bloque pas le démarrage.</string>
+    <string name="expiry_keep">Conserver la politique actuelle</string>
+    <string name="expiry_disable">Désactiver l’expiration pour toutes les clés</string>
+    <string name="expiry_disabled">L’expiration est déjà désactivée pour toutes les clés. Tsuyu ne réappliquera pas cette option si vous changez la politique dans le système.</string>
+    <string name="expiry_error">Le résultat de l’option n’est pas vérifié. Une modification a pu avoir lieu. Actualisez pour relire la politique avant de réessayer. Le démarrage normal reste disponible.</string>
+    <string name="persistence_modes">Accès de démarrage · UID : %1$s · application : %2$s</string>
+    <string name="mode_allowed">autorisé</string>
+    <string name="mode_denied">non autorisé</string>
+    <string name="mode_unsupported">non disponible</string>
+    <string name="mode_unknown">non vérifié</string>
+    <string name="expiry_value">Politique globale vérifiée : %1$d ms (0 = sans expiration)</string>
 </resources>

@@ -68,6 +68,7 @@ dependencies {
     implementation(project(":ipc"))
     implementation(project(":api"))
     implementation(libs.datastore.preferences)
+    implementation(libs.work.runtime)
     implementation(project(":server"))
     implementation(libs.tv.material)
     implementation(libs.lifecycle.runtime.compose)

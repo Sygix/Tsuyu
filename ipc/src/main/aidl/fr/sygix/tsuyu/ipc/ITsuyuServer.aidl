@@ -13,4 +13,7 @@ interface ITsuyuServer {
     void confirm(String token, boolean allowed);
     Bundle getAccess();
     void revoke(int uid);
+    Bundle getPersistence();
+    Bundle preparePersistence();
+    Bundle disableKeyExpiry();
 }
