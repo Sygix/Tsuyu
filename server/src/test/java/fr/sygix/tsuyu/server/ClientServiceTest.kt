@@ -95,4 +95,14 @@ class ClientServiceTest {
         assertFalse(access.allowed(clientUid))
         deadline.close()
     }
+    @Test fun upstreamRemovalAcceptsItsUnusedNullConnection() {
+        attach(); access.decide(uid, true)
+        val api: IShizukuService = service
+        val options = Bundle().apply {
+            putParcelable(USER_SERVICE_ARG_COMPONENT, android.content.ComponentName("client", "client.Service"))
+            putBoolean(USER_SERVICE_ARG_REMOVE, true)
+        }
+        assertEquals(1, api.removeUserService(null, options))
+        deadline.close()
+    }
 }

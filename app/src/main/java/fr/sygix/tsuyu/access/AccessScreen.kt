@@ -27,9 +27,10 @@ fun AccessScreen(ui: AccessUi, permission: Boolean, confirm: (Boolean) -> Unit, 
     val ids = if (ui.loading || ui.error) listOf("access-back", "access-retry") else if (permission) listOf("access-deny", "access-allow") else ui.rows.map { "revoke-${it.uid}" } + "access-back"
     val requesters = remember(ids) { ids.associateWith { FocusRequester() } }
     MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xff94d8df))) {
+        CompositionLocalProvider(LocalContentColor provides Color(0xffc6d1df)) {
         Column(Modifier.fillMaxSize().background(Color(0xff10161e)).padding(56.dp, 40.dp).verticalScroll(rememberScrollState()).testTag("access-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(stringResource(if (permission) R.string.access_request else R.string.access_apps), fontSize = 32.sp)
-            Text(stringResource(if (ui.error) R.string.access_error else if (ui.loading) R.string.checking_body else if (permission) R.string.access_effect else if (ui.rows.isEmpty()) R.string.access_empty else R.string.access_revoke_effect), fontSize = 20.sp)
+            Text(stringResource(if (permission) R.string.access_request else R.string.access_apps), fontSize = 32.sp, modifier = Modifier.testTag("access-title"))
+            Text(stringResource(if (ui.error) R.string.access_error else if (ui.loading) R.string.checking_body else if (permission) R.string.access_effect else if (ui.rows.isEmpty()) R.string.access_empty else R.string.access_revoke_effect), fontSize = 20.sp, modifier = Modifier.testTag("access-body"))
             if (permission) ui.rows.forEach { row -> key(row.uid) { AppNames(row) } }
             val actions: @Composable () -> Unit = { ids.forEachIndexed { index, id -> key(id) {
                 val row = ui.rows.firstOrNull { "revoke-${it.uid}" == id }
@@ -55,6 +56,7 @@ fun AccessScreen(ui: AccessUi, permission: Boolean, confirm: (Boolean) -> Unit, 
             else Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { actions() }
         }
         LaunchedEffect(ids, ui.focus) { requesters[if (permission) ids.first() else "revoke-${ui.focus}" ]?.requestFocus(FocusDirection.Enter) ?: requesters.getValue(ids.first()).requestFocus(FocusDirection.Enter) }
+        }
     }
 }
 

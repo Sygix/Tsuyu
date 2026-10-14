@@ -49,4 +49,14 @@ class AccessNavigationTest {
         compose.onNodeWithTag("revoke-10001").assertTextContains("First", substring = true)
         compose.onNodeWithTag("revoke-10002").assertTextContains("Second", substring = true)
     }
+    @Test fun permissionTextUsesReadableForegroundOnTheDarkBackground() {
+        compose.setContent { AccessScreen(AccessUi(loading = false), true, {}, {}, {}, {}) }
+        for (tag in listOf("access-title", "access-body")) {
+            compose.onNodeWithTag(tag).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { action ->
+                val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                assertTrue(action(layouts))
+                assertEquals(androidx.compose.ui.graphics.Color(0xffc6d1df), layouts.single().layoutInput.style.color)
+            }
+        }
+    }
 }

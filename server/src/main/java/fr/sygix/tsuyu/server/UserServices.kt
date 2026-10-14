@@ -101,10 +101,10 @@ internal class UserServices(private val apk: String, private val managerUser: In
         binder.linkToDeath({ synchronized(this) { remove(record) } }, 0)
         record.callbacks.values.toList().forEach { connected(record, it) }
     }
-    @Synchronized fun unbind(uid: Int, group: AccessGroup, conn: IShizukuServiceConnection, args: Bundle): Int {
+    @Synchronized fun unbind(uid: Int, group: AccessGroup, conn: IShizukuServiceConnection?, args: Bundle): Int {
         val record = records[key(uid, component(uid, group, args), args)] ?: return 1
         if (args.getBoolean(USER_SERVICE_ARG_REMOVE, true)) remove(record)
-        else { record.callbacks.remove(conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) }
+        else { record.callbacks.remove(requireNotNull(conn).asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) }
         return 0
     }
     @Synchronized fun revoke(uid: Int) { records.values.filter { it.uid == uid }.toList().forEach(::remove) }

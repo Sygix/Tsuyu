@@ -177,7 +177,7 @@ internal class ClientService(
         finally { payload.recycle() }
     }
     override fun addUserService(conn: IShizukuServiceConnection, args: Bundle): Int = lifecycle.withUid(uid()) { val owner = allowed(); shell { userServices.add(owner.uid, identities.resolve(owner.uid), owner.api, conn, args) } }
-    override fun removeUserService(conn: IShizukuServiceConnection, args: Bundle): Int { val owner = allowed(); return shell { userServices.unbind(owner.uid, identities.resolve(owner.uid), conn, args) } }
+    override fun removeUserService(conn: IShizukuServiceConnection?, args: Bundle): Int { val owner = allowed(); return shell { userServices.unbind(owner.uid, identities.resolve(owner.uid), conn, args) } }
     override fun attachUserService(binder: IBinder, options: Bundle) {
         manager()
         userServices.attach(binder, requireNotNull(options.getString(USER_SERVICE_ARG_TOKEN)), options.getInt("childPid", -1))
