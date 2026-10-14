@@ -2,6 +2,8 @@
 
 The combined P2/P3 emulator pass and targeted protocol checks use release builds, with development signing only. P2's detailed client/protocol observations are in `runtime-p2.md`.
 
+The final compiled artifact after the unit-tested revocation/rationale correction has SHA-256 `44b488e2b393cb73462574d824d8a6831d400e69b92048a81f84818433970b10`, size 2,117,897 bytes. Its `test assembleRelease` and strict OpenSpec validation pass. The runtime-tested artifact/hash is retained separately in `runtime-p2.md`; the last revocation correction was not attributed to a repeated full E2E.
+
 | Scenario | Observed | Status |
 | --- | --- | --- |
 | Disclosure before enablement | Effects explained before preparation; Back leaves the global expiry policy unchanged | PASS |
