@@ -194,4 +194,32 @@ class ClientServiceTest {
         pid = 123
         assertEquals(13, service.getVersion())
     }
+    @Test fun onewayWithUnavailablePidStillRequiresAnAttachedConsentingUid() {
+        attach(); access.decide(uid, true); pid = 0
+        var calls = 0
+        val target = object : android.os.Binder() {
+            override fun onTransact(code: Int, data: android.os.Parcel, reply: android.os.Parcel?, flags: Int): Boolean {
+                assertEquals(27, code)
+                assertEquals(android.os.IBinder.FLAG_ONEWAY, flags)
+                calls++
+                return true
+            }
+        }
+        fun forward() {
+            val data = android.os.Parcel.obtain()
+            try {
+                data.writeInterfaceToken(BINDER_DESCRIPTOR)
+                data.writeStrongBinder(target); data.writeInt(27); data.writeInt(android.os.IBinder.FLAG_ONEWAY)
+                assertTrue(service.transact(1, data, null, android.os.IBinder.FLAG_ONEWAY))
+            } finally { data.recycle() }
+        }
+        forward()
+        assertEquals(1, calls)
+        access.decide(uid, false)
+        forward()
+        assertEquals(1, calls)
+        uid = 110002
+        forward()
+        assertEquals(1, calls)
+    }
 }

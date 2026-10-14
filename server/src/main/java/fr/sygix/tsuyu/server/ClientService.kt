@@ -47,8 +47,15 @@ internal class ClientService(
     private val lifecycle = PrivilegeLifecycle()
     fun shutdown() { processes.keys.forEach { it.close() }; processes.clear(); userServices.close(); events.shutdownNow() }
     private fun manager() { if (uid() != managerUid) throw SecurityException("Manager identity required") }
-    private fun client(): Client = clients[uid() to pid()] ?: throw SecurityException("Attach first")
-    private fun allowed(): Client = client().also { record ->
+    private fun client(uidOnly: Boolean = false): Client {
+        val callerUid = uid()
+        val callerPid = pid()
+        return clients[callerUid to callerPid] ?: if (uidOnly && callerPid == 0) {
+            clients.values.firstOrNull { it.uid == callerUid && it.api >= 13 && it.callback.asBinder().isBinderAlive }
+                ?: throw SecurityException("Attach first")
+        } else throw SecurityException("Attach first")
+    }
+    private fun allowed(uidOnly: Boolean = false): Client = client(uidOnly).also { record ->
         if (!shell { access.allowed(record.uid) && identities.resolve(record.uid).members[record.packageName] == record.group.members[record.packageName] }) throw SecurityException("Permission denied")
     }
     private fun <T> shell(block: () -> T): T {
@@ -196,7 +203,7 @@ internal class ClientService(
         try {
         if (code != BINDER_TRANSACTION_transact) return super.onTransact(code, data, reply, flags)
         data.enforceInterface(BINDER_DESCRIPTOR)
-        val owner = allowed()
+        val owner = allowed(flags and IBinder.FLAG_ONEWAY != 0)
         val target = requireNotNull(data.readStrongBinder())
         val targetCode = data.readInt()
         val targetFlags = if (owner.api >= 13) data.readInt() else flags
