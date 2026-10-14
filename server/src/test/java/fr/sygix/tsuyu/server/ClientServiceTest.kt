@@ -35,7 +35,7 @@ class ClientServiceTest {
     private val opened = java.util.concurrent.ConcurrentLinkedQueue<Pair<String, Int>>()
     private val results = java.util.concurrent.CopyOnWriteArrayList<Pair<Int, Boolean>>()
     private var death: android.os.IBinder.DeathRecipient? = null
-    private val service = ClientService(10002, access, identities, storage, deadline, {}, UserServices("unused", 1), { uid }, { pid }, { "shell-context" }, elapsed = { time }, showRequest = { token, user -> opened.add(token to user) })
+    private val service = ClientService(10002, access, identities, storage, deadline, {}, UserServices("unused", 1), { uid }, { pid }, { "shell-context" }, elapsed = { time }, showRequest = { token, user -> opened.add(token to user) }, stopClient = { _, _ -> })
     @After fun cleanup() { service.shutdown(); deadline.close() }
     private var metadata: Bundle? = null
     private val callback = object : IShizukuApplication.Stub() {
@@ -221,5 +221,22 @@ class ClientServiceTest {
         uid = 110002
         forward()
         assertEquals(1, calls)
+    }
+    @Test fun revocationClearsTheDecisionSoAnUnchangedClientCanRequestAgain() {
+        attach(); access.decide(uid, true)
+        val clientUid = uid
+        uid = 10002
+        service.revoke(clientUid)
+        assertTrue(storage.read().isEmpty())
+        uid = clientUid
+        assertFalse(service.checkSelfPermission())
+        assertFalse(service.shouldShowRequestPermissionRationale())
+        service.requestPermission(91)
+        assertEquals(1, opened.size)
+        uid = 10002
+        service.confirm(opened.single().first, true)
+        uid = clientUid
+        assertTrue(service.checkSelfPermission())
+        assertEquals(listOf(91 to true), results.toList())
     }
 }

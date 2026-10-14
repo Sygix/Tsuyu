@@ -33,6 +33,8 @@ The server implements the upstream API 13 / patch 6 wire contract (client librar
 
 Permission requests identify installed applications, initially focus **Refuser**, and persist decisions in app-private DataStore. Applications sharing a UID are a disclosed access group: signer or membership changes invalidate consent. **Applications autorisées** exposes revocation, which denies new operations, terminates owned children and force-stops affected clients to discard cached capabilities. An incomplete cleanup is an error with retry.
 
+Package visibility is used to resolve verified names/icons for all related applications, including requesting clients without a launcher. It grants no settings-write privilege. Release demo/protocol results and remaining acceptance limits are recorded in [runtime evidence](docs/runtime-p2.md).
+
 Remote processes and UserServices are implemented, including shell identity, descriptors, bind/peek/unbind/remove and native package class loading. Runtime compatibility is not claimed until the upstream demo verifies these paths. See [verification evidence and gaps](docs/verification-p2.md). The upstream demo is required validation; SygixOs is optional evidence when an API-client build is available. Same-signature updates preserve consent storage; pending requests and launch tokens are process-local.
 
 Tsuyu is not Shizuku and uses its own package name. An app that only checks whether the Shizuku app (`moe.shizuku.privileged.api`) is installed will still report it as missing.

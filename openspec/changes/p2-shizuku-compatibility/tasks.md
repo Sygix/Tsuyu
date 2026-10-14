@@ -32,8 +32,8 @@
 ## 5. Integration and handoff
 
 - [ ] 5.1 Build/install the pinned upstream demo outside Tsuyu; on the TV emulator with simulated legacy TCP debugging after each boot, show binder received, refusal then explicit permission grant, actual shell-uid command output and native UserService bind/peek/unbind/remove. Deliver screenshots and sanitized assertions, then stop all started processes.
-- [ ] 5.2 Validate startup/later foreground and background delivery, revoke while a service is bound and service restart with persisted decisions; verify actual upstream clients, including SygixOs when available, and list any unexecuted client scenario explicitly.
-- [ ] 5.3 Run `./gradlew test`, `./gradlew assembleRelease`, `openspec validate --all --strict` and openspec-verify-change; verify a method/scenario-to-test report has no unacknowledged API gap.
+- [x] 5.2 Validate startup/later foreground and background delivery, revoke while a service is bound and service restart with persisted decisions; verify actual upstream clients, including SygixOs when available, and list any unexecuted client scenario explicitly.
+- [x] 5.3 Run `./gradlew test`, `./gradlew assembleRelease`, `openspec validate --all --strict` and openspec-verify-change; verify a method/scenario-to-test report has no unacknowledged API gap.
 - [ ] 5.4 Open a signed P2 PR based on P1 with independent review, privacy/license scans, test evidence, confirmed non-Sui/shared-UID decisions and pending TV/demo/SygixOs checklist; verify base branch and URL.
 
 ## Workflow follow-up

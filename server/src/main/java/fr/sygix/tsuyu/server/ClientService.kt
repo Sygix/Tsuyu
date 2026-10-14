@@ -37,6 +37,7 @@ internal class ClientService(
     private val reportFailure: () -> Unit = {},
     private val elapsed: () -> Long = android.os.SystemClock::elapsedRealtime,
     private val showRequest: (String, Int) -> Unit = { token, user -> ActivityManagerApis.startActivity(Intent().setComponent(ComponentName("fr.sygix.tsuyu", "fr.sygix.tsuyu.access.PermissionActivity")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("request", token), "com.android.shell", user) },
+    private val stopClient: (String, Int) -> Unit = ActivityManagerApis::forceStopPackage,
 ) : IShizukuService.Stub() {
     private data class Client(val uid: Int, val pid: Int, val group: AccessGroup, val api: Int, val callback: IShizukuApplication, val packageName: String)
     private data class Request(val token: String, val client: Client, val code: Int, val expires: Long, val group: AccessGroup)
@@ -106,7 +107,7 @@ internal class ClientService(
             require(next != 6) { "Conflicting permission flags" }
             if (next == old) return@withUid
             if (next and 2 != 0) shell { access.decide(uid, true) }
-            else { revoke(uid); if (next == 0) shell { access.clear(uid) } }
+            else { revoke(uid); if (next == 4) shell { access.decide(uid, false) } }
         }
     }
     override fun requestPermission(requestCode: Int) {
@@ -177,10 +178,10 @@ internal class ClientService(
         manager()
         lifecycle.withUid(uid) { shell {
             val group = identities.resolve(uid)
-            access.decide(uid, false)
+            access.clear(uid)
             processes.entries.filter { it.value.uid == uid }.forEach { it.key.close(); processes.remove(it.key) }
             userServices.revoke(uid)
-            group.members.keys.forEach { name -> deadline.call { ActivityManagerApis.forceStopPackage(name, uid / 100000) } }
+            group.members.keys.forEach { name -> deadline.call { stopClient(name, uid / 100000) } }
         } }
     }
     override fun newProcess(cmd: Array<out String>, env: Array<out String>?, dir: String?): IRemoteProcess {
