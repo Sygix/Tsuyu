@@ -32,4 +32,14 @@ class ServerControlTest {
         server.exit()
         assertTrue(stopped)
     }
+    @Test fun checkedPlatformFailuresAreMarshalableBinderErrors() {
+        val server = ServerControl(10100, { true }, {}, { 10100 }, { throw java.io.IOException("Platform lookup failed") })
+        val request = android.os.Parcel.obtain()
+        val reply = android.os.Parcel.obtain()
+        try {
+            request.writeInterfaceToken("fr.sygix.tsuyu.ipc.ITsuyuServer")
+            val failure = runCatching { server.transact(1, request, reply, 0); reply.readException() }.exceptionOrNull()
+            assertTrue(failure is IllegalStateException)
+        } finally { request.recycle(); reply.recycle() }
+    }
 }

@@ -19,4 +19,10 @@ internal class ServerControl(private val managerUid: Int, private val ready: () 
     override fun confirm(token: String, allowed: Boolean) { enforceManager(); requireNotNull(clients).confirm(token, allowed) }
     override fun getAccess(): android.os.Bundle { enforceManager(); return requireNotNull(clients).accessList() }
     override fun revoke(uid: Int) { enforceManager(); requireNotNull(clients).revoke(uid) }
+    override fun onTransact(code: Int, data: android.os.Parcel, reply: android.os.Parcel?, flags: Int): Boolean {
+        try { return super.onTransact(code, data, reply, flags) }
+        catch (failure: android.os.RemoteException) { throw failure }
+        catch (failure: RuntimeException) { throw failure }
+        catch (failure: Exception) { throw IllegalStateException("Manager operation failed; check the service and retry", failure) }
+    }
 }

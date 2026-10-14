@@ -39,6 +39,12 @@ internal class RemoteProcess(private val process: java.lang.Process, private val
         return process.waitFor(timeout, TimeUnit.valueOf(unit))
     }
     override fun destroy() { authorize(); close() }
+    override fun onTransact(code: Int, data: android.os.Parcel, reply: android.os.Parcel?, flags: Int): Boolean {
+        try { return super.onTransact(code, data, reply, flags) }
+        catch (failure: android.os.RemoteException) { throw failure }
+        catch (failure: RuntimeException) { throw failure }
+        catch (failure: Exception) { throw IllegalStateException("Process operation failed", failure) }
+    }
     fun close() {
         if (!closed.compareAndSet(false, true)) return
         process.destroyForcibly()

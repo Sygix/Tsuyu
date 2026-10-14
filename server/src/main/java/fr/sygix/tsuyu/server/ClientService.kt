@@ -165,6 +165,7 @@ internal class ClientService(
         }
     }
     override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
+        try {
         if (code != BINDER_TRANSACTION_transact) return super.onTransact(code, data, reply, flags)
         data.enforceInterface(BINDER_DESCRIPTOR)
         val owner = allowed()
@@ -175,6 +176,9 @@ internal class ClientService(
         val payload = Parcel.obtain()
         try { payload.appendFrom(data, data.dataPosition(), data.dataAvail()); return shell { target.transact(targetCode, payload, reply, targetFlags) } }
         finally { payload.recycle() }
+        } catch (failure: android.os.RemoteException) { throw failure }
+        catch (failure: RuntimeException) { throw failure }
+        catch (failure: Exception) { reportFailure(); throw IllegalStateException("System operation failed; check the service and retry", failure) }
     }
     override fun addUserService(conn: IShizukuServiceConnection, args: Bundle): Int = lifecycle.withUid(uid()) { val owner = allowed(); shell { userServices.add(owner.uid, identities.resolve(owner.uid), owner.api, conn, args) } }
     override fun removeUserService(conn: IShizukuServiceConnection?, args: Bundle): Int { val owner = allowed(); return shell { userServices.unbind(owner.uid, identities.resolve(owner.uid), conn, args) } }
