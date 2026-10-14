@@ -6,7 +6,7 @@
 package fr.sygix.tsuyu.server
 
 data class AccessGroup(val uid: Int, val members: Map<String, String>) {
-    init { require(uid >= 10000 && members.isNotEmpty() && members.all { it.key.isNotBlank() && it.value.isNotBlank() }) }
+    init { require(uid >= 0 && members.isNotEmpty() && members.all { it.key.isNotBlank() && it.value.isNotBlank() }) }
 }
 data class AccessDecision(val group: AccessGroup, val allowed: Boolean)
 interface AccessStorage {
@@ -28,6 +28,10 @@ class AccessAuthority(private val resolve: (Int) -> AccessGroup, private val sto
     @Synchronized fun decide(uid: Int, allowed: Boolean) {
         val group = resolve(uid)
         storage.write(storage.read().filterNot { it.group.uid == uid } + AccessDecision(group, allowed))
+    }
+    @Synchronized fun decide(expected: AccessGroup, allowed: Boolean) {
+        check(resolve(expected.uid) == expected) { "Consent identity changed" }
+        storage.write(storage.read().filterNot { it.group.uid == expected.uid } + AccessDecision(expected, allowed))
     }
     @Synchronized fun clear(uid: Int) { storage.write(storage.read().filterNot { it.group.uid == uid }) }
 }

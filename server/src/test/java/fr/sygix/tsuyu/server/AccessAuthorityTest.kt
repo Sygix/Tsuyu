@@ -59,4 +59,24 @@ class AccessAuthorityTest {
         group = original
         assertFalse(authority.allowed(group.uid))
     }
+    @Test fun installedSystemClientsStillRequireExplicitMatchingConsent() {
+        val storage = Storage()
+        val group = AccessGroup(1000, mapOf("platform-client" to "platform-signer"))
+        val authority = AccessAuthority({ group }, storage)
+        assertFalse(authority.allowed(group.uid))
+        authority.decide(group.uid, true)
+        assertTrue(authority.allowed(group.uid))
+        authority.decide(group.uid, false)
+        assertFalse(authority.allowed(group.uid))
+        assertThrows(IllegalArgumentException::class.java) { AccessGroup(-1, group.members) }
+    }
+    @Test fun aPendingDecisionCannotGrantTheIdentityThatReplacedItsDisplayedGroup() {
+        val storage = Storage()
+        val expected = AccessGroup(10001, mapOf("first" to "signer"))
+        val changed = expected.copy(members = expected.members + ("second" to "signer"))
+        val authority = AccessAuthority({ changed }, storage)
+        assertThrows(IllegalStateException::class.java) { authority.decide(expected, true) }
+        assertFalse(authority.allowed(expected.uid))
+        assertTrue(storage.values.isEmpty())
+    }
 }

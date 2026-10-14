@@ -95,7 +95,7 @@ internal class UserServices(private val apk: String, private val managerUser: In
     @Synchronized fun attach(binder: IBinder, token: String, pid: Int) {
         val record = records.values.singleOrNull { it.token == token && it.binder == null } ?: throw SecurityException("Invalid launch token")
         val process = requireNotNull(record.process)
-        val ownedPid = process.javaClass.getDeclaredField("pid").apply { isAccessible = true }.getInt(process)
+        val ownedPid = OwnedProcess(process).pid
         require(ownedPid == pid) { "Child identity mismatch" }
         record.binder = binder
         binder.linkToDeath({ synchronized(this) { remove(record) } }, 0)
@@ -110,8 +110,9 @@ internal class UserServices(private val apk: String, private val managerUser: In
     @Synchronized fun revoke(uid: Int) { records.values.filter { it.uid == uid }.toList().forEach(::remove) }
     @Synchronized fun close() { records.values.toList().forEach(::remove); events.shutdown(); callbacks.shutdown(); deadline.close() }
     private fun remove(record: Record) {
-        if (!records.remove(record.key, record)) return
-        record.process?.destroyForcibly()
+        if (records[record.key] != record) return
+        record.process?.let { OwnedProcess(it).terminate() }
+        records.remove(record.key, record)
         record.callbacks.values.toList().forEach { callback -> try { callbacks.execute {
             try { deadline.call { callback.died() } } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService death callback failed", failure) }
         } } catch (failure: java.util.concurrent.RejectedExecutionException) { android.util.Log.e("TsuyuServer", "UserService callback capacity exceeded", failure) } }

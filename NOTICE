@@ -28,7 +28,7 @@ Shizuku-API
   provider/src/main/java/moe/shizuku/api/BinderContainer.java.
   Remote forwarding and process descriptor semantics are adapted from
   server-shared/src/main/java/rikka/shizuku/server/Service.java and
-  api/src/main/java/rikka/shizuku/RemoteProcessHolder.java.
+  server-shared/src/main/java/rikka/shizuku/server/api/RemoteProcessHolder.java.
 
 Shevery
   https://github.com/HmnDev-Tech/shevery

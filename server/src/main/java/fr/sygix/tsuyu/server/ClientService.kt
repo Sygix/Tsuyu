@@ -35,9 +35,11 @@ internal class ClientService(
     private val securityContext: () -> String = { Class.forName("android.os.SELinux").getMethod("getContext").invoke(null) as String },
     private val onRequestEnded: (String) -> Unit = {},
     private val reportFailure: () -> Unit = {},
+    private val elapsed: () -> Long = android.os.SystemClock::elapsedRealtime,
+    private val showRequest: (String, Int) -> Unit = { token, user -> ActivityManagerApis.startActivity(Intent().setComponent(ComponentName("fr.sygix.tsuyu", "fr.sygix.tsuyu.access.PermissionActivity")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("request", token), "com.android.shell", user) },
 ) : IShizukuService.Stub() {
-    private data class Client(val uid: Int, val pid: Int, val group: AccessGroup, val api: Int, val callback: IShizukuApplication)
-    private data class Request(val token: String, val client: Client, val code: Int)
+    private data class Client(val uid: Int, val pid: Int, val group: AccessGroup, val api: Int, val callback: IShizukuApplication, val packageName: String)
+    private data class Request(val token: String, val client: Client, val code: Int, val expires: Long, val group: AccessGroup)
     private val clients = ConcurrentHashMap<Pair<Int, Int>, Client>()
     private val requests = ConcurrentHashMap<String, Request>()
     private val processes = ConcurrentHashMap<RemoteProcess, Client>()
@@ -46,7 +48,9 @@ internal class ClientService(
     fun shutdown() { processes.keys.forEach { it.close() }; processes.clear(); userServices.close(); events.shutdownNow() }
     private fun manager() { if (uid() != managerUid) throw SecurityException("Manager identity required") }
     private fun client(): Client = clients[uid() to pid()] ?: throw SecurityException("Attach first")
-    private fun allowed(): Client = client().also { if (!shell { access.allowed(it.uid) && identities.resolve(it.uid) == it.group }) throw SecurityException("Permission denied") }
+    private fun allowed(): Client = client().also { record ->
+        if (!shell { access.allowed(record.uid) && identities.resolve(record.uid).members[record.packageName] == record.group.members[record.packageName] }) throw SecurityException("Permission denied")
+    }
     private fun <T> shell(block: () -> T): T {
         val token = Binder.clearCallingIdentity()
         try { return block() } finally { Binder.restoreCallingIdentity(token) }
@@ -56,7 +60,7 @@ internal class ClientService(
         val uid = uid(); val pid = pid()
         val group = shell { identities.resolve(uid) }
         require(args.getString(ATTACH_APPLICATION_PACKAGE_NAME) in group.members) { "Package does not belong to caller" }
-        val record = Client(uid, pid, group, args.getInt(ATTACH_APPLICATION_API_VERSION), application)
+        val record = Client(uid, pid, group, args.getInt(ATTACH_APPLICATION_API_VERSION), application, requireNotNull(args.getString(ATTACH_APPLICATION_PACKAGE_NAME)))
         val key = uid to pid
         application.asBinder().linkToDeath({
             clients.remove(key, record)
@@ -78,12 +82,12 @@ internal class ClientService(
     override fun getUid(): Int { allowed(); return Os.getuid() }
     override fun getSELinuxContext(): String { allowed(); return shell { context() } }
     override fun checkPermission(permission: String): Int { allowed(); return shell { deadline.call { ActivityManagerApis.checkPermission(permission, android.os.Process.myPid(), Os.getuid()) } } }
-    override fun getSystemProperty(name: String, defaultValue: String): String { allowed(); return shell { Class.forName("android.os.SystemProperties").getMethod("get", String::class.java, String::class.java).invoke(null, name, defaultValue) as String } }
-    override fun setSystemProperty(name: String, value: String) { allowed(); shell { Class.forName("android.os.SystemProperties").getMethod("set", String::class.java, String::class.java).invoke(null, name, value) } }
+    override fun getSystemProperty(name: String, defaultValue: String?): String { allowed(); return shell { Class.forName("android.os.SystemProperties").getMethod("get", String::class.java, String::class.java).invoke(null, name, defaultValue ?: "") as String } }
+    override fun setSystemProperty(name: String, value: String?) { allowed(); shell { Class.forName("android.os.SystemProperties").getMethod("set", String::class.java, String::class.java).invoke(null, name, value ?: "") } }
     override fun checkSelfPermission(): Boolean { val uid = client().uid; return shell { access.allowed(uid) } }
     override fun shouldShowRequestPermissionRationale(): Boolean { val uid = client().uid; return shell { access.rationale(uid) } }
     override fun isHidden(uid: Int): Boolean { if (Binder.getCallingUid() != managerUid) client(); return false }
-    override fun dispatchPackageChanged(intent: Intent) { manager() }
+    override fun dispatchPackageChanged(intent: Intent?) { manager() }
     override fun exit() { manager(); stop() }
     override fun getFlagsForUid(uid: Int, mask: Int): Int { manager(); return shell { (if (access.allowed(uid)) 2 else if (access.rationale(uid)) 4 else 0) and mask } }
     override fun updateFlagsForUid(uid: Int, mask: Int, value: Int) {
@@ -100,33 +104,57 @@ internal class ClientService(
     }
     override fun requestPermission(requestCode: Int) {
         val record = client()
-        check(requests.size < 8) { "Too many pending requests" }
-        val request = Request(UUID.randomUUID().toString(), record, requestCode)
-        requests[request.token] = request
+        val request = lifecycle.withUid(record.uid) { shell {
+        val current = identities.resolve(record.uid)
+        check(current.members[record.packageName] == record.group.members[record.packageName]) { "Client identity changed; reopen the application" }
+        if (access.allowed(record.uid)) null else synchronized(requests) {
+            check(requests.size < 8) { "Too many pending requests" }
+            check(requests.values.none { it.client == record && it.code == requestCode }) { "Request already pending" }
+            Request(UUID.randomUUID().toString(), record, requestCode, elapsed() + 120000, current).also { requests[it.token] = it }
+        } } }
+        if (request == null) {
+            deadline.call { record.callback.dispatchRequestPermissionResult(requestCode, Bundle().apply { putBoolean(REQUEST_PERMISSION_REPLY_ALLOWED, true) }) }
+            return
+        }
         events.schedule({ complete(request.token, false) }, 120, TimeUnit.SECONDS)
         try {
-            shell { deadline.call { ActivityManagerApis.startActivity(Intent().setComponent(ComponentName("fr.sygix.tsuyu", "fr.sygix.tsuyu.access.PermissionActivity")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("request", request.token), "com.android.shell", record.uid / 100000) } }
+            shell { deadline.call { showRequest(request.token, record.uid / 100000) } }
         } catch (failure: Exception) { complete(request.token, false); throw IllegalStateException("Open Tsuyu and retry permission", failure) }
     }
     fun request(token: String): Bundle {
         manager()
         val request = requests[token] ?: error("Request expired")
-        check(shell { identities.resolve(request.client.uid) } == request.client.group) { "Identity changed" }
-        return Bundle().apply { putInt("uid", request.client.uid); putStringArrayList("packages", ArrayList(request.client.group.members.keys)); putString("token", request.token) }
+        if (elapsed() >= request.expires) { complete(token, false); error("Request expired") }
+        check(shell { identities.resolve(request.client.uid) } == request.group) { "Identity changed" }
+        return Bundle().apply { putInt("uid", request.client.uid); putStringArrayList("packages", ArrayList(listOf(request.client.packageName) + request.group.members.keys.filterNot { it == request.client.packageName })); putString("token", request.token) }
     }
     fun confirm(token: String, allowed: Boolean) { manager(); complete(token, allowed) }
     private fun complete(token: String, allowed: Boolean) {
-        val request = requests.remove(token) ?: return
-        onRequestEnded(token)
-        if (clients[request.client.uid to request.client.pid] != request.client) return
-        val result = try {
-            shell {
-                check(identities.resolve(request.client.uid) == request.client.group)
-                access.decide(request.client.uid, allowed)
-            }; allowed
-        } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Consent commit failed", failure); reportFailure(); false }
-        try { deadline.call { request.client.callback.dispatchRequestPermissionResult(request.code, Bundle().apply { putBoolean(REQUEST_PERMISSION_REPLY_ALLOWED, result) }) } }
-        catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Permission callback failed", failure); reportFailure() }
+        val owner = requests[token]?.client ?: return
+        val completed = lifecycle.withUid(owner.uid) {
+            val request = requests.remove(token) ?: return@withUid emptyList<Pair<Request, Boolean>>()
+            val now = elapsed()
+            val targets = mutableListOf(request)
+            var result = false
+            try {
+                if (clients[request.client.uid to request.client.pid] == request.client) shell {
+                    check(identities.resolve(request.client.uid) == request.group) { "Consent identity changed" }
+                    if (now < request.expires) synchronized(requests) {
+                        requests.values.filter { it.group == request.group }.toList().forEach { pending -> if (requests.remove(pending.token, pending)) targets.add(pending) }
+                    }
+                    if (now < request.expires || !access.allowed(request.client.uid)) access.decide(request.group, allowed && now < request.expires)
+                    result = allowed && now < request.expires
+                }
+            } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Consent commit failed", failure); reportFailure() }
+            targets.map { it to (result && now < it.expires) }
+        }
+        completed.forEach { (request, granted) ->
+            onRequestEnded(request.token)
+            if (clients[request.client.uid to request.client.pid] == request.client) {
+                try { deadline.call { request.client.callback.dispatchRequestPermissionResult(request.code, Bundle().apply { putBoolean(REQUEST_PERMISSION_REPLY_ALLOWED, granted) }) } }
+                catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Permission callback failed", failure); reportFailure() }
+            }
+        }
     }
     override fun dispatchPermissionConfirmationResult(requestUid: Int, requestPid: Int, requestCode: Int, data: Bundle) {
         manager()

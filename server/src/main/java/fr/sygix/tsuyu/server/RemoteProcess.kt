@@ -2,7 +2,7 @@
  * Copyright (c) 2021 RikkaW
  * Copyright (C) 2026 Sygix
  * SPDX-License-Identifier: MIT
- * Modified by Sygix from Shizuku-API/api/src/main/java/rikka/shizuku/RemoteProcessHolder.java.
+ * Modified by Sygix from Shizuku-API/server-shared/src/main/java/rikka/shizuku/server/api/RemoteProcessHolder.java.
  */
 
 package fr.sygix.tsuyu.server
@@ -45,10 +45,12 @@ internal class RemoteProcess(private val process: java.lang.Process, private val
         catch (failure: RuntimeException) { throw failure }
         catch (failure: Exception) { throw IllegalStateException("Process operation failed", failure) }
     }
-    fun close() {
+    @Synchronized fun close() {
         if (!closed.compareAndSet(false, true)) return
-        process.destroyForcibly()
+        try {
+        OwnedProcess(process).terminate()
         (stdin + stdout + stderr).forEach { it.close() }
         process.inputStream.close(); process.errorStream.close(); process.outputStream.close()
+        } catch (failure: Exception) { closed.set(false); throw failure }
     }
 }
