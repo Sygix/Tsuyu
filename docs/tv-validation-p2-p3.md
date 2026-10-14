@@ -6,7 +6,7 @@ Executor: Claude with access to the reference TCL Google TV running Android 14. 
 
 - Install **the combined P2/P3 production-signed CI release** as `tsuyu.apk`, plus the pinned upstream Shizuku-API demo as `demo.apk`. Never replace the existing production signature with a development signature.
 - This session creates no tag. The production APK becomes available only after the owner authorizes a release tag on the selected reviewed commit and the existing release workflow completes. Download its `tsuyu.apk` asset with `gh release download <approved-tag> --pattern tsuyu.apk`.
-- The demo is external test material from Shizuku-API 13.1.5. Use the same built demo APK as the final emulator session; record its reference commit and checksum with that session's evidence.
+- The demo is external test material from Shizuku-API 13.1.5, snapshot `a27f6e4151ba7b39965ca47edb2bf0aeed7102e5`. Use `demo-shizuku-api13.1.5-debug.apk`, SHA-256 `2ba45bedb6e7d2d37ac3e75680047423219fd60458fc9d2e04aaefd11ab463ea`.
 
 ## Commands and checks
 
@@ -26,7 +26,7 @@ adb shell appops get fr.sygix.tsuyu AUTO_START
 
 Expected: UID and package modes are independently `allow`; Tsuyu separately shows active service and prepared reboot access. Save only sanitized mode output.
 
-2. In the upstream demo, request permission. Expected: Tsuyu identifies the demo; **Refuser** initially focused; D-pad selects **Autoriser**; completion returns to the demo. Execute its privileged Binder operation and retain the shell-UID result. Revoke in Tsuyu and verify the demo no longer executes privileged calls. Then explicitly authorize it again so the reboot retention check has a grant to retain.
+2. In the upstream demo, request permission. Expected: Tsuyu identifies the demo; **Refuser** initially focused; D-pad selects **Autoriser**; completion returns to the demo. Execute its privileged Binder operation and retain only a sanitized success assertion, without publishing profile names. Revoke in Tsuyu and verify denial. Then request and explicitly grant again from the unchanged demo, leaving that grant for the reboot retention check. Revocation clears consent; it is distinct from choosing “Refuser”, whose rationale the demo intentionally treats as a recorded refusal.
 
 3. Leave Tsuyu's process absent without force-stopping it, then perform **one cold reboot**. Do not open Tsuyu after restart. Do not use force-stop, which disables normal Android receiver delivery.
 

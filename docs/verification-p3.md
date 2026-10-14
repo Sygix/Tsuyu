@@ -1,14 +1,14 @@
 # P3 verification
 
-Status: partial, not ready for merge/archive until remaining scenario coverage and runtime proof. Accepted requirements are unchanged. P3 is stacked on P2, whose open evidence is recorded separately.
+Status: partial acceptance coverage; core release boot/client/expiry evidence passes, while remaining scenario criteria and real-TV proof stay open. Accepted requirements are unchanged. P3 is stacked on P2, whose evidence is recorded separately.
 
 ## OpenSpec verification scorecard
 
 | Dimension | Result |
 | --- | --- |
 | Completeness | Implementation exists for all six requirements; full task criteria remain partially verified and incomplete tasks remain open |
-| Correctness | Preparation, optional expiry, bounded retries and prerequisite behavior have JVM evidence; receiver/update/runtime scenarios remain unverified |
-| Coherence | Same P1 coordinator/key/handshake; P2 consent unchanged; single app-private persistence ledger; no upstream permission declaration or generic settings endpoint |
+| Correctness | JVM evidence plus core release boot/client/expiry and successful replacement proof; remaining failure/process-death permutations partially verified |
+| Coherence | Same P1 coordinator/key/handshake; P2 consent unchanged; one app-private authority with independently bounded event records; no upstream permission declaration or generic settings endpoint |
 
 ## Evidence
 
@@ -21,21 +21,22 @@ Status: partial, not ready for merge/archive until remaining scenario coverage a
 - `RestartRunnerTest`: virtual-time delayed endpoint then live handshake, finite exhaustion, disabled/unknown debugging, manual/boot overlap and permanent authentication failure.
 - `PersistenceControllerTest`: viewing/enablement cannot disable expiry, explicit action/read-back, already-disabled no-op, later system policy retained, disabled debugging/missing shell cannot prepare enablement.
 - `PersistenceNavigationTest`: conservative optional focus, explicit center activation, edge cancellation, disappearance fallback, details entry restoration and read-only status.
+- Release observations and exact limits: `runtime-p3.md`; final P2 protocol assertions and APK hashes: `runtime-p2.md`.
 
 ## Requirement/scenario map
 
 | Requirement | Implementation | Remaining scenario evidence |
 | --- | --- | --- |
 | Consented preparation | `PersistenceController.enable`, `PersistenceControl`, disclosure resources | Actual vendor UID/package modes and cold-boot gate remain TV-only; command malformed-query and per-mode grant failures need broader JVM coverage |
-| Optional global expiry | Fixed-key manager-only operation, current policy read-back, expiry screen | Actual emulator shell write/read-back and timeout reconciliation; Back/activity destruction test and richer unavailable/denied cases |
+| Optional global expiry | Fixed-key manager-only operation, current policy read-back, expiry screen | Emulator explicit write/read-back passes; timeout reconciliation, activity destruction and richer unavailable/denied cases need broader proof |
 | Respect debugging disabling | Preflight in `RestartRunner`; P1 coordinator for manual/retry | P1 JVM disabled/unknown/deadline guards and new runner tests; actual emulator setting remains outside TV |
-| Bounded automatic restart | `BootReceiver`, unique `RestartWorker`, persisted `RestartBudget`/`PersistenceStore` | Actual boot delivery from absent process, restored emulator endpoint, fresh demo binder and permission; receiver scheduling/process-death persistence tests |
-| Restart after update | Same receiver/worker; old-server cleanup before update startup; installed APK resolved by P1 | Same-signature update, death/current classpath, failure/timeout and uninstall integration remain unverified |
+| Bounded automatic restart | `BootReceiver`, unique `RestartWorker`, persisted `RestartBudget`/`PersistenceStore` | Core absent-process boot, fresh binder/consent/shell result pass; receiver/database process-death regressions remain incomplete |
+| Restart after update | Same receiver/worker; old-server cleanup before update startup; installed APK resolved by P1 | Successful same-signature replacement passes; failure/timeout and uninstall integration remain unverified |
 | Status/recovery/navigation | Immutable Home state plus persistence/expiry ViewModels and French resources | Live readiness/removal checks on resume; specific outcome recovery labels and more focus/Back integration cases remain to verify |
 
 ## Critical / warning items
 
-- CRITICAL: incomplete task acceptance criteria and combined release E2E; do not mark these tasks complete or archive.
+- CRITICAL before archive: incomplete task acceptance criteria and real-TV proof. The passed core combined E2E does not close unexecuted permutations.
 - WARNING: no real-TV evidence exists yet. Only Claude's final vendor/hardware session can validate those scenarios.
 - WARNING: no production-signed CI APK can be issued by this session because release CI requires an owner-authorized tag. The local release APK is an emulator-only development-signed build.
 - WARNING: a finite work schedule cannot promise precise boot timing under Android deferral; standard scheduling on a missing vendor operation does not claim verified vendor readiness.
