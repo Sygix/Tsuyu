@@ -14,11 +14,20 @@ interface AccessStorage {
     fun write(decisions: List<AccessDecision>)
 }
 class AccessAuthority(private val resolve: (Int) -> AccessGroup, private val storage: AccessStorage) {
+    private var saved: List<AccessDecision>? = null
+    @Synchronized fun invalidate() { saved = null }
+    @Synchronized fun reload() { saved = null; saved = storage.read() }
+    private fun read(): List<AccessDecision> = saved ?: storage.read().also { saved = it }
+    private fun write(decisions: List<AccessDecision>) {
+        saved = null
+        storage.write(decisions)
+        saved = decisions
+    }
     @Synchronized private fun decision(uid: Int): AccessDecision? {
         val group = resolve(uid)
-        val decisions = storage.read()
+        val decisions = read()
         if (decisions.any { it.group.uid == uid && it.group != group }) {
-            storage.write(decisions.filterNot { it.group.uid == uid })
+            write(decisions.filterNot { it.group.uid == uid })
             return null
         }
         return decisions.singleOrNull { it.group == group }
@@ -27,11 +36,11 @@ class AccessAuthority(private val resolve: (Int) -> AccessGroup, private val sto
     fun rationale(uid: Int): Boolean = decision(uid)?.allowed == false
     @Synchronized fun decide(uid: Int, allowed: Boolean) {
         val group = resolve(uid)
-        storage.write(storage.read().filterNot { it.group.uid == uid } + AccessDecision(group, allowed))
+        write(read().filterNot { it.group.uid == uid } + AccessDecision(group, allowed))
     }
     @Synchronized fun decide(expected: AccessGroup, allowed: Boolean) {
         check(resolve(expected.uid) == expected) { "Consent identity changed" }
-        storage.write(storage.read().filterNot { it.group.uid == expected.uid } + AccessDecision(expected, allowed))
+        write(read().filterNot { it.group.uid == expected.uid } + AccessDecision(expected, allowed))
     }
-    @Synchronized fun clear(uid: Int) { storage.write(storage.read().filterNot { it.group.uid == uid }) }
+    @Synchronized fun clear(uid: Int) { write(read().filterNot { it.group.uid == uid }) }
 }

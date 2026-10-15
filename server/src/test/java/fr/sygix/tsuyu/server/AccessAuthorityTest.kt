@@ -9,6 +9,30 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AccessAuthorityTest {
+    @Test fun repeatedPrivilegeChecksDoNotReadTheManagerAgain() {
+        val group = AccessGroup(10001, mapOf("client" to "signer"))
+        var reads = 0
+        val storage = object : AccessStorage {
+            override fun read(): List<AccessDecision> { reads++; return listOf(AccessDecision(group, true)) }
+            override fun write(decisions: List<AccessDecision>) = Unit
+        }
+        val authority = AccessAuthority({ group }, storage)
+        repeat(50) { assertTrue(authority.allowed(group.uid)) }
+        assertEquals(1, reads)
+    }
+    @Test fun doubtDiscardsCachedConsentAndUnreadableStorageFailsClosed() {
+        val group = AccessGroup(10001, mapOf("client" to "signer"))
+        var unreadable = false
+        val storage = object : AccessStorage {
+            override fun read(): List<AccessDecision> { check(!unreadable); return listOf(AccessDecision(group, true)) }
+            override fun write(decisions: List<AccessDecision>) = Unit
+        }
+        val authority = AccessAuthority({ group }, storage)
+        assertTrue(authority.allowed(group.uid))
+        unreadable = true
+        authority.invalidate()
+        assertThrows(IllegalStateException::class.java) { authority.allowed(group.uid) }
+    }
     private class Storage : AccessStorage {
         var values = emptyList<AccessDecision>()
         var fail = false
