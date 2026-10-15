@@ -9,9 +9,12 @@ import android.os.Bundle
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal class ManagerStorage(private val bridge: ProviderBridge, private val deadline: Deadline) : AccessStorage {
+internal class ManagerStorage(private val request: (String, Bundle) -> Bundle?) : AccessStorage {
+    constructor(bridge: ProviderBridge, deadline: Deadline) : this({ method, data ->
+        deadline.call(Deadline.Use.STORAGE) { bridge.call("fr.sygix.tsuyu.manager", method, data) }
+    })
     override fun read(): List<AccessDecision> {
-        val result = deadline.call(Deadline.Use.STORAGE) { bridge.call("fr.sygix.tsuyu.manager", "readAccess", Bundle()) }
+        val result = request("readAccess", Bundle())
         val array = JSONArray(requireNotNull(result?.getString("access")))
         return (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
@@ -22,6 +25,6 @@ internal class ManagerStorage(private val bridge: ProviderBridge, private val de
     override fun write(decisions: List<AccessDecision>) {
         val array = JSONArray()
         decisions.forEach { array.put(JSONObject().put("uid", it.group.uid).put("members", JSONObject(it.group.members)).put("allowed", it.allowed)) }
-        check(deadline.call(Deadline.Use.STORAGE) { bridge.call("fr.sygix.tsuyu.manager", "writeAccess", Bundle().apply { putString("access", array.toString()) }) }?.getBoolean("saved") == true)
+        check(request("writeAccess", Bundle().apply { putString("access", array.toString()) })?.getBoolean("saved") == true)
     }
 }
