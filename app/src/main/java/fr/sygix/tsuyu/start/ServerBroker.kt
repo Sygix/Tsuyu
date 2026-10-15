@@ -32,6 +32,7 @@ class ServerBroker(context: Context) {
     }
     @Synchronized fun receive(uid: Int, extra: Bundle, pid: Int = Binder.getCallingPid()): Bundle {
         require(uid == 2000) { "Shell provider caller required" }
+        check(mutable.value?.asBinder()?.isBinderAlive != true || pid == serverPid) { "Another live server is already authenticated" }
         require(extra.getString("token") == preferences.getString("token", null) && extra.getString("token") != null)
         require(extra.getString("generation") == preferences.getString("generation", null))
         val binder = requireNotNull(extra.getBinder("server"))

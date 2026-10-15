@@ -63,9 +63,13 @@ internal class RemoteProcess(
         if (!closed.compareAndSet(false, true)) return
         try { OwnedProcess(process).terminate() }
         finally {
-            (stdin + stdout + stderr).forEach { it.close() }
-            process.inputStream.close(); process.errorStream.close(); process.outputStream.close()
-            released(this)
+            try {
+                Cleanup.run((stdin + stdout + stderr).map { descriptor -> { descriptor.close() } } + listOf(
+                    { process.inputStream.close() },
+                    { process.errorStream.close() },
+                    { process.outputStream.close() },
+                ))
+            } finally { released(this) }
         }
     }
     protected fun finalize() { close() }

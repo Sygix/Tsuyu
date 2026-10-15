@@ -31,6 +31,7 @@ class ServerBrokerTest {
             })
         }, 123)
         broker.authenticateServer(123)
+        assertThrows(IllegalStateException::class.java) { broker.receive(2000, Bundle(), 124) }
         assertThrows(IllegalStateException::class.java) { broker.authenticateServer(124) }
         assertThrows(IllegalStateException::class.java) { broker.authenticateServer(0) }
     }

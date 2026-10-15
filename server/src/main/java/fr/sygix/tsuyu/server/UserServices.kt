@@ -54,11 +54,12 @@ internal class UserServices(
         callbacks.execute {
             val binder = synchronized(this) { record.binder?.takeIf { records[record.key] == record && conn.asBinder() in record.callbacks } } ?: return@execute
             try { deadline.call { conn.connected(binder) } }
-            catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); synchronized(this) { record.callbacks.remove(conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
+            catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); synchronized(this) { record.callbacks.remove(conn.asBinder()); unlink(record, conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
         }
         return true
         } catch (failure: java.util.concurrent.RejectedExecutionException) {
             record.callbacks.remove(conn.asBinder())
+            unlink(record, conn.asBinder())
             if (!record.daemon && record.callbacks.isEmpty()) remove(record)
             android.util.Log.e("TsuyuServer", "UserService connection capacity exceeded", failure)
             return false
