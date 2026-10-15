@@ -21,6 +21,9 @@
             android:authorities="fr.sygix.tsuyu.manager"
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <receiver android:name=".start.PackageReplacementReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
+        </receiver>
         <receiver android:name=".persistence.BootReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

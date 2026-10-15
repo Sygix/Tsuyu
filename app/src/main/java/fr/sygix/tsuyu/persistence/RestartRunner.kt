@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
 enum class RestartResult { SUCCESS, FAILURE, RETRY }
-class RestartRunner(private val store: PersistenceStorage, private val coordinator: StartCoordinator, private val settings: SystemSettings, private val clock: () -> Long, private val cleanupUpdate: suspend () -> Unit = {}, private val io: BoundedIo = BoundedIo()) {
+class RestartRunner(private val store: PersistenceStorage, private val coordinator: StartCoordinator, private val settings: SystemSettings, private val clock: () -> Long, private val io: BoundedIo = BoundedIo()) {
     suspend fun run(event: String): RestartResult {
         var record: RestartRecord? = null
         try {
@@ -46,7 +46,6 @@ class RestartRunner(private val store: PersistenceStorage, private val coordinat
                     coroutineScope {
                         val observer = launch { coordinator.state.collect { if (it.phase == Phase.AUTHORIZING) authorizing = true } }
                         try {
-                            if (event.startsWith("update:")) cleanupUpdate()
                             coordinator.start()
                             coordinator.refresh()
                         } finally { observer.cancel() }

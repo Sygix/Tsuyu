@@ -18,7 +18,7 @@ class RestartWorker(context: Context, parameters: WorkerParameters) : CoroutineW
         val boot = android.provider.Settings.Global.getInt(applicationContext.contentResolver, android.provider.Settings.Global.BOOT_COUNT)
         val update = applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).lastUpdateTime
         if (!RestartEvents.current(event, boot, update)) return Result.success()
-        return when (RestartRunner(graph.persistence, graph.coordinator, graph.settings, SystemClock::elapsedRealtime, graph::stopReplacedServer).run(event)) {
+        return when (RestartRunner(graph.persistence, graph.coordinator, graph.settings, SystemClock::elapsedRealtime).run(event)) {
             RestartResult.SUCCESS -> Result.success()
             RestartResult.FAILURE -> Result.failure()
             RestartResult.RETRY -> Result.retry()
