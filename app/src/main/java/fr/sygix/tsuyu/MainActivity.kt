@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
     private fun handleAction(action: Action) {
         if (action == Action.APPS) {
             model.act(action)
-            startActivity(Intent(this, fr.sygix.tsuyu.access.PermissionActivity::class.java))
+            startActivity(Intent(this, fr.sygix.tsuyu.access.AccessActivity::class.java))
             return
         }
         if (action == Action.SETTINGS) {
