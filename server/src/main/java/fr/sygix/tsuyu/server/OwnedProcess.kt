@@ -14,7 +14,7 @@ internal class OwnedProcess(private val process: java.lang.Process, private val 
     fun terminate() {
         synchronized(process) {
             if (process.isAlive) {
-                try { kill(pid) }
+                try { kill(-pid) }
                 catch (failure: android.system.ErrnoException) { if (failure.errno != OsConstants.ESRCH) throw failure }
             }
         }

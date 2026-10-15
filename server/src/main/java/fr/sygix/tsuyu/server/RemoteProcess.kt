@@ -12,7 +12,11 @@ import moe.shizuku.server.IRemoteProcess
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal class RemoteProcess(private val process: java.lang.Process, private val authorize: () -> Unit) : IRemoteProcess.Stub() {
+internal class RemoteProcess(
+    private val process: java.lang.Process,
+    private val released: (RemoteProcess) -> Unit = {},
+    private val authorize: () -> Unit,
+) : IRemoteProcess.Stub() {
     private val closed = AtomicBoolean()
     private val stdin = ParcelFileDescriptor.createPipe()
     private val stdout = ParcelFileDescriptor.createPipe()
@@ -21,6 +25,16 @@ internal class RemoteProcess(private val process: java.lang.Process, private val
         pump(ParcelFileDescriptor.AutoCloseInputStream(stdin[0]), process.outputStream)
         pump(process.inputStream, ParcelFileDescriptor.AutoCloseOutputStream(stdout[1]))
         pump(process.errorStream, ParcelFileDescriptor.AutoCloseOutputStream(stderr[1]))
+    }
+    fun watch() {
+        Thread {
+            try {
+                process.waitFor()
+                stdin[0].close()
+                stdin[1].close()
+                process.outputStream.close()
+            } finally { released(this) }
+        }.apply { isDaemon = true; start() }
     }
     private fun pump(input: java.io.InputStream, output: java.io.OutputStream) {
         Thread {
@@ -47,10 +61,12 @@ internal class RemoteProcess(private val process: java.lang.Process, private val
     }
     @Synchronized fun close() {
         if (!closed.compareAndSet(false, true)) return
-        try {
-        OwnedProcess(process).terminate()
-        (stdin + stdout + stderr).forEach { it.close() }
-        process.inputStream.close(); process.errorStream.close(); process.outputStream.close()
-        } catch (failure: Exception) { closed.set(false); throw failure }
+        try { OwnedProcess(process).terminate() }
+        finally {
+            (stdin + stdout + stderr).forEach { it.close() }
+            process.inputStream.close(); process.errorStream.close(); process.outputStream.close()
+            released(this)
+        }
     }
+    protected fun finalize() { close() }
 }

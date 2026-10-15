@@ -156,9 +156,9 @@ class ClientServiceTest {
     @Test fun pendingRequestsAreFiniteAndDuplicateCodesCannotCreateAnotherPrompt() {
         attach(); service.requestPermission(1)
         assertThrows(IllegalStateException::class.java) { service.requestPermission(1) }
-        (2..8).forEach(service::requestPermission)
-        assertThrows(IllegalStateException::class.java) { service.requestPermission(9) }
-        assertEquals(8, opened.size)
+        service.requestPermission(2)
+        assertThrows(IllegalStateException::class.java) { service.requestPermission(3) }
+        assertEquals(2, opened.size)
         assertFalse(service.checkSelfPermission())
     }
     @Test fun signerChangeBetweenRequestAndConfirmationNeverPublishesSuccess() {
