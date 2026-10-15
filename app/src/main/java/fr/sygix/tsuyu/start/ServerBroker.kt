@@ -18,20 +18,27 @@ class ServerBroker(context: Context) {
     private val mutable = MutableStateFlow<ITsuyuServer?>(null)
     val server = mutable.asStateFlow()
     private val client = Binder()
+    private var serverPid: Int? = null
+    @Synchronized fun authenticateServer(pid: Int) {
+        check(pid > 0 && pid == serverPid && mutable.value?.asBinder()?.isBinderAlive == true) {
+            "Live authenticated server required"
+        }
+    }
     @Synchronized fun prepare(): Pair<String, String> {
         val token = preferences.getString("token", null) ?: nonce()
         val generation = nonce()
         check(preferences.edit().putString("token", token).putString("generation", generation).commit())
         return token to generation
     }
-    @Synchronized fun receive(uid: Int, extra: Bundle): Bundle {
+    @Synchronized fun receive(uid: Int, extra: Bundle, pid: Int = Binder.getCallingPid()): Bundle {
         require(uid == 2000) { "Shell provider caller required" }
         require(extra.getString("token") == preferences.getString("token", null) && extra.getString("token") != null)
         require(extra.getString("generation") == preferences.getString("generation", null))
         val binder = requireNotNull(extra.getBinder("server"))
         val service = ITsuyuServer.Stub.asInterface(binder)
         require(service.uid == 2000) { "Invalid server uid" }
-        binder.linkToDeath({ synchronized(this) { if (mutable.value?.asBinder() == binder) mutable.value = null } }, 0)
+        binder.linkToDeath({ synchronized(this) { if (mutable.value?.asBinder() == binder) { mutable.value = null; serverPid = null } } }, 0)
+        serverPid = pid
         mutable.value = service
         return Bundle().apply { putBinder("client", client) }
     }

@@ -17,6 +17,23 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class ServerBrokerTest {
+    @Test fun shellChildrenCannotWriteManagerStateOrForgeStatusEvents() {
+        val broker = ServerBroker(ApplicationProvider.getApplicationContext())
+        val (token, generation) = broker.prepare()
+        assertThrows(IllegalStateException::class.java) { broker.authenticateServer(123) }
+        broker.receive(2000, Bundle().apply {
+            putString("token", token)
+            putString("generation", generation)
+            putBinder("server", object : TestServerStub() {
+                override fun getUid() = 2000
+                override fun isReady() = true
+                override fun exit() = Unit
+            })
+        }, 123)
+        broker.authenticateServer(123)
+        assertThrows(IllegalStateException::class.java) { broker.authenticateServer(124) }
+        assertThrows(IllegalStateException::class.java) { broker.authenticateServer(0) }
+    }
     @Test fun forgedUidStaleGenerationAndNonShellServerAreRejected() {
         val broker = ServerBroker(ApplicationProvider.getApplicationContext())
         val (token, generation) = broker.prepare()

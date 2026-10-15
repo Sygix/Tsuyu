@@ -22,8 +22,9 @@ class ManagerProvider : ContentProvider() {
         val identity = Binder.clearCallingIdentity()
         try {
             val graph = TsuyuGraph.get(requireNotNull(context))
+            if (method != "sendServer" && method != "attachUserService") graph.broker.authenticateServer(pid)
             return when (method) {
-                "sendServer" -> graph.broker.receive(uid, extras)
+                "sendServer" -> graph.broker.receive(uid, extras, pid).also { graph.compatibility.value = true }
                 "readAccess" -> Bundle().apply { putString("access", graph.consent.read()) }
                 "writeAccess" -> Bundle().apply { graph.consent.write(requireNotNull(extras.getString("access"))); putBoolean("saved", true) }
                 "attachUserService" -> {
@@ -34,6 +35,7 @@ class ManagerProvider : ContentProvider() {
                 }
                 "requestEnded" -> Bundle().apply { check(graph.requestEnded.tryEmit(requireNotNull(extras.getString("request")))) }
                 "compatibilityFailure" -> Bundle().apply { graph.compatibility.value = false }
+                "compatibilitySuccess" -> Bundle().apply { graph.compatibility.value = true }
                 else -> throw IllegalArgumentException("Unknown manager operation")
             }
         }
