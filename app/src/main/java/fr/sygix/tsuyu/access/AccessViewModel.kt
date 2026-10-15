@@ -19,11 +19,17 @@ import kotlinx.coroutines.launch
 
 data class AccessApp(val name: String, val icon: Bitmap)
 data class AccessRow(val uid: Int, val apps: List<AccessApp>)
-data class AccessUi(val loading: Boolean = true, val rows: List<AccessRow> = emptyList(), val error: Boolean = false, val finished: Boolean = false, val focus: Int? = null)
+data class AccessUi(val loading: Boolean = true, val rows: List<AccessRow> = emptyList(), val error: Boolean = false, val finished: Boolean = false, val focus: Int? = null, val permission: Boolean = false) {
+    val presentation = AccessPresentation.from(this)
+}
 
 class AccessViewModel(private val context: Context, private val server: () -> ITsuyuServer?, private val token: String?, private val io: BoundedIo = BoundedIo(), ended: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.emptyFlow()) : ViewModel() {
-    private val mutable = MutableStateFlow(AccessUi())
+    private val mutable = MutableStateFlow(AccessUi(permission = token != null))
     val ui = mutable.asStateFlow()
+    fun back() {
+        if (token == null || mutable.value.error) mutable.value = mutable.value.copy(finished = true)
+        else confirm(false)
+    }
     init {
         viewModelScope.launch { ended.collect { if (it == token) mutable.value = mutable.value.copy(finished = true) } }
         refresh()
@@ -43,9 +49,9 @@ class AccessViewModel(private val context: Context, private val server: () -> IT
                     })
                 }
             }
-            if (!mutable.value.finished) mutable.value = AccessUi(loading = false, rows = rows, focus = fallback(mutable.value.focus, rows.map { it.uid }))
+            if (!mutable.value.finished) mutable.value = mutable.value.copy(loading = false, error = false, rows = rows, focus = fallback(mutable.value.focus, rows.map { it.uid }))
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (failure: Exception) { android.util.Log.e("Tsuyu", "Access lookup failed", failure); if (!mutable.value.finished) mutable.value = AccessUi(loading = false, error = true) }
+        catch (failure: Exception) { android.util.Log.e("Tsuyu", "Access lookup failed", failure); if (!mutable.value.finished) mutable.value = mutable.value.copy(loading = false, error = true) }
     } }
     fun confirm(allowed: Boolean) { viewModelScope.launch {
         try { io.call(5000) { requireNotNull(server()).confirm(requireNotNull(token), allowed) }; mutable.value = mutable.value.copy(finished = true) }

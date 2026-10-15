@@ -19,7 +19,6 @@ class PermissionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = intent.getStringExtra("request")
-        val permission = token != null
         val graph = TsuyuGraph.get(this)
         val model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -29,9 +28,9 @@ class PermissionActivity : ComponentActivity() {
         })[AccessViewModel::class.java]
         setContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
-            val back = { if (permission) model.confirm(false) else finish() }
+            val back = model::back
             BackHandler { back() }
-            AccessScreen(ui, permission, model::confirm, model::revoke, model::refresh, back)
+            AccessScreen(ui, model::confirm, model::revoke, model::refresh, back)
             LaunchedEffect(ui.finished) { if (ui.finished) finish() }
         }
     }
