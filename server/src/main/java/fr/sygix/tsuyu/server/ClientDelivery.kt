@@ -14,26 +14,22 @@ import moe.shizuku.api.BinderContainer
 import rikka.hidden.compat.ActivityManagerApis
 import rikka.hidden.compat.PackageManagerApis
 import rikka.hidden.compat.adapter.ProcessObserverAdapter
-import rikka.hidden.compat.adapter.UidObserverAdapter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-internal class ClientDelivery(private val binder: IBinder, private val userId: Int, private val deadline: Deadline, private val reportFailure: () -> Unit) {
+internal class ClientDelivery(private val binder: IBinder, private val userId: Int, private val deadline: Deadline, private val reportFailure: () -> Unit, private val reportSuccess: () -> Unit = {}) {
     private val pending = ConcurrentHashMap.newKeySet<String>()
+    private val delivered = ConcurrentHashMap.newKeySet<Int>()
     private val events = Executors.newScheduledThreadPool(2)
-    private val uidObserver = object : UidObserverAdapter() {
-        override fun onUidActive(uid: Int) { deliverUid(uid) }
-        override fun onUidCachedChanged(uid: Int, cached: Boolean) { if (!cached) deliverUid(uid) }
-        override fun onUidIdle(uid: Int, disabled: Boolean) { deliverUid(uid) }
-    }
     private val processObserver = object : ProcessObserverAdapter() {
-        override fun onForegroundActivitiesChanged(pid: Int, uid: Int, foreground: Boolean) { if (foreground) deliverUid(uid) }
-        override fun onProcessStateChanged(pid: Int, uid: Int, state: Int) { deliverUid(uid) }
-        override fun onProcessStarted(pid: Int, processUid: Int, packageUid: Int, packageName: String?, processName: String?) { deliverUid(packageUid) }
+        override fun onForegroundActivitiesChanged(pid: Int, uid: Int, foreground: Boolean) { if (foreground) processStarted(pid, uid) }
+        override fun onProcessStateChanged(pid: Int, uid: Int, state: Int) { processStarted(pid, uid) }
+        override fun onProcessStarted(pid: Int, processUid: Int, packageUid: Int, packageName: String?, processName: String?) { processStarted(pid, packageUid) }
+        override fun onProcessDied(pid: Int, uid: Int) { delivered.remove(pid) }
     }
+    fun processStarted(pid: Int, uid: Int) { if (uid / 100000 == userId && delivered.add(pid)) deliverUid(uid) }
     fun start() {
-        deadline.call { ActivityManagerApis.registerUidObserver(uidObserver, 2 or 4 or 8 or 16, -1, null) }
         deadline.call { ActivityManagerApis.registerProcessObserver(processObserver) }
         val installed = deadline.call { requireNotNull(PackageManagerApis.getInstalledPackages(PackageManager.GET_PERMISSIONS.toLong(), userId)).list }
         installed.filter { it.requestedPermissions?.contains("moe.shizuku.manager.permission.API_V23") == true }.forEach { deliver(it.packageName, userId) }
@@ -55,7 +51,10 @@ internal class ClientDelivery(private val binder: IBinder, private val userId: I
         if (attempt == 0 && !pending.add(key)) return
         events.execute {
             try {
-                deadline.call { ProviderBridge(user).call("$name.shizuku", "sendBinder", Bundle().apply { putParcelable("moe.shizuku.privileged.api.intent.extra.BINDER", BinderContainer(binder)) }) }
+                deadline.call(Deadline.Use.DELIVERY) { ProviderBridge(user).call("$name.shizuku", "sendBinder", Bundle().apply { putParcelable("moe.shizuku.privileged.api.intent.extra.BINDER", BinderContainer(binder)) }) }
+                pending.remove(key)
+                reportSuccess()
+            } catch (missing: ProviderUnavailable) {
                 pending.remove(key)
             } catch (failure: Exception) {
                 android.util.Log.e("TsuyuServer", "Client binder delivery failed", failure)

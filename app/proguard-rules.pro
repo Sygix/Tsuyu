@@ -1,5 +1,20 @@
 -keep class fr.sygix.tsuyu.server.** { *; }
 -keep class fr.sygix.tsuyu.ipc.** { *; }
 -keep class moe.shizuku.** { *; }
--dontwarn android.**
--dontwarn com.android.internal.**
+-dontwarn android.app.IActivityManager
+-dontwarn android.app.IActivityManager$Stub
+-dontwarn android.app.IApplicationThread
+-dontwarn android.app.IProcessObserver
+-dontwarn android.app.IProcessObserver$Stub
+-dontwarn android.app.ProfilerInfo
+-dontwarn android.content.pm.ILauncherApps
+-dontwarn android.content.pm.IPackageManager
+-dontwarn android.content.pm.ParceledListSlice
+-dontwarn android.hardware.display.IDisplayManager
+-dontwarn android.os.IBatteryPropertiesRegistrar
+-dontwarn android.os.IDeviceIdleController
+-dontwarn android.os.IUserManager
+-dontwarn android.os.ServiceManager
+-dontwarn android.permission.IPermissionManager
+-dontwarn android.view.IWindowManager
+-dontwarn com.android.internal.app.IAppOpsService

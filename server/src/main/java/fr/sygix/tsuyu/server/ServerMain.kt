@@ -71,7 +71,9 @@ object ServerMain {
             catch (failure: Exception) { Log.e("TsuyuServer", "Manager status delivery failed", failure) }
         }
         val failure = { event("compatibilityFailure", android.os.Bundle()) }
-        val clients = ClientService(managerUid, AccessAuthority(identities::resolve, storage), identities, storage, deadline, { exitProcess(0) }, UserServices(args[0], managerUid / 100000), onRequestEnded = { event("requestEnded", android.os.Bundle().apply { putString("request", it) }) }, reportFailure = failure)
+        val access = AccessAuthority(identities::resolve, storage)
+        identities.observe(context, access::invalidate)
+        val clients = ClientService(managerUid, access, identities, storage, deadline, { exitProcess(0) }, UserServices(args[0], managerUid / 100000), onRequestEnded = { event("requestEnded", android.os.Bundle().apply { putString("request", it) }) }, reportFailure = failure)
         Runtime.getRuntime().addShutdownHook(Thread { clients.shutdown() })
         val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients)
         fun snapshot(): PackageStamp? = try {
@@ -91,6 +93,8 @@ object ServerMain {
             val checkPackage = executor.submit<Boolean> { watch.reconcile() }
             checkPackage.get(5, TimeUnit.SECONDS)
             generation = nextGeneration
+            identities.invalidate()
+            access.reload()
             client.linkToDeath({ ready.set(false); events.schedule({ reconnect(0) }, 250, TimeUnit.MILLISECONDS) }, 0)
             ready.set(true)
         }
@@ -106,7 +110,7 @@ object ServerMain {
             }
         }
         publish(generation)
-        ClientDelivery(clients, managerUid / 100000, deadline, failure).start()
+        ClientDelivery(clients, managerUid / 100000, deadline, failure, { event("compatibilitySuccess", android.os.Bundle()) }).start()
         Thread {
             try {
                 while (true) socket.accept().use { peer ->
