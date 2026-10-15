@@ -6,6 +6,8 @@
 -dontwarn android.app.IApplicationThread
 -dontwarn android.app.IProcessObserver
 -dontwarn android.app.IProcessObserver$Stub
+-dontwarn android.app.IUidObserver
+-dontwarn android.app.IUidObserver$Stub
 -dontwarn android.app.ProfilerInfo
 -dontwarn android.content.pm.ILauncherApps
 -dontwarn android.content.pm.IPackageManager
