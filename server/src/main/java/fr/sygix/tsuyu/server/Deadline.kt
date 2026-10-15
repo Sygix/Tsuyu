@@ -5,16 +5,29 @@
 
 package fr.sygix.tsuyu.server
 
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 internal class Deadline : AutoCloseable {
-    private val executor = ThreadPoolExecutor(0, 8, 30, TimeUnit.SECONDS, SynchronousQueue())
-    fun <T> call(block: () -> T): T {
-        val future = executor.submit<T> { block() }
+    enum class Use { SYSTEM, IDENTITY, STORAGE, CALLBACK, DELIVERY }
+    private val executors = Use.entries.associateWith {
+        ThreadPoolExecutor(4, 16, 30, TimeUnit.SECONDS, ArrayBlockingQueue(64)).apply { allowCoreThreadTimeOut(true) }
+    }
+    fun <T> call(use: Use = Use.SYSTEM, block: () -> T): T {
+        val future = try { executors.getValue(use).submit<T> { block() } }
+        catch (failure: RejectedExecutionException) {
+            throw IllegalStateException("$use capacity exhausted; restart Tsuyu and retry", failure)
+        }
         try { return future.get(5, TimeUnit.SECONDS) }
+        catch (failure: ExecutionException) { throw (failure.cause as? Exception ?: failure) }
+        catch (failure: TimeoutException) {
+            throw IllegalStateException("$use timed out; retry or restart Tsuyu", failure)
+        }
         finally { if (!future.isDone) future.cancel(true) }
     }
-    override fun close() { executor.shutdownNow() }
+    override fun close() { executors.values.forEach { it.shutdownNow() } }
 }
