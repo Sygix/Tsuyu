@@ -45,9 +45,18 @@ class MainActivity : ComponentActivity() {
     }
     private fun handleAction(action: Action) {
         val graph = TsuyuGraph.get(this)
-        if (action == Action.PERSISTENCE || action in listOf(Action.START, Action.ENABLE) && !graph.persistenceController.state.value.enabled) {
-            model.persistenceEntry(action != Action.PERSISTENCE)
-            startActivity(Intent(this, fr.sygix.tsuyu.persistence.PersistenceActivity::class.java))
+        if (action == Action.PERSISTENCE) {
+            openPersistence(false)
+            return
+        }
+        if (action == Action.START || action == Action.ENABLE) {
+            lifecycleScope.launch {
+                when (graph.persistenceController.startRoute()) {
+                    fr.sygix.tsuyu.persistence.StartRoute.START -> model.act(action)
+                    fr.sygix.tsuyu.persistence.StartRoute.DISCLOSURE,
+                    fr.sygix.tsuyu.persistence.StartRoute.ERROR -> openPersistence(true)
+                }
+            }
             return
         }
         if (action == Action.APPS) {
@@ -56,9 +65,15 @@ class MainActivity : ComponentActivity() {
             return
         }
         if (action == Action.SETTINGS) {
-            try { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }
-            catch (unavailable: Exception) { model.settingsFailed() }
+            SettingsNavigation.open(
+                { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) },
+                model::settingsFailed,
+            )
         } else model.act(action)
+    }
+    private fun openPersistence(fromMain: Boolean) {
+        model.persistenceEntry(fromMain)
+        startActivity(Intent(this, fr.sygix.tsuyu.persistence.PersistenceActivity::class.java))
     }
     override fun onStart() {
         super.onStart()

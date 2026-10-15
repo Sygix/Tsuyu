@@ -41,7 +41,7 @@ Status: partial acceptance coverage; core release boot/client/expiry evidence pa
 - WARNING: no production-signed CI APK can be issued by this session because release CI requires an owner-authorized tag. The local release APK is an emulator-only development-signed build.
 - WARNING: a finite work schedule cannot promise precise boot timing under Android deferral; standard scheduling on a missing vendor operation does not claim verified vendor readiness.
 
-## Decisions to validate
+## Confirmed decisions
 
 - Twenty-second initial work delay, thirty-second exponential retry backoff, maximum three persisted attempts and five-minute overall execution budget per relevant event honor the accepted bounded/tolerant contract without a watchdog. Boot/update events have independently retained bounded ledgers within the same DataStore authority, so alternating retries cannot reset either budget; the single coordinator/shell singleton still prevents duplicate servers. Old-epoch work exits before reservation.
 - Prepare only after explicit disclosure/enablement. Read-only reopening and boot do not re-grant removed vendor access or change global expiry.
@@ -55,3 +55,23 @@ Status: partial acceptance coverage; core release boot/client/expiry evidence pa
 - Failed fresh status reads invalidate cached modes and expiry, and Home rejects error/loading readiness; `failedFreshReadInvalidatesEarlierVerifiedModes` covers it.
 - Explicit successful repair records `RECOVERED`, distinct from automatic `RUNNING`; the controller test starts with `EXHAUSTED` and asserts recovery.
 - Main-action versus details entry preserves the actual initiating focus; `persistenceEntryRestoresTheActualInitiatingControl` covers both.
+
+## Final correction pass
+
+The branch is rebased onto the current corrected P2 implementation. Earlier independent review results do not constitute approval of this final delta; Simon requested direct correction without a reviewer subagent.
+
+| Review point | Implementation | Evidence |
+| --- | --- | --- |
+| Unknown/unloaded activation state routes START incorrectly | `PersistenceController.startRoute` reads configuration before deciding; unreadable configuration produces an explicit error route | `PersistenceControllerTest.routingWaitsForConfigurationAndReadFailureIsVisible` |
+| Preparation failure redisplays disclosure | DENIED/FAILED/TIMEOUT snapshots produce an actionable repair state | `deniedFailedAndTimedOutPreparationExposeRepairInsteadOfDisclosure` |
+| Preparation budget equals server worst case | Client preparation budget is 45 seconds, exceeding seven bounded five-second server commands | Controller regression checks the larger budget; server command boundary remains bounded |
+| Update cleanup delayed or suppressed when persistence is disabled | `PackageReplacementReceiver` immediately delegates cleanup independently of boot work; `RestartRunner` no longer owns update cleanup | Replacement receiver/shutdown regression coverage; boot/update startup continues through the common coordinator |
+| Settings launch crashes | Shared `SettingsNavigation` failure handling and explicit persistence settings-error state | Navigation failure regression and ViewModel presentation assertions |
+| One grant exception skips the other mode | Each mode returns its own typed preparation result before the final snapshot | `PersistenceControlTest.oneFailedGrantDoesNotSkipTheOtherModeOrClaimReadiness` |
+| Stringly typed and duplicated state | Shared IPC `Preparation`, domain `RestartOutcome`, one event ledger with legacy migration, explicit storage interface methods and faithful test fake | `PersistenceStoreTest` exercises real DataStore and the fake with the same history; migration removes duplicated fields |
+| Redundant layer and mixed UI/test responsibilities | `RestartLedger` merged into `RestartBudget`; dedicated `PersistenceScreenUi` and details variants; persistence tests moved into their domain package; affected presentation/controller code expanded | JVM/Compose suite and source review |
+
+- `./gradlew test assembleRelease --no-daemon -q`: PASS under the shared lock, including P1/P2 regressions.
+- `openspec validate --all --strict`: 4 passed, 0 failed. Completeness remains 2/17 original tasks; incomplete hardware, receiver/process-death and full-scenario criteria remain open.
+- The combined correction release passes the external protocol client and supervised-process checks described in `runtime-p2.md`; this pass does not repeat the entire historical boot/optional-expiry matrix.
+- Remaining real-TV/vendor AUTO_START checks and production-signed release execution are not established by emulator or JVM results. No archive, merge, tag or visibility change is performed.

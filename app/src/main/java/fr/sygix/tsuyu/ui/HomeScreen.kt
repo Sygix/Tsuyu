@@ -27,6 +27,15 @@ import fr.sygix.tsuyu.R
 
 @Composable
 fun HomeScreen(ui: HomeUi, onAction: (Action) -> Unit) {
+    StateScreen(ui, onAction) {
+        ui.persistenceStatus?.let {
+            Text(stringResource(it), fontSize = 18.sp, color = Color(0xffc6d1df), modifier = Modifier.testTag("persistence-status"))
+        }
+    }
+}
+
+@Composable
+fun StateScreen(ui: ScreenUi, onAction: (Action) -> Unit, details: @Composable () -> Unit) {
     val requesters = remember(ui.controls.map { it.id }) { ui.controls.associate { it.id to FocusRequester() } }
     MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xff94d8df), background = Color(0xff10161e), surface = Color(0xff1e2936))) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 56.dp, vertical = 40.dp).testTag("screen-${ui.screen.name.lowercase()}")) {
@@ -35,9 +44,7 @@ fun HomeScreen(ui: HomeUi, onAction: (Action) -> Unit) {
             Text(stringResource(ui.title), fontSize = 36.sp, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.testTag("state-title"))
             Spacer(Modifier.height(16.dp))
             Text(stringResource(ui.body), fontSize = 20.sp, color = Color(0xffc6d1df), modifier = Modifier.widthIn(max = 720.dp).testTag("state-body"))
-            ui.persistenceStatus?.let { Text(stringResource(it), fontSize = 18.sp, color = Color(0xffc6d1df), modifier = Modifier.testTag("persistence-status")) }
-            if (ui.uidMode != null && ui.packageMode != null) Text(stringResource(R.string.persistence_modes, stringResource(ui.uidMode), stringResource(ui.packageMode)), fontSize = 18.sp, color = Color(0xffc6d1df), modifier = Modifier.testTag("persistence-modes"))
-            ui.expiryMillis?.let { Text(stringResource(R.string.expiry_value, it), fontSize = 18.sp, color = Color(0xffc6d1df), modifier = Modifier.testTag("expiry-value")) }
+            details()
             Spacer(Modifier.weight(1f))
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 ui.controls.forEachIndexed { index, control ->

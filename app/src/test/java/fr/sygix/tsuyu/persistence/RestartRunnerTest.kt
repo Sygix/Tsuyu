@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package fr.sygix.tsuyu.start
+package fr.sygix.tsuyu.persistence
 
-import fr.sygix.tsuyu.persistence.*
+import fr.sygix.tsuyu.start.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
@@ -14,13 +14,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class RestartRunnerTest {
     private val direct = object : BoundedIo() { override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block() }
-    private class Store : PersistenceStorage {
-        var value = StoredPersistence(true)
-        override suspend fun read() = value
-        override suspend fun enable() { value = value.copy(enabled = true) }
-        override suspend fun reserve(id: String, now: Long): RestartRecord? = RestartBudget.reserve(value.record, id, now)?.also { value = value.copy(record = it) }
-        override suspend fun complete(record: RestartRecord, result: String) { if (value.record.event == record.event && value.record.attempts == record.attempts) value = value.copy(record = record.copy(outcome = result)) }
-    }
+    private class Store : FakePersistenceStorage(enabled = true)
     @Test fun delayedEndpointRetriesThenEstablishesLiveServerOnce() = runTest {
         val store = Store()
         var running = false
@@ -33,7 +27,7 @@ class RestartRunnerTest {
         assertEquals(RestartResult.RETRY, runner.run("boot:1"))
         advanceTimeBy(30000)
         assertEquals(RestartResult.SUCCESS, runner.run("boot:1"))
-        assertEquals("RUNNING", store.value.record.outcome)
+        assertEquals(RestartOutcome.RUNNING, store.value.record.outcome)
         assertEquals(RestartResult.SUCCESS, runner.run("boot:1"))
         assertEquals(2, launches)
     }
@@ -46,15 +40,15 @@ class RestartRunnerTest {
         val runner = RestartRunner(store, coordinator, settings, { testScheduler.currentTime }, io = direct)
         repeat(2) { assertEquals(RestartResult.RETRY, runner.run("boot:1")); advanceTimeBy(30000) }
         assertEquals(RestartResult.FAILURE, runner.run("boot:1"))
-        assertEquals("EXHAUSTED", store.value.record.outcome)
+        assertEquals(RestartOutcome.EXHAUSTED, store.value.record.outcome)
         assertEquals(RestartResult.FAILURE, runner.run("boot:1"))
         assertEquals(3, launches)
         debugging = Debugging.DISABLED
         assertEquals(RestartResult.FAILURE, runner.run("boot:2"))
-        assertEquals("SETUP", store.value.record.outcome)
+        assertEquals(RestartOutcome.SETUP, store.value.record.outcome)
         debugging = Debugging.UNKNOWN
         assertEquals(RestartResult.FAILURE, runner.run("boot:3"))
-        assertEquals("UNKNOWN", store.value.record.outcome)
+        assertEquals(RestartOutcome.UNKNOWN, store.value.record.outcome)
         assertEquals(3, launches)
     }
     @Test fun simultaneousManualStartAndBootConvergeOnOneHandshake() = runTest {

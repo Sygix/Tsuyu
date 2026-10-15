@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package fr.sygix.tsuyu.start
+package fr.sygix.tsuyu.persistence
 
-import fr.sygix.tsuyu.persistence.*
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -15,7 +14,7 @@ class RestartEventsTest {
         assertEquals(RestartEvents.workName("boot:2"), RestartEvents.workName("boot:2"))
         assertFalse(RestartEvents.current("boot:1", 2, 99))
         assertTrue(RestartEvents.current("boot:2", 2, 99))
-        val interrupted = RestartRecord("boot:1", 200000, 3, "ATTEMPT")
+        val interrupted = RestartRecord("boot:1", 200000, 3, RestartOutcome.ATTEMPT)
         val next = requireNotNull(RestartBudget.reserve(interrupted, "boot:2", 20000))
         assertEquals(1, next.attempts)
         assertEquals(20000L, next.started)

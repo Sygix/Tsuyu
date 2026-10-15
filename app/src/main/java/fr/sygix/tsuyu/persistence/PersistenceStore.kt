@@ -6,65 +6,110 @@
 package fr.sygix.tsuyu.persistence
 
 import android.content.Context
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.json.JSONObject
 
 private val Context.persistenceData by preferencesDataStore("persistence")
+
 data class StoredPersistence(val enabled: Boolean = false, val record: RestartRecord = RestartRecord())
+
 interface PersistenceStorage {
     suspend fun read(): StoredPersistence
-    suspend fun readEvent(id: String): StoredPersistence = read().let { if (it.record.event == id) it else it.copy(record = RestartRecord()) }
+    suspend fun readEvent(id: String): StoredPersistence
     suspend fun enable()
     suspend fun reserve(id: String, now: Long): RestartRecord?
-    suspend fun complete(record: RestartRecord, result: String)
-    suspend fun recovered() { complete(read().record, "RECOVERED") }
+    suspend fun complete(record: RestartRecord, result: RestartOutcome)
+    suspend fun recovered()
 }
-class PersistenceStore(private val context: Context) : PersistenceStorage {
+
+class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceStorage {
+    constructor(context: Context) : this(context.persistenceData)
     private val enabled = booleanPreferencesKey("enabled")
-    private val event = stringPreferencesKey("event")
-    private val started = longPreferencesKey("started")
-    private val attempts = intPreferencesKey("attempts")
-    private val outcome = stringPreferencesKey("outcome")
+    private val current = stringPreferencesKey("event")
     private val ledger = stringPreferencesKey("ledger")
+    private val legacyStarted = longPreferencesKey("started")
+    private val legacyAttempts = intPreferencesKey("attempts")
+    private val legacyOutcome = stringPreferencesKey("outcome")
+
     private fun records(value: Preferences): Map<String, RestartRecord> {
-        val objectValue = org.json.JSONObject(value[ledger] ?: "{}")
-        return objectValue.keys().asSequence().associateWith { id ->
-            val item = objectValue.getJSONObject(id)
-            RestartRecord(id, item.getLong("started"), item.getInt("attempts"), item.getString("outcome"))
+        val json = JSONObject(value[ledger] ?: "{}")
+        val records = json.keys().asSequence().associateWith { id ->
+            val item = json.getJSONObject(id)
+            RestartRecord(id, item.getLong("started"), item.getInt("attempts"), RestartOutcome.decode(item.getString("outcome")))
+        }.toMutableMap()
+        val event = value[current]
+        if (event != null && event !in records && value[legacyOutcome] != null) {
+            records[event] = RestartRecord(event, value[legacyStarted] ?: 0, value[legacyAttempts] ?: 0, RestartOutcome.decode(value[legacyOutcome]))
         }
+        if (value[legacyOutcome] == RestartOutcome.RECOVERED.name) records[MANUAL] = RestartRecord(MANUAL, outcome = RestartOutcome.RECOVERED)
+        return records
     }
-    private fun encode(records: Map<String, RestartRecord>): String = org.json.JSONObject().apply {
-        records.forEach { (id, record) -> put(id, org.json.JSONObject().put("started", record.started).put("attempts", record.attempts).put("outcome", record.outcome)) }
+
+    private fun currentEvent(value: Preferences): String =
+        if (value[legacyOutcome] == RestartOutcome.RECOVERED.name) MANUAL else value[current] ?: ""
+
+    private fun encode(records: Map<String, RestartRecord>): String = JSONObject().apply {
+        records.forEach { (id, record) ->
+            put(id, JSONObject().put("started", record.started).put("attempts", record.attempts).put("outcome", record.outcome.name))
+        }
     }.toString()
-    private fun decode(value: Preferences) = StoredPersistence(value[enabled] ?: false, RestartRecord(value[event] ?: "", value[started] ?: 0, value[attempts] ?: 0, value[outcome] ?: "NONE"))
-    val state = context.persistenceData.data.map(::decode)
+
+    private fun save(value: MutablePreferences, records: Map<String, RestartRecord>, selected: String) {
+        value[ledger] = encode(records)
+        value[current] = selected
+        value.remove(legacyStarted)
+        value.remove(legacyAttempts)
+        value.remove(legacyOutcome)
+    }
+
+    private fun decode(value: Preferences) = StoredPersistence(
+        value[enabled] ?: false,
+        records(value)[currentEvent(value)] ?: RestartRecord(),
+    )
+
+    val state = data.data.map(::decode)
     override suspend fun read() = state.first()
     override suspend fun readEvent(id: String): StoredPersistence {
-        val value = context.persistenceData.data.first()
+        val value = data.data.first()
         return StoredPersistence(value[enabled] ?: false, records(value)[id] ?: RestartRecord())
     }
-    override suspend fun enable() { context.persistenceData.edit { it[enabled] = true } }
-    override suspend fun recovered() { context.persistenceData.edit { it[outcome] = "RECOVERED" } }
+    override suspend fun enable() {
+        data.edit { value ->
+            save(value, records(value), currentEvent(value))
+            value[enabled] = true
+        }
+    }
+    override suspend fun recovered() {
+        data.edit { value ->
+            save(value, records(value) + (MANUAL to RestartRecord(MANUAL, outcome = RestartOutcome.RECOVERED)), MANUAL)
+        }
+    }
     override suspend fun reserve(id: String, now: Long): RestartRecord? {
         var reserved: RestartRecord? = null
-        context.persistenceData.edit { value ->
+        data.edit { value ->
             if (value[enabled] == true) {
-                val all = records(value).filterKeys { key -> key.substringAfter(':').substringBefore(':') == id.substringAfter(':').substringBefore(':') }
-                reserved = RestartLedger.reserve(all, id, now)
-                reserved?.let { record -> value[ledger] = encode(all + (id to record)); value[event] = record.event; value[started] = record.started; value[attempts] = record.attempts; value[outcome] = record.outcome }
+                val all = records(value).filterKeys { key -> epoch(key) == epoch(id) }
+                reserved = RestartBudget.reserve(all, id, now)
+                reserved?.let { record -> save(value, all + (id to record), id) }
             }
         }
         return reserved
     }
-    override suspend fun complete(record: RestartRecord, result: String) {
-        context.persistenceData.edit { value ->
+    override suspend fun complete(record: RestartRecord, result: RestartOutcome) {
+        data.edit { value ->
             val all = records(value)
             if (all[record.event]?.attempts == record.attempts) {
-                value[ledger] = encode(all + (record.event to record.copy(outcome = result)))
-                if (value[event] == record.event && value[attempts] == record.attempts) value[outcome] = result
+                save(value, all + (record.event to record.copy(outcome = result)), currentEvent(value))
             }
         }
+    }
+
+    companion object {
+        internal const val MANUAL = "manual"
+        internal fun epoch(event: String): String = event.substringAfter(':').substringBefore(':')
     }
 }

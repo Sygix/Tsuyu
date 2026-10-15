@@ -25,3 +25,11 @@ Virtual-time JUnit independently proves delayed endpoint, finite exhaustion, per
 - Remaining failure permutations, receiver/database process-death tests, update failure/uninstall integration and every UI disappearance case are not claimed complete. Their acceptance tasks remain open.
 - No TV evidence or production-signed APK was generated. Claude's single hardware session remains pending, using `tv-validation-p2-p3.md` once an owner-authorized CI release exists.
 - All started emulator/build processes were stopped. Useful screenshots were sent directly to the owner.
+
+## Final corrected stack
+
+- Final combined correction APK: SHA-256 `6a798eb5b43c41b7ab11059f1524e7c1f3e7679f20ab0c70ae95b45539d803ff`, development-signed release build. `./gradlew test assembleRelease --no-daemon -q` passes, with 119 debug JVM/Compose tests across app and server (the release variant also runs).
+- P3 is rebased onto the corrected P2 supervisor, retained partial-revocation state and per-client delivery diagnostics. The final artifact passes the unchanged authorized external protocol client in full; process-owner death leaves no supervisor after bounded polling. Detailed distinction between API, demo and direct-adapter evidence is in `runtime-p2.md`.
+- On the final emulator boot/update pass, legacy TCP is explicitly restored as the emulator fixture. The shell server then starts and the client receives its binder and retained consent without opening Tsuyu's activity. This does not establish the vendor AUTO_START gate or precise scheduling latency.
+- The pass preserves the existing private key and client consent through same-signature replacement. It does not repeat every earlier optional-expiry, failure/update/uninstall and focus scenario. Typed state, ledger migration and recovery are covered by the current JVM suite rather than an invented new full boot matrix.
+- Real-TV/vendor validation and production-signed release execution remain open. No archive, merge, tag, release publication or repository visibility change was performed. The emulator and started processes are stopped.

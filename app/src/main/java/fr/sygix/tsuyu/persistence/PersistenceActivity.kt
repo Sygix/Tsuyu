@@ -31,10 +31,15 @@ class PersistenceActivity : ComponentActivity() {
         setContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { back() }
-            HomeScreen(ui) { action ->
+            PersistenceScreen(ui) { action ->
                 when (action) {
                     Action.BACK -> back()
-                    Action.SETTINGS -> startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+                    Action.SETTINGS -> {
+                        SettingsNavigation.open(
+                            { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) },
+                            model::settingsFailed,
+                        )
+                    }
                     else -> model.act(action)
                 }
             }

@@ -10,6 +10,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import fr.sygix.tsuyu.persistence.*
+import fr.sygix.tsuyu.ipc.Preparation
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -25,7 +26,7 @@ class PersistenceNavigationTest {
     @Test fun optionalChoiceInitiallyKeepsPolicyAndDoesNotWrap() {
         val actions = mutableListOf<Action>()
         val state = mutableStateOf(PersistenceViewModel.present(PersistenceUi(loading = false, expiry = 604800000), true, "expiry-disable"))
-        compose.setContent { HomeScreen(state.value, actions::add) }
+        compose.setContent { PersistenceScreen(state.value, actions::add) }
         compose.onNodeWithTag("expiry-keep").assertIsFocused()
         press("expiry-keep", Key.DirectionUp)
         compose.onNodeWithTag("expiry-keep").assertIsFocused()
@@ -40,9 +41,9 @@ class PersistenceNavigationTest {
         compose.onNodeWithTag("expiry-disable").assertDoesNotExist()
     }
     @Test fun setupReturnRestoresItsEntryAndStatusViewingHasNoAction() {
-        val ui = PersistenceViewModel.present(PersistenceUi(enabled = true, uid = "READY", pkg = "READY", loading = false), false, "persistence-expiry")
+        val ui = PersistenceViewModel.present(PersistenceUi(enabled = true, uid = Preparation.READY, pkg = Preparation.READY, loading = false), false, "persistence-expiry")
         val actions = mutableListOf<Action>()
-        compose.setContent { HomeScreen(ui, actions::add) }
+        compose.setContent { PersistenceScreen(ui, actions::add) }
         compose.onNodeWithTag("persistence-expiry").assertIsFocused()
         assertTrue(actions.isEmpty())
         compose.onNodeWithTag("persistence-modes").assertExists()

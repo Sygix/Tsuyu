@@ -5,6 +5,8 @@
 
 package fr.sygix.tsuyu.server
 
+import fr.sygix.tsuyu.ipc.Preparation
+
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -16,6 +18,7 @@ class PersistenceControlTest {
         var unsupported = false
         var fail = false
         var timeout = false
+        var uidSetThrows = false
         var value = 604800000L
         override fun execute(args: List<String>): CommandResult {
             calls += args
@@ -27,7 +30,11 @@ class PersistenceControlTest {
             }
             if (unsupported) return CommandResult(1, "Error: Unknown operation string: AUTO_START")
             val isUid = "--uid" in args
-            if (args[1] == "set") { if (isUid) uid = "allow" else pkg = "allow"; return CommandResult(0, "") }
+            if (args[1] == "set") {
+                check(!isUid || !uidSetThrows)
+                if (isUid) uid = "allow" else pkg = "allow"
+                return CommandResult(0, "")
+            }
             return CommandResult(0, if (isUid) "Uid mode: AUTO_START: $uid" else "Uid mode: AUTO_START: $uid\nAUTO_START: $pkg")
         }
     }
@@ -65,5 +72,13 @@ class PersistenceControlTest {
         commands.value = 123
         control.status(); control.prepare()
         assertEquals(123L, commands.value)
+    }
+    @Test fun oneFailedGrantDoesNotSkipTheOtherModeOrClaimReadiness() {
+        val commands = Commands().apply { uidSetThrows = true }
+        val snapshot = PersistenceControl(commands).prepare()
+        assertEquals(Preparation.FAILED, snapshot.uid)
+        assertEquals(Preparation.READY, snapshot.pkg)
+        assertFalse(snapshot.schedulable)
+        assertEquals(2, commands.calls.count { it[1] == "set" })
     }
 }
