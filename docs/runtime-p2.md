@@ -46,3 +46,21 @@ The probe ended with `ALL PROTOCOL ASSERTIONS PASSED`. Demo and probe evidence a
 Full failure/interleaving coverage is still incomplete: provider saturation/isolation, callback-queue saturation, every malformed parcel, storage/identity timeout combinations, all UserService debug/ABI/version/daemon permutations, and every activity/focus disappearance case. The method map and open tasks retain these limits. SygixOs has no tested API-client build in this pass.
 
 TV proof is reserved for Claude's single vendor/hardware session. Nothing here completes a TV task. Screenshots were sent directly to the owner. Emulator and build processes were stopped after verification.
+
+## Supervised-process correction verification
+
+The final combined correction APK has SHA-256 `6a798eb5b43c41b7ab11059f1524e7c1f3e7679f20ab0c70ae95b45539d803ff`. It uses the existing development signing fallback, not the production key. This evidence supersedes the earlier direct-PID cleanup limitation for the scenarios below; the older artifacts and observations remain historical.
+
+| Check | Observed result | Scope |
+| --- | --- | --- |
+| Unchanged external protocol client | `ALL PROTOCOL ASSERTIONS PASSED`: metadata, actual shell identity, process streams/EOF/waits/exit/destruction, synchronous missing executable, property failure, Binder forwarding, Context construction and peek/remove/death callback | Final combined APK, actual authorized API client |
+| Actual upstream demo native service | Connected service reports UID 2000 and successful JNI loading; revoking the demo removes its client, native service and supervisor and restores focus to the next row | Combined correction APK before the final expected-stdin-close logging-only adjustment |
+| Owner-process death | Force-stopping the external API client leaves no owned supervisor after bounded state polling | Final combined APK |
+| Session and target lifetimes | A separate disposable Android adapter probe passes stdin/stdout/stderr/EOF, exit status, missing and non-executable targets, a background descendant surviving target-leader exit until explicit destruction, and three immediate destructions | Direct adapter test, not API authorization proof; same supervisor/launcher code as the final APK |
+| Abrupt owner death | Killing the adapter-owner process closes control; its known target and descendant disappear and no adapter supervisor remains | Direct adapter test; not a claim of an additional full API/server-death scenario |
+
+The initial tester pass found that Android's timed `LocalSocket.connect` overload throws `UnsupportedOperationException`. The corrected adapter and existing-server handoff use the implemented overload under a bounded infrastructure call. Runtime additionally exposed startup-pool handoff rejection and supervisor descriptors retaining pipe EOF; a bounded startup queue and explicit native descriptor closure correct those failures. The final client run has no unexpected stream-error report during normal process completion.
+
+The adapter probe is external test material and is not bundled into Tsuyu. A temporary probe-fixture use of an unavailable Java file-reading method was corrected separately; that fixture failure is not attributed to the app. The emulator, test owners and build daemons were stopped. Useful screenshots were sent directly to Simon.
+
+Remaining boundaries: real-TV behavior, actual Binder-GC/backpressured-output release, exhaustive hostile/death permutations and a complete API-level descendant-revoke/abrupt-server-death matrix are not inferred from these checks.

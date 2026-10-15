@@ -5,11 +5,13 @@
 
 package fr.sygix.tsuyu.server
 
-import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-internal class RemoteProcesses(private val authorize: (ClientRecord) -> Unit) : AutoCloseable {
-    private val processes = ConcurrentHashMap<RemoteProcess, ClientRecord>()
+internal class RemoteProcesses(
+    private val launch: (Array<out String>, Array<out String>?, String?) -> Process,
+    private val authorize: (ClientRecord) -> Unit,
+) : AutoCloseable {
+    private val processes = ConcurrentHashMap<RemoteProcess.Resources, ClientRecord>()
 
     fun create(owner: ClientRecord, command: Array<out String>, environment: Array<out String>?, directory: String?): RemoteProcess {
         check(processes.values.count { it.uid == owner.uid } < MAX_PER_UID) {
@@ -18,19 +20,15 @@ internal class RemoteProcesses(private val authorize: (ClientRecord) -> Unit) : 
         require(command.isNotEmpty() && command.size <= MAX_ARGUMENTS && command.all {
             it.length <= MAX_ARGUMENT_LENGTH && '\u0000' !in it
         })
-        val process = ProcessBuilder(listOf("/system/bin/toybox", "setsid") + command.toList()).apply {
-            if (directory != null) directory(File(directory))
-            if (environment != null) {
-                environment().clear()
-                environment.forEach { value ->
-                    val index = value.indexOf('=')
-                    require(index > 0)
-                    environment()[value.substring(0, index)] = value.substring(index + 1)
-                }
-            }
-        }.start()
-        val remote = RemoteProcess(process, { processes.remove(it) }) { authorize(owner) }
-        processes[remote] = owner
+        val process = launch(command, environment, directory)
+        val remote = try {
+            RemoteProcess(process, { processes.remove(it) }) { authorize(owner) }
+        } catch (failure: Exception) {
+            try { OwnedProcess(process).terminate() }
+            catch (cleanup: Exception) { failure.addSuppressed(cleanup) }
+            throw failure
+        }
+        processes[remote.resources] = owner
         remote.watch()
         return remote
     }

@@ -1,6 +1,6 @@
 # P2 verification
 
-Status: partial; not ready for merge or archive. The accepted contract is unchanged.
+Status: review corrections implemented with JVM and targeted release-emulator evidence; full acceptance and real-TV validation remain incomplete. The accepted contract is unchanged. Current evidence is listed in the final correction section below; earlier review heads are historical.
 
 ## OpenSpec verification scorecard
 
@@ -53,22 +53,24 @@ The review corrections preserve the accepted OpenSpec requirements. All previous
 | --- | --- | --- |
 | P2.1 hot-path identity/storage cost | Server-owned committed snapshot; identities cached only after protected package observation is registered; package events invalidate both authorities; startup/reconnect reloads storage and invalidates identity; failed writes discard cached state | `AccessAuthorityTest.repeatedPrivilegeChecksDoNotReadTheManagerAgain`, `doubtDiscardsCachedConsentAndUnreadableStorageFailsClosed`; existing signer/membership invalidation tests |
 | P2.2 concurrent/blocked infrastructure | Independent bounded SYSTEM, IDENTITY, STORAGE, CALLBACK and DELIVERY pools, bounded queues, explicit timeout/capacity recovery errors | `DeadlineTest` |
-| P2.3 process retention | Normal-exit watcher removes the strong server registry entry and closes stdin; output pumps finish at EOF; descriptor ownership remains with a live process binder and finalization closes released binders; maximum 16 active processes per UID | `RemoteProcessTest`; Android Binder-GC timing is not proven by JVM |
-| P2.4 delivery storms | PID deduplication, death invalidation; no idle trigger; active/cached UID fallback resolves live PIDs before deduplication | `ClientDeliveryTest.stateChangesDeliverOncePerPidAndDeathAllowsRedelivery` |
+| P2.3 process retention | Pumps and registry retain a separate resource lease, never the process Binder; normal exit closes stdin and drains output; binder release can finalize the lease even with backpressured output. All retained leases count toward the maximum of sixteen per UID, and remain reachable for death/revoke cleanup. Failed termination retains ownership for retry | `RemoteProcessTest`; Android Binder-GC timing is not proven by JVM |
+| P2.4 delivery storms | PID deduplication, death invalidation; no idle trigger; active/cached UID fallback resolves live PIDs before deduplication. Enumeration/exhausted delivery failures rearm the same PID after a bounded cooldown | `ClientDeliveryTest` including `transientEnumerationAndExhaustedDeliveryCanRecoverForTheSameLivePid` |
 | P2.5 permanent compatibility alert | Missing client provider is not a global outage; successful delivery and authenticated new-server publication clear transient status; provider errors name the requested authority | `ClientDeliveryTest.missingClientProviderDoesNotMarkTheServiceAsBroken`, `ManagerProviderTest` |
 | P2.6 permission-screen dead end | Back/return finishes an error screen; live undecided requests still record denial | `AccessViewModelTest.backCanLeaveAnUnavailablePermissionRequest`, existing refusal tests |
 | P2.7 partial revoke/global lock | All cleanup steps run and failures are aggregated; UserService termination waits run outside the registry monitor | `CleanupTest`, `UserServicesTest.cleanupWaitDoesNotHoldTheGlobalRegistryLock` |
 | P2.8 queue monopolization | Maximum two pending requests per UID within the global bound of eight | `ClientServiceTest.pendingRequestsAreFiniteAndDuplicateCodesCannotCreateAnotherPrompt` |
 | P2.9 shell-child manager writes | Persistence/status calls require authenticated live-server PID; another PID cannot replace a live session; child attach keeps token/PID validation | `ServerBrokerTest`, `ManagerProviderTest`; residual same-shell-identity trust limitation documented in `SECURITY.md` |
 | P2.10 multiprocess remote owner | Remote-process operations check the consenting owner UID/group rather than creator PID | Authorization implementation in `ClientService`; additional real multiprocess ABI evidence remains open |
-| Process descendants | Launch under `toybox setsid`; owned termination signals the negative process-group ID | `OwnedProcessTest`; Android session creation and destruction still require runtime validation |
+| Process descendants | A session-ready, exec-confirmed supervisor retains the group anchor independently of target exit; explicit release and control-connection death terminate the group | `SessionProcessTest`; external Android adapter probe verifies leader-exit descendants, immediate destruction and abrupt parent death; broad task 4.1 remains open |
 | Death recipients | Unlink failed/replaced attachments and detached/removed UserService callbacks | `UserServicesTest`; broader attach/death races remain open |
 | Injected identity | `isHidden` uses the injected caller UID | `ClientServiceTest.clientsCannotAdministerEvenWithGrantedBinder` |
 | Shrinker/visibility/naming | Exact hidden-class warnings replace broad package suppression; redundant launcher query removed; shared request/list activity renamed `AccessActivity` | Release build and existing navigation tests |
 | Responsibilities/UI logic | Consent queue and owned-process management extracted from Binder adapter; named protocol/capacity constants; `AccessPresentation` supplies labels, actions, focus and navigation to Compose | Existing consent/lifecycle/navigation tests |
 | Missing suites | Added `UserServicesTest`, `ClientDeliveryTest`, `RemoteProcessTest`, `ManagerStorageTest`, `ManagerProviderTest`, `AccessViewModelTest` | Full JVM suite; native/runtime permutations remain open |
 
-Red/green mutation check: restoring per-call storage reads, global-only request limits, positive-PID signaling, UID-only broker acceptance and retrying refusal on error produces three server-suite failures and two app-suite failures. Restoring the corrections passes. New lifecycle/delivery suites additionally cover timeout, version replacement, daemon/non-daemon detach, revocation, provider absence and normal process exit. Not every new assertion has an individually reverted-fix run; those assertions are regression guards, not claimed red/green evidence.
+Red/green mutation check: restoring per-call storage reads, global-only request limits, positive-PID signaling, UID-only broker acceptance and retrying refusal on error produced three server-suite failures and two app-suite failures. The process-group correction was subsequently rejected and reverted; its mutation is not evidence for the final implementation. New lifecycle/delivery suites additionally cover timeout, version replacement, daemon/non-daemon detach, revocation, provider absence and normal process exit. Not every new assertion has an individually reverted-fix run; those assertions are regression guards, not claimed red/green evidence.
+
+Historical independent review follow-up removed the unsafe wrapper and restored synchronous exec errors. The final correction pass replaces that interim direct-launch adapter with the supervised lifetime described below. Operation-owned UserService cleanup handles, retryable retirements, independently retained stream-resource leases and bounded delivery recovery remain in place.
 
 ### OpenSpec verification refresh
 
@@ -77,7 +79,7 @@ Red/green mutation check: restoring per-call storage reads, global-only request 
 - Coherence: checked in-memory authority is server-owned and committed before publishing success; protected package changes and manager reconnection are doubt boundaries. Same-UID shell isolation has the explicit security limitation above. Formatting remains uneven in older startup/UserService/UI code; extraction reduces the main Binder service's responsibilities but is not a claim that every existing file has been reformatted.
 - No TV execution, archival, merge or tag is part of this correction pass.
 
-### Decisions to validate
+### Confirmed decisions
 
 - Defensive capacities: two pending consent requests and sixteen active remote processes per UID; independent infrastructure pools with bounded queues.
 - Remaining same-shell-identity trust boundary described in `SECURITY.md`.
@@ -98,3 +100,23 @@ TV tasks are never completed using emulator evidence. No archive before merge an
 - Identity invalidation: handled by committing removal of mismatched stored identities. `restoringOldMembershipDoesNotRestoreInvalidatedConsent` failed before the fix.
 
 Further release corrections are covered in `runtime-p2.md`: nullable removal/property contracts, readable foreground, initialized Context constructor, marshalable checked errors, owned SIGKILL/death confirmation, deadline/identity-bound consent and PID-zero oneway forwarding. `ClientServiceTest` also covers matching request codes, replay, client death, duplicate/global request bounds and shared-group callbacks. Independent code-delta reviews found no remaining blocking/medium defect at the final reviewed P2 code head.
+
+## Final correction pass
+
+Simon requested direct review and fixes with signed fixup/autosquash commits. The previous independent review is historical, not approval of the new supervisor. One tester invocation found an unsupported Android socket overload; the main agent corrected it and completed the targeted runtime checks.
+
+| Review point | Implementation | Evidence |
+| --- | --- | --- |
+| Descendants after leader exit, pre-session race and synchronous exec failures | `ProcessSession`, `ProcessSupervisor`, `SessionProcess`, `ProcessProtocol`; SESSION acknowledgement precedes target arguments, EXECUTED/FAILED precedes handle publication, supervisor remains the group anchor | `SessionProcessTest`; Android adapter probe passes streams/EOF/waits, missing and non-executable targets, descendant destruction after leader exit and three immediate destructions; abrupt adapter-owner death leaves neither tracked target nor descendant |
+| Partial revocation loses its retry action | `ClientRevocations` retains the group before persistence/cleanup; all cleanup steps run; pending groups remain in `accessList`; `AccessViewModel` retries revoke, not refresh | New `ClientServiceTest` cases cover cleanup failure and failed consent removal; `AccessViewModelTest.retryFinishesRevocationInsteadOfReloadingAwayTheFailedRow` |
+| Missing-provider diagnostics | Per-package delivery results are listed separately, and successful delivery clears only that package's problem | `ClientDeliveryTest.missingClientProviderDoesNotMarkTheServiceAsBroken`; authorized-list presentation names affected clients |
+| Android local socket compatibility | `LocalSocketConnection` uses the implemented one-argument overload under `Deadline`, including existing-server handoff | `LocalSocketConnectionTest`; release supervisor execution and complete upstream protocol probe |
+| Startup task handoff rejection | Bounded startup queue avoids `SynchronousQueue` rejection between sequential completed submissions | Runtime exposed the rejection; corrected release starts and publishes the authenticated server |
+| Readability and responsibility boundaries | Revocation, consent requests, remote-process resources, process supervision and UI presentation have separate owners; affected Binder, UserService, startup and access-UI code is expanded and uses named boundaries | Source review and complete JVM suite |
+
+- `./gradlew test assembleRelease --no-daemon -q`: PASS for the corrected P2 code under the shared lock.
+- The added revocation regression was run on the old implementation and failed because the pending group disappeared (expected one UID, observed an empty list); it passes with the correction.
+- `openspec validate --all --strict`: 4 passed, 0 failed. OpenSpec completeness remains 6/21 original tasks; no unchecked acceptance criterion is silently closed.
+- The combined release passes the unchanged external protocol client, actual demo native UserService attachment as UID 2000, and live demo revocation with service/supervisor disappearance. Detailed artifact boundaries are in `runtime-p2.md` and `runtime-p3.md`.
+- Remaining warnings: actual Binder-GC/backpressured-output release, exhaustive hostile/death permutations, API-level descendant-revoke and abrupt-server-death integration beyond the adapter-level checks, and real-TV/vendor validation are not fully established.
+- No new product decision is proposed. Previously listed capacities, shell trust boundary, persistence scheduling and optional-expiry decisions were approved by Simon in the prior correction request.

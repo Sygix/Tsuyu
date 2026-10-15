@@ -23,10 +23,11 @@ class ClientServiceTest {
     private var uid = 110001
     private var pid = 123
     private var group = AccessGroup(uid, mapOf("client" to "signer"))
+    private var storageFails = false
     private val storage = object : AccessStorage {
         var decisions = emptyList<AccessDecision>()
         override fun read() = decisions
-        override fun write(decisions: List<AccessDecision>) { this.decisions = decisions }
+        override fun write(decisions: List<AccessDecision>) { check(!storageFails); this.decisions = decisions }
     }
     private val deadline = Deadline()
     private val identities = ClientIdentity(deadline) { group }
@@ -35,7 +36,9 @@ class ClientServiceTest {
     private val opened = java.util.concurrent.ConcurrentLinkedQueue<Pair<String, Int>>()
     private val results = java.util.concurrent.CopyOnWriteArrayList<Pair<Int, Boolean>>()
     private var death: android.os.IBinder.DeathRecipient? = null
-    private val service = ClientService(10002, access, identities, storage, deadline, {}, UserServices("unused", 1), { uid }, { pid }, { "shell-context" }, elapsed = { time }, showRequest = { token, user -> opened.add(token to user) }, stopClient = { _, _ -> })
+    private var cleanupFails = false
+    private var stops = 0
+    private val service = ClientService(10002, access, identities, storage, deadline, {}, UserServices("unused", 1), { uid }, { pid }, { "shell-context" }, elapsed = { time }, showRequest = { token, user -> opened.add(token to user) }, stopClient = { _, _ -> stops++; check(!cleanupFails) })
     @After fun cleanup() { service.shutdown(); deadline.close() }
     private var metadata: Bundle? = null
     private val callback = object : IShizukuApplication.Stub() {
@@ -238,5 +241,42 @@ class ClientServiceTest {
         uid = clientUid
         assertTrue(service.checkSelfPermission())
         assertEquals(listOf(91 to true), results.toList())
+    }
+    @Test fun failedRevocationRemainsVisibleAndRetryableWithoutRestoringConsent() {
+        attach()
+        access.decide(uid, true)
+        val clientUid = uid
+        uid = 10002
+        cleanupFails = true
+        assertThrows(IllegalStateException::class.java) { service.revoke(clientUid) }
+        assertFalse(access.allowed(clientUid))
+        assertArrayEquals(intArrayOf(clientUid), service.accessList().getIntArray("uids"))
+        assertArrayEquals(intArrayOf(clientUid), service.accessList().getIntArray("cleanupPending"))
+        uid = clientUid
+        assertThrows(IllegalStateException::class.java) { service.requestPermission(92) }
+        uid = 10002
+        cleanupFails = false
+        service.revoke(clientUid)
+        assertEquals(2, stops)
+        assertTrue(service.accessList().getIntArray("uids")!!.isEmpty())
+        assertTrue(storage.read().isEmpty())
+    }
+    @Test fun failedConsentRemovalStillDeniesCallsAndRunsEveryCleanupStep() {
+        attach()
+        access.decide(uid, true)
+        val clientUid = uid
+        uid = 10002
+        storageFails = true
+        assertThrows(IllegalStateException::class.java) { service.revoke(clientUid) }
+        assertEquals(1, stops)
+        uid = clientUid
+        assertFalse(service.checkSelfPermission())
+        assertThrows(SecurityException::class.java) { service.getVersion() }
+        uid = 10002
+        assertArrayEquals(intArrayOf(clientUid), service.accessList().getIntArray("cleanupPending"))
+        storageFails = false
+        service.revoke(clientUid)
+        assertTrue(storage.read().isEmpty())
+        assertEquals(2, stops)
     }
 }

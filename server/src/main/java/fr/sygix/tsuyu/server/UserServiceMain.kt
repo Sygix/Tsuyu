@@ -21,8 +21,7 @@ object UserServiceMain {
         try {
             check(android.system.Os.getuid() == 2000)
             require(args.size == 5)
-            val runtime = Class.forName("dalvik.system.VMRuntime")
-            runtime.getDeclaredMethod("setHiddenApiExemptions", Array<String>::class.java).invoke(runtime.getDeclaredMethod("getRuntime").invoke(null), arrayOf("L"))
+            HiddenApiAccess.enable()
             Looper.prepareMainLooper()
             val thread = Class.forName("android.app.ActivityThread")
             val activityThread = thread.getDeclaredMethod("systemMain").invoke(null)

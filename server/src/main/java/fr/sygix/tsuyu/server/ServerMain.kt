@@ -8,7 +8,6 @@ package fr.sygix.tsuyu.server
 import android.content.Context
 import android.net.LocalServerSocket
 import android.net.LocalSocket
-import android.net.LocalSocketAddress
 import android.os.Looper
 import android.os.Process
 import android.system.Os
@@ -18,7 +17,7 @@ import java.io.DataOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 
@@ -36,14 +35,12 @@ object ServerMain {
     private fun run(args: Array<String>) {
         check(Os.getuid() == 2000) { "Shell uid required" }
         require(args.size == 4 && args[1].matches(Regex("[a-f0-9]{32}")) && args[2].matches(Regex("[a-f0-9]{32}")))
-        val runtime = Class.forName("dalvik.system.VMRuntime")
-        val instance = runtime.getDeclaredMethod("getRuntime").invoke(null)
-        runtime.getDeclaredMethod("setHiddenApiExemptions", Array<String>::class.java).invoke(instance, arrayOf("L"))
+        HiddenApiAccess.enable()
         val userId = args[3].toInt().also { require(it in 0..21474) }
         val socketName = "$PACKAGE.server.$userId"
         val socket = try { LocalServerSocket(socketName) } catch (occupied: java.io.IOException) {
             LocalSocket().use { peer ->
-                peer.connect(LocalSocketAddress(socketName), 5000)
+                LocalSocketConnection.connect(peer, socketName)
                 peer.soTimeout = 5000
                 check(peer.peerCredentials.uid == 2000)
                 DataOutputStream(peer.outputStream).apply { writeUTF(args[1]); writeUTF(args[2]); flush() }
@@ -56,7 +53,9 @@ object ServerMain {
         val thread = Class.forName("android.app.ActivityThread")
         val activityThread = thread.getDeclaredMethod("systemMain").invoke(null)
         val context = thread.getDeclaredMethod("getSystemContext").invoke(activityThread) as Context
-        val executor = ThreadPoolExecutor(0, 2, 30, TimeUnit.SECONDS, SynchronousQueue())
+        val executor = ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, ArrayBlockingQueue(16)).apply {
+            allowCoreThreadTimeOut(true)
+        }
         val info = executor.submit<android.content.pm.ApplicationInfo> { requireNotNull(rikka.hidden.compat.PackageManagerApis.getApplicationInfo(PACKAGE, 0, userId)) }.get(5, TimeUnit.SECONDS)
         check(info.sourceDir == args[0]) { "Installed APK changed" }
         val managerUid = info.uid
@@ -73,7 +72,16 @@ object ServerMain {
         val failure = { event("compatibilityFailure", android.os.Bundle()) }
         val access = AccessAuthority(identities::resolve, storage)
         identities.observe(context, access::invalidate)
-        val clients = ClientService(managerUid, access, identities, storage, deadline, { exitProcess(0) }, UserServices(args[0], managerUid / 100000), onRequestEnded = { event("requestEnded", android.os.Bundle().apply { putString("request", it) }) }, reportFailure = failure)
+        val sessions = ProcessSession(args[0])
+        val clients = ClientService(
+            managerUid, access, identities, storage, deadline, { exitProcess(0) },
+            UserServices(args[0], managerUid / 100000),
+            onRequestEnded = { token ->
+                event("requestEnded", android.os.Bundle().apply { putString("request", token) })
+            },
+            reportFailure = failure,
+            launchProcess = { command, environment, directory -> sessions.launch(command, environment, directory) },
+        )
         Runtime.getRuntime().addShutdownHook(Thread { clients.shutdown() })
         val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients)
         fun snapshot(): PackageStamp? = try {
@@ -110,7 +118,11 @@ object ServerMain {
             }
         }
         publish(generation)
-        ClientDelivery(clients, managerUid / 100000, deadline, failure, { event("compatibilitySuccess", android.os.Bundle()) }).start()
+        ClientDelivery(
+            clients, managerUid / 100000, deadline, failure,
+            reportSuccess = { event("compatibilitySuccess", android.os.Bundle()) },
+            reportClient = clients::deliveryResult,
+        ).start()
         Thread {
             try {
                 while (true) socket.accept().use { peer ->

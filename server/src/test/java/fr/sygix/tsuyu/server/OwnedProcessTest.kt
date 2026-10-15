@@ -27,7 +27,7 @@ class OwnedProcessTest {
         var signalled: Int? = null
         OwnedProcess(process, { 123 }, { signalled = it; process.running = false }).terminate()
         assertFalse(process.running)
-        assertEquals(-123, signalled)
+        assertEquals(123, signalled)
     }
     @Test fun exitedChildIsNeverSignalledAndUnconfirmedDeathIsNotSuccess() {
         val exited = Child().apply { running = false }

@@ -49,5 +49,8 @@
     <string name="access_deny">Refuser</string>
     <string name="access_revoke">Retirer l’accès</string>
     <string name="access_revoke_named">Retirer l’accès : %1$s</string>
+    <string name="access_finish_revoke">Terminer le retrait : %1$s</string>
+    <string name="access_cleanup_error">Le retrait est incomplet. Réessayez pour terminer l’arrêt des processus et applications concernés. Actualiser la liste ne suffit pas.</string>
+    <string name="access_delivery_error">Accès non transmis : %1$s. Rouvrez ces applications. Si le problème persiste, vérifiez qu’elles prennent en charge cette API ou réinstallez-les, puis redémarrez Tsuyu.</string>
     <string name="compatibility_error">Le service est actif, mais un accès client a échoué. Rouvrez l’application concernée et réessayez sa demande. Si le problème persiste, redémarrez Tsuyu.</string>
 </resources>

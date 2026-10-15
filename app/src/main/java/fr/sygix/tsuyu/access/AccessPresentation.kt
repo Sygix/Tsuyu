@@ -34,7 +34,7 @@ data class AccessPresentation(val title: Int, val body: Int, val controls: List<
                     AccessControl("access-allow", AccessAction.ALLOW, R.string.access_allow),
                 )
                 else -> ui.rows.map { row ->
-                    AccessControl("revoke-${row.uid}", AccessAction.REVOKE, R.string.access_revoke_named, row, row.apps.joinToString { it.name })
+                    AccessControl("revoke-${row.uid}", AccessAction.REVOKE, if (row.cleanupPending) R.string.access_finish_revoke else R.string.access_revoke_named, row, row.apps.joinToString { it.name })
                 } + AccessControl("access-back", AccessAction.BACK, R.string.return_home)
             }
             val navigation = controls.mapIndexed { index, control ->
@@ -48,6 +48,7 @@ data class AccessPresentation(val title: Int, val body: Int, val controls: List<
             return AccessPresentation(
                 if (ui.permission) R.string.access_request else R.string.access_apps,
                 when {
+                    ui.error && ui.retryRevoke != null -> R.string.access_cleanup_error
                     ui.error -> R.string.access_error
                     ui.loading -> R.string.checking_body
                     ui.permission -> R.string.access_effect

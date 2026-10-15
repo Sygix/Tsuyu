@@ -9,12 +9,23 @@ import android.system.Os
 import android.system.OsConstants
 import java.util.concurrent.TimeUnit
 
-internal class OwnedProcess(private val process: java.lang.Process, private val identity: () -> Int = { process.javaClass.getDeclaredField("pid").apply { isAccessible = true }.getInt(process) }, private val kill: (Int) -> Unit = { Os.kill(it, OsConstants.SIGKILL) }) {
+internal class OwnedProcess(
+    private val process: java.lang.Process,
+    private val identity: () -> Int = {
+        if (process is SessionProcess) process.targetPid
+        else process.javaClass.getDeclaredField("pid").apply { isAccessible = true }.getInt(process)
+    },
+    private val kill: (Int) -> Unit = { Os.kill(it, OsConstants.SIGKILL) },
+) {
     val pid get() = identity().also { check(it > 0) }
     fun terminate() {
+        if (process is SessionProcess) {
+            process.terminate()
+            return
+        }
         synchronized(process) {
             if (process.isAlive) {
-                try { kill(-pid) }
+                try { kill(pid) }
                 catch (failure: android.system.ErrnoException) { if (failure.errno != OsConstants.ESRCH) throw failure }
             }
         }

@@ -16,54 +16,72 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.Future
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.ArrayBlockingQueue
+import android.util.Log
 
 internal class UserServices(
     private val apk: String,
     private val managerUser: Int,
     private val available: (String) -> Boolean = { File(it).canExecute() },
     private val launch: (List<String>) -> java.lang.Process = { command ->
-        ProcessBuilder(command).apply {
-            environment()["CLASSPATH"] = apk
-            redirectOutput(File("/dev/null"))
-            redirectError(File("/dev/null"))
-        }.start()
+        ProcessSession(apk).launch(command.toTypedArray(), discardOutput = true)
     },
     private val terminate: (java.lang.Process) -> Unit = { OwnedProcess(it).terminate() },
     private val childPid: (java.lang.Process) -> Int = { OwnedProcess(it).pid },
     private val timeout: (((() -> Unit)) -> Unit)? = null,
 ) {
-    private class Record(val uid: Int, val key: String, val version: Int, var daemon: Boolean, val token: String, var process: java.lang.Process? = null, var binder: IBinder? = null, val callbacks: MutableMap<IBinder, IShizukuServiceConnection> = mutableMapOf())
+    private class Record(
+        val uid: Int,
+        val key: String,
+        val version: Int,
+        var daemon: Boolean,
+        val token: String,
+        var process: java.lang.Process? = null,
+        var binder: IBinder? = null,
+        val callbacks: MutableMap<IBinder, IShizukuServiceConnection> = mutableMapOf(),
+    )
     private val records = mutableMapOf<String, Record>()
     private val events = Executors.newSingleThreadScheduledExecutor()
-    private val callbacks = java.util.concurrent.ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, java.util.concurrent.ArrayBlockingQueue(32))
+    private val callbacks = ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, ArrayBlockingQueue(32))
     private val deadline = Deadline()
     private val cleanup = Executors.newFixedThreadPool(2)
-    private val retiring = mutableListOf<java.util.concurrent.Future<*>>()
+    private val retiring = mutableMapOf<Record, Future<*>>()
     private val deaths = mutableMapOf<Pair<Record, IBinder>, IBinder.DeathRecipient>()
-    private fun awaitCleanup() {
-        val pending = synchronized(this) { retiring.toList().also { retiring.clear() } }
+    private fun <T> operation(block: (MutableList<Future<*>>) -> T): T {
+        val pending = mutableListOf<Future<*>>()
+        val result = synchronized(this) { block(pending) }
         Cleanup.run(pending.map { future -> { future.get(6, TimeUnit.SECONDS); Unit } })
-    }
-    fun add(uid: Int, group: AccessGroup, api: Int, conn: IShizukuServiceConnection, args: Bundle): Int {
-        val result = addLocked(uid, group, api, conn, args)
-        awaitCleanup()
         return result
     }
+    fun add(uid: Int, group: AccessGroup, api: Int, conn: IShizukuServiceConnection, args: Bundle): Int {
+        return operation { pending -> addLocked(uid, group, api, conn, args, pending) }
+    }
     private fun connected(record: Record, conn: IShizukuServiceConnection): Boolean {
-        try {
-        callbacks.execute {
-            val binder = synchronized(this) { record.binder?.takeIf { records[record.key] == record && conn.asBinder() in record.callbacks } } ?: return@execute
-            try { deadline.call { conn.connected(binder) } }
-            catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService callback failed", failure); synchronized(this) { record.callbacks.remove(conn.asBinder()); unlink(record, conn.asBinder()); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
-        }
-        return true
-        } catch (failure: java.util.concurrent.RejectedExecutionException) {
-            record.callbacks.remove(conn.asBinder())
-            unlink(record, conn.asBinder())
-            if (!record.daemon && record.callbacks.isEmpty()) remove(record)
-            android.util.Log.e("TsuyuServer", "UserService connection capacity exceeded", failure)
+        return try {
+            callbacks.execute {
+                val binder = synchronized(this) {
+                    record.binder?.takeIf { records[record.key] == record && conn.asBinder() in record.callbacks }
+                } ?: return@execute
+                try { deadline.call { conn.connected(binder) } }
+                catch (failure: Exception) {
+                    Log.e("TsuyuServer", "UserService callback failed", failure)
+                    synchronized(this) { disconnect(record, conn.asBinder()) }
+                }
+            }
+            true
+        } catch (failure: RejectedExecutionException) {
+            disconnect(record, conn.asBinder())
+            Log.e("TsuyuServer", "UserService connection capacity exceeded", failure)
             return false
         }
+    }
+    private fun disconnect(record: Record, binder: IBinder): Future<*>? {
+        record.callbacks.remove(binder)
+        unlink(record, binder)
+        return if (!record.daemon && record.callbacks.isEmpty()) remove(record) else null
     }
     private fun component(uid: Int, group: AccessGroup, args: Bundle): ComponentName {
         val component = requireNotNull(args.getParcelable(USER_SERVICE_ARG_COMPONENT, ComponentName::class.java))
@@ -76,7 +94,7 @@ internal class UserServices(
         require(tag.length in 1..256 && '\u0000' !in tag)
         return "$uid:${component.packageName}:$tag"
     }
-    @Synchronized private fun addLocked(uid: Int, group: AccessGroup, api: Int, conn: IShizukuServiceConnection, args: Bundle): Int {
+    private fun addLocked(uid: Int, group: AccessGroup, api: Int, conn: IShizukuServiceConnection, args: Bundle, pending: MutableList<Future<*>>): Int {
         val component = component(uid, group, args)
         val key = key(uid, component, args)
         val version = args.getInt(USER_SERVICE_ARG_VERSION_CODE, 1)
@@ -87,16 +105,18 @@ internal class UserServices(
             check(connected(record, conn)) { "UserService connection capacity exceeded" }
             return if (api >= 13) record.version else 0
         }
-        if (record != null && record.version != version) { remove(record); record = null }
+        if (record != null && record.version != version) {
+            pending += remove(record)
+            record = null
+        }
         if (record == null) {
             val executable = if (args.getBoolean(USER_SERVICE_ARG_USE_32_BIT_APP_PROCESS)) "/system/bin/app_process32" else "/system/bin/app_process"
             require(available(executable)) { "Requested ABI unavailable" }
             val suffix = args.getString(USER_SERVICE_ARG_PROCESS_NAME) ?: "user_service"
             require(suffix.matches(Regex("[A-Za-z0-9_.-]{1,128}")))
-            val command = mutableListOf("/system/bin/toybox", "setsid", executable)
+            val command = mutableListOf(executable)
             if (args.getBoolean(USER_SERVICE_ARG_DEBUGGABLE)) {
-                command += "-Xcompiler-option"; command += "--debuggable"
-                command += "-XjdwpProvider:adbconnection"; command += "-XjdwpOptions:suspend=n,server=y"
+                command += listOf("-Xcompiler-option", "--debuggable", "-XjdwpProvider:adbconnection", "-XjdwpOptions:suspend=n,server=y")
             }
             command += listOf("/system/bin", "--nice-name=${component.packageName}:$suffix", "fr.sygix.tsuyu.server.UserServiceMain")
             record = Record(uid, key, version, args.getBoolean(USER_SERVICE_ARG_DAEMON, true), UUID.randomUUID().toString())
@@ -105,9 +125,19 @@ internal class UserServices(
             try {
                 record.process = launch(command)
                 val created = record
-                val expire = { synchronized(this) { if (records[key] == created && created.binder == null) { android.util.Log.e("TsuyuServer", "UserService attachment timed out"); remove(created) } } }
+                val expire: () -> Unit = {
+                    synchronized(this) {
+                        if (records[key] == created && created.binder == null) {
+                            Log.e("TsuyuServer", "UserService attachment timed out")
+                            remove(created)
+                        }
+                    }
+                }
                 if (timeout != null) timeout(expire) else events.schedule(expire, 30, TimeUnit.SECONDS)
-            } catch (failure: Exception) { remove(record); throw IllegalStateException("UserService launch failed", failure) }
+            } catch (failure: Exception) {
+                remove(record)
+                throw IllegalStateException("UserService launch failed", failure)
+            }
         }
         record.daemon = args.getBoolean(USER_SERVICE_ARG_DAEMON, true)
         register(record, conn)
@@ -117,7 +147,7 @@ internal class UserServices(
     private fun register(record: Record, conn: IShizukuServiceConnection) {
         val binder = conn.asBinder()
         if (record.callbacks.containsKey(binder)) return
-        val death = IBinder.DeathRecipient { synchronized(this) { record.callbacks.remove(binder); deaths.remove(record to binder); if (!record.daemon && record.callbacks.isEmpty()) remove(record) } }
+        val death = IBinder.DeathRecipient { synchronized(this) { disconnect(record, binder) } }
         binder.linkToDeath(death, 0)
         deaths[record to binder] = death
         record.callbacks[binder] = conn
@@ -134,31 +164,57 @@ internal class UserServices(
         record.callbacks.values.toList().forEach { connected(record, it) }
     }
     fun unbind(uid: Int, group: AccessGroup, conn: IShizukuServiceConnection?, args: Bundle): Int {
-        val result = unbindLocked(uid, group, conn, args)
-        awaitCleanup()
-        return result
+        return operation { pending -> unbindLocked(uid, group, conn, args, pending) }
     }
-    @Synchronized private fun unbindLocked(uid: Int, group: AccessGroup, conn: IShizukuServiceConnection?, args: Bundle): Int {
+    private fun unbindLocked(uid: Int, group: AccessGroup, conn: IShizukuServiceConnection?, args: Bundle, pending: MutableList<Future<*>>): Int {
         val record = records[key(uid, component(uid, group, args), args)] ?: return 1
-        if (args.getBoolean(USER_SERVICE_ARG_REMOVE, true)) remove(record)
-        else { val binder = requireNotNull(conn).asBinder(); record.callbacks.remove(binder); unlink(record, binder); if (!record.daemon && record.callbacks.isEmpty()) remove(record) }
+        if (args.getBoolean(USER_SERVICE_ARG_REMOVE, true)) pending += remove(record)
+        else disconnect(record, requireNotNull(conn).asBinder())?.let { pending += it }
         return 0
     }
-    fun revoke(uid: Int) { synchronized(this) { records.values.filter { it.uid == uid }.toList().forEach(::remove) }; awaitCleanup() }
+    fun revoke(uid: Int) {
+        operation { pending ->
+            (records.values + retiring.keys).filter { it.uid == uid }.distinct().forEach { pending += remove(it) }
+        }
+    }
     fun close() {
-        try { synchronized(this) { records.values.toList().forEach(::remove) }; awaitCleanup() }
-        finally { events.shutdownNow(); callbacks.shutdownNow(); cleanup.shutdownNow(); deadline.close() }
+        try {
+            operation { pending -> (records.values + retiring.keys).distinct().forEach { pending += remove(it) } }
+        } finally {
+            events.shutdownNow()
+            callbacks.shutdownNow()
+            cleanup.shutdownNow()
+            deadline.close()
+        }
     }
     private fun unlink(record: Record, binder: IBinder) { deaths.remove(record to binder)?.let { binder.unlinkToDeath(it, 0) } }
-    private fun remove(record: Record) {
-        if (records[record.key] != record) return
+    private fun remove(record: Record): Future<*> {
+        retiring[record]?.takeIf { !it.isDone }?.let { return it }
         records.remove(record.key, record)
         record.binder?.let { unlink(record, it) }
         record.callbacks.keys.toList().forEach { unlink(record, it) }
-        record.process?.let { process -> retiring += cleanup.submit { terminate(process) } }
-        record.callbacks.values.toList().forEach { callback -> try { callbacks.execute {
-            try { deadline.call { callback.died() } } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "UserService death callback failed", failure) }
-        } } catch (failure: java.util.concurrent.RejectedExecutionException) { android.util.Log.e("TsuyuServer", "UserService callback capacity exceeded", failure) } }
+        val future = cleanup.submit {
+            try {
+                record.process?.let(terminate)
+                synchronized(this) { retiring.remove(record) }
+            } catch (failure: Exception) {
+                Log.e("TsuyuServer", "UserService termination unverified; retry revocation", failure)
+                throw failure
+            }
+        }
+        retiring[record] = future
+        record.callbacks.values.toList().forEach(::notifyDeath)
         record.callbacks.clear()
+        return future
+    }
+    private fun notifyDeath(callback: IShizukuServiceConnection) {
+        try {
+            callbacks.execute {
+                try { deadline.call { callback.died() } }
+                catch (failure: Exception) { Log.e("TsuyuServer", "UserService death callback failed", failure) }
+            }
+        } catch (failure: RejectedExecutionException) {
+            Log.e("TsuyuServer", "UserService callback capacity exceeded", failure)
+        }
     }
 }

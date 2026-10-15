@@ -29,7 +29,7 @@ class RemoteProcessTest {
         override fun destroy() { exited.countDown() }
         override fun isAlive() = exited.count != 0L
     }
-    @Test fun normalExitReleasesTheServerRecordAndAllMethodsRetainAuthorization() {
+    @Test fun normalExitPreservesOutputAccessAndReleaseClosesTheResourceLease() {
         val child = Child()
         val released = CountDownLatch(1)
         var authorized = true
@@ -47,11 +47,12 @@ class RemoteProcessTest {
             )
             operations.forEach { operation -> assertThrows(SecurityException::class.java) { operation() } }
             child.destroy()
-            assertTrue(released.await(3, TimeUnit.SECONDS))
             authorized = true
             assertEquals(7, remote.waitFor())
             assertEquals(7, remote.exitValue())
             assertFalse(remote.alive())
+            remote.close()
+            assertTrue(released.await(3, TimeUnit.SECONDS))
         } finally { child.destroy(); remote.close() }
     }
 }

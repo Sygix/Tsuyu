@@ -41,6 +41,10 @@ internal class ConsentRequests(
         requests.values.filter { it.client == client }.forEach { requests.remove(it.token); ended(it.token) }
     }
 
+    fun cancel(uid: Int) {
+        requests.values.filter { it.client.uid == uid }.forEach { complete(it.token, false) }
+    }
+
     fun enqueue(client: ClientRecord, code: Int) {
         val request = lifecycle.withUid(client.uid) {
             shell {

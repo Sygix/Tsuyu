@@ -32,6 +32,9 @@ fun AccessScreen(ui: AccessUi, confirm: (Boolean) -> Unit, revoke: (Int) -> Unit
         Column(Modifier.fillMaxSize().background(Color(0xff10161e)).padding(56.dp, 40.dp).verticalScroll(rememberScrollState()).testTag("access-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(presentation.title), fontSize = 32.sp, modifier = Modifier.testTag("access-title"))
             Text(stringResource(presentation.body), fontSize = 20.sp, modifier = Modifier.testTag("access-body"))
+            if (ui.deliveryFailures.isNotEmpty()) {
+                Text(stringResource(R.string.access_delivery_error, ui.deliveryFailures.joinToString { it.name }), fontSize = 20.sp, modifier = Modifier.testTag("access-delivery-error"))
+            }
             if (ui.permission) ui.rows.forEach { row -> key(row.uid) { AppNames(row) } }
             val actions: @Composable () -> Unit = { presentation.controls.forEach { control -> key(control.id) {
                 val id = control.id

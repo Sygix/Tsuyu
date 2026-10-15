@@ -7,62 +7,87 @@
 
 package fr.sygix.tsuyu.server
 
+import android.os.Parcel
 import android.os.ParcelFileDescriptor
-import moe.shizuku.server.IRemoteProcess
+import android.os.RemoteException
+import android.util.Log
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import moe.shizuku.server.IRemoteProcess
 
 internal class RemoteProcess(
-    private val process: java.lang.Process,
-    private val released: (RemoteProcess) -> Unit = {},
+    process: Process,
+    released: (Resources) -> Unit = {},
     private val authorize: () -> Unit,
 ) : IRemoteProcess.Stub() {
-    private val closed = AtomicBoolean()
-    private val stdin = ParcelFileDescriptor.createPipe()
-    private val stdout = ParcelFileDescriptor.createPipe()
-    private val stderr = ParcelFileDescriptor.createPipe()
-    init {
-        pump(ParcelFileDescriptor.AutoCloseInputStream(stdin[0]), process.outputStream)
-        pump(process.inputStream, ParcelFileDescriptor.AutoCloseOutputStream(stdout[1]))
-        pump(process.errorStream, ParcelFileDescriptor.AutoCloseOutputStream(stderr[1]))
-    }
-    fun watch() {
-        Thread {
-            try {
-                process.waitFor()
-                stdin[0].close()
-                stdin[1].close()
-                process.outputStream.close()
-            } finally { released(this) }
-        }.apply { isDaemon = true; start() }
-    }
-    private fun pump(input: java.io.InputStream, output: java.io.OutputStream) {
-        Thread {
-            try { input.use { source -> output.use { target -> source.copyTo(target, 8192) } } }
-            catch (failure: java.io.IOException) { if (!closed.get()) android.util.Log.e("TsuyuServer", "Process stream failed", failure) }
-        }.apply { isDaemon = true; start() }
-    }
-    override fun getOutputStream(): ParcelFileDescriptor { authorize(); return stdin[1] }
-    override fun getInputStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(stdout[0].fileDescriptor) }
-    override fun getErrorStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(stderr[0].fileDescriptor) }
+    val resources = Resources(process, released)
+    private val process get() = resources.process
+
+    fun watch() = resources.watch()
+    override fun getOutputStream(): ParcelFileDescriptor { authorize(); return resources.stdin[1] }
+    override fun getInputStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(resources.stdout[0].fileDescriptor) }
+    override fun getErrorStream(): ParcelFileDescriptor { authorize(); return ParcelFileDescriptor.dup(resources.stderr[0].fileDescriptor) }
     override fun waitFor(): Int { authorize(); return process.waitFor() }
     override fun exitValue(): Int { authorize(); return process.exitValue() }
     override fun alive(): Boolean { authorize(); return process.isAlive }
     override fun waitForTimeout(timeout: Long, unit: String): Boolean {
-        authorize(); require(timeout >= 0)
+        authorize()
+        require(timeout >= 0)
         return process.waitFor(timeout, TimeUnit.valueOf(unit))
     }
     override fun destroy() { authorize(); close() }
-    override fun onTransact(code: Int, data: android.os.Parcel, reply: android.os.Parcel?, flags: Int): Boolean {
+    override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
         try { return super.onTransact(code, data, reply, flags) }
-        catch (failure: android.os.RemoteException) { throw failure }
+        catch (failure: RemoteException) { throw failure }
         catch (failure: RuntimeException) { throw failure }
         catch (failure: Exception) { throw IllegalStateException("Process operation failed", failure) }
     }
-    @Synchronized fun close() {
-        if (!closed.compareAndSet(false, true)) return
-        try { OwnedProcess(process).terminate() }
-        finally {
+
+    fun close() = resources.close()
+    protected fun finalize() { resources.close() }
+
+    class Resources(val process: Process, private val released: (Resources) -> Unit) {
+        private val closed = AtomicBoolean()
+        private val stdinFinished = AtomicBoolean()
+        val stdin = ParcelFileDescriptor.createPipe()
+        val stdout = ParcelFileDescriptor.createPipe()
+        val stderr = ParcelFileDescriptor.createPipe()
+
+        init {
+            pump(ParcelFileDescriptor.AutoCloseInputStream(stdin[0]), process.outputStream) { stdinFinished.get() }
+            pump(process.inputStream, ParcelFileDescriptor.AutoCloseOutputStream(stdout[1]))
+            pump(process.errorStream, ParcelFileDescriptor.AutoCloseOutputStream(stderr[1]))
+        }
+
+        fun watch() {
+            Thread {
+                try {
+                    process.waitFor()
+                    stdinFinished.set(true)
+                    stdin[0].close()
+                    stdin[1].close()
+                    process.outputStream.close()
+                } catch (failure: Exception) {
+                    Log.e("TsuyuServer", "Process completion cleanup failed", failure)
+                }
+            }.apply { isDaemon = true; start() }
+        }
+
+        private fun pump(input: InputStream, output: OutputStream, expectedClosure: () -> Boolean = { false }) {
+            Thread {
+                try { input.use { source -> output.use { target -> source.copyTo(target, BUFFER_SIZE) } } }
+                catch (failure: java.io.IOException) {
+                    if (!closed.get() && !expectedClosure()) Log.e("TsuyuServer", "Process stream failed", failure)
+                }
+            }.apply { isDaemon = true; start() }
+        }
+
+        @Synchronized fun close() {
+            if (closed.get()) return
+            OwnedProcess(process).terminate()
+            closed.set(true)
             try {
                 Cleanup.run((stdin + stdout + stderr).map { descriptor -> { descriptor.close() } } + listOf(
                     { process.inputStream.close() },
@@ -71,6 +96,7 @@ internal class RemoteProcess(
                 ))
             } finally { released(this) }
         }
+
+        companion object { private const val BUFFER_SIZE = 8192 }
     }
-    protected fun finalize() { close() }
 }

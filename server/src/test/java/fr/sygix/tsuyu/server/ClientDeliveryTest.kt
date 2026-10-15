@@ -18,6 +18,33 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class ClientDeliveryTest {
+    @Test fun transientEnumerationAndExhaustedDeliveryCanRecoverForTheSameLivePid() {
+        val failed = CountDownLatch(1)
+        val exhausted = CountDownLatch(3)
+        val success = CountDownLatch(1)
+        var time = 0L
+        var enumerateFails = true
+        var sendFails = true
+        Deadline().use { deadline ->
+            ClientDelivery(Binder(), 0, deadline, {
+                if (enumerateFails) failed.countDown() else exhausted.countDown()
+            }, { success.countDown() }, enumerate = {
+                check(!enumerateFails)
+                listOf("client")
+            }, send = { _, _ -> check(!sendFails) }, clock = { time }).use { delivery ->
+                delivery.processStarted(123, 10001)
+                assertTrue(failed.await(3, TimeUnit.SECONDS))
+                enumerateFails = false
+                time = 6000
+                delivery.processStarted(123, 10001)
+                assertTrue(exhausted.await(4, TimeUnit.SECONDS))
+                sendFails = false
+                time = 12000
+                delivery.processStarted(123, 10001)
+                assertTrue(success.await(3, TimeUnit.SECONDS))
+            }
+        }
+    }
     @Test fun stateChangesDeliverOncePerPidAndDeathAllowsRedelivery() {
         val scans = AtomicInteger()
         val first = CountDownLatch(1)
@@ -42,15 +69,21 @@ class ClientDeliveryTest {
     @Test fun missingClientProviderDoesNotMarkTheServiceAsBroken() {
         val failures = AtomicInteger()
         val healthy = CountDownLatch(1)
+        val missing = CountDownLatch(1)
+        val reported = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
         Deadline().use { deadline ->
             ClientDelivery(Binder(), 0, deadline, { failures.incrementAndGet() }, { healthy.countDown() },
                 enumerate = { listOf("missing", "healthy") },
                 send = { name, _ -> if (name == "missing") throw ProviderUnavailable(name) },
+                reportClient = { name, delivered -> reported[name] = delivered; if (name == "missing") missing.countDown() },
             ).use { delivery ->
                 delivery.processStarted(123, 10001)
                 assertTrue(healthy.await(3, TimeUnit.SECONDS))
+                assertTrue(missing.await(3, TimeUnit.SECONDS))
             }
             assertEquals(0, failures.get())
+            assertEquals(false, reported["missing"])
+            assertEquals(true, reported["healthy"])
         }
     }
 }

@@ -27,9 +27,13 @@ internal class ClientDelivery(
     private val reportSuccess: () -> Unit = {},
     private val enumerate: ((Int) -> List<String>)? = null,
     private val send: ((String, Int) -> Unit)? = null,
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val reportClient: (String, Boolean) -> Unit = { _, _ -> },
 ) : AutoCloseable {
     private val pending = ConcurrentHashMap.newKeySet<String>()
     private val delivered = ConcurrentHashMap.newKeySet<Int>()
+    private val owners = ConcurrentHashMap<Int, Int>()
+    private val retryAfter = ConcurrentHashMap<Int, Long>()
     private val events = Executors.newScheduledThreadPool(2)
     private val uidObserver = object : UidObserverAdapter() {
         override fun onUidActive(uid: Int) { activeUid(uid) }
@@ -41,12 +45,20 @@ internal class ClientDelivery(
         override fun onProcessStarted(pid: Int, processUid: Int, packageUid: Int, packageName: String?, processName: String?) { processStarted(pid, packageUid) }
         override fun onProcessDied(pid: Int, uid: Int) { processDied(pid) }
     }
-    fun processDied(pid: Int) { delivered.remove(pid) }
+    fun processDied(pid: Int) { delivered.remove(pid); owners.remove(pid) }
     override fun close() {
         events.shutdown()
         if (!events.awaitTermination(6, TimeUnit.SECONDS)) events.shutdownNow()
     }
-    fun processStarted(pid: Int, uid: Int) { if (uid / 100000 == userId && delivered.add(pid)) deliverUid(uid) }
+    fun processStarted(pid: Int, uid: Int) {
+        if (uid / PER_USER_RANGE != userId || clock() < (retryAfter[uid] ?: 0)) return
+        owners[pid] = uid
+        if (delivered.add(pid)) deliverUid(uid)
+    }
+    private fun retryUid(uid: Int) {
+        retryAfter[uid] = clock() + RETRY_COOLDOWN_MS
+        owners.entries.filter { it.value == uid }.forEach { delivered.remove(it.key) }
+    }
     private fun activeUid(uid: Int) {
         if (uid / PER_USER_RANGE != userId) return
         events.execute {
@@ -75,18 +87,18 @@ internal class ClientDelivery(
         events.execute {
             try {
                 if (enumerate != null) {
-                    enumerate.invoke(uid).forEach { deliver(it, uid / PER_USER_RANGE) }
+                    enumerate.invoke(uid).forEach { deliver(it, uid / PER_USER_RANGE, uid = uid) }
                     return@execute
                 }
                 val packages = deadline.call { PackageManagerApis.getPackagesForUid(uid) } ?: return@execute
                 packages.forEach { name ->
                     val info = deadline.call { PackageManagerApis.getPackageInfo(name, PackageManager.GET_PERMISSIONS.toLong(), uid / 100000) }
-                    if (info?.requestedPermissions?.contains("moe.shizuku.manager.permission.API_V23") == true) deliver(name, uid / 100000)
+                    if (info?.requestedPermissions?.contains("moe.shizuku.manager.permission.API_V23") == true) deliver(name, uid / 100000, uid = uid)
                 }
-            } catch (failure: Exception) { android.util.Log.e("TsuyuServer", "Client enumeration failed", failure); reportFailure() }
+            } catch (failure: Exception) { retryUid(uid); android.util.Log.e("TsuyuServer", "Client enumeration failed", failure); reportFailure() }
         }
     }
-    private fun deliver(name: String, user: Int, attempt: Int = 0) {
+    private fun deliver(name: String, user: Int, attempt: Int = 0, uid: Int? = null) {
         val key = "$user:$name"
         if (attempt == 0 && !pending.add(key)) return
         events.execute {
@@ -98,13 +110,20 @@ internal class ClientDelivery(
                     })
                 }
                 pending.remove(key)
+                reportClient(name, true)
                 reportSuccess()
             } catch (missing: ProviderUnavailable) {
                 pending.remove(key)
+                reportClient(name, false)
             } catch (failure: Exception) {
                 android.util.Log.e("TsuyuServer", "Client binder delivery failed", failure)
+                if (attempt < 2) events.schedule({ deliver(name, user, attempt + 1, uid) }, 1, TimeUnit.SECONDS)
+                else {
+                    pending.remove(key)
+                    if (uid != null) retryUid(uid)
+                    reportClient(name, false)
+                }
                 reportFailure()
-                if (attempt < 2) events.schedule({ deliver(name, user, attempt + 1) }, 1, TimeUnit.SECONDS) else pending.remove(key)
             }
         }
     }
@@ -112,5 +131,6 @@ internal class ClientDelivery(
         private const val PER_USER_RANGE = 100_000
         private const val UID_OBSERVER_ACTIVE = 2
         private const val UID_OBSERVER_CACHED = 16
+        private const val RETRY_COOLDOWN_MS = 5000
     }
 }

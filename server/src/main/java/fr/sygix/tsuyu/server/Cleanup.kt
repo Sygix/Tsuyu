@@ -11,7 +11,7 @@ internal object Cleanup {
             try { step(); null } catch (failure: Exception) { failure }
         }
         if (failures.isNotEmpty()) {
-            throw IllegalStateException("Access revoked; cleanup incomplete. Retry in Tsuyu.").apply {
+            throw IllegalStateException("Cleanup incomplete; retry the operation in Tsuyu.").apply {
                 failures.forEach(::addSuppressed)
             }
         }
