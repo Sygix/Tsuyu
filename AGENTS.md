@@ -1,7 +1,7 @@
 # AGENTS.md — instructions for AI agents
 
 ## Overview
-Tsuyu (露, "dew") is a privileged access service for Android TV / Google TV. It is compatible with the Shizuku API and fully usable with the remote. Tsuyu:
+Tsuyu (梅雨, "rainy season") is a privileged access service for Android TV / Google TV. It is compatible with the Shizuku API and fully usable with the remote. Tsuyu:
 - starts a server with shell (ADB) rights on the TV itself, with no computer and no phone;
 - restarts it after every reboot;
 - makes it available to Shizuku client apps, including SygixOs.

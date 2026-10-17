@@ -49,7 +49,8 @@ The exact scope of each screen is decided in OpenSpec changes.
   - quiet surfaces;
   - 250–400 ms animations, never an abrupt jump;
   - the system animation scale is respected.
-- **Accent color:** a single cool accent evoking dew.
+- **Mascot:** a rain-drop ghost holding a D-pad, on black. It is the adaptive launcher icon and, with the Tsuyu name, the Android TV banner and the README logo.
+- **Accent color:** a single cool accent evoking rain.
   - It marks focus and the active state.
   - It is never the only carrier of information.
 - **Text readable at 3 m:**

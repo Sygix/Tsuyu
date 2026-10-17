@@ -1,8 +1,12 @@
-# Tsuyu
+<h1 align="center"><img src=".github/assets/readme-logo.png" alt="Tsuyu" width="640"></h1>
 
-Tsuyu (露, "dew") is a remote-driven privileged access service for Android TV / Google TV. It starts a service with ADB (shell) rights on the TV itself, with no computer and no phone. The complete v1 will expose the [Shizuku API](https://github.com/RikkaApps/Shizuku-API) and restart after each reboot; the phase status below describes what currently works.
+[![test](https://github.com/Sygix/Tsuyu/actions/workflows/test.yml/badge.svg)](https://github.com/Sygix/Tsuyu/actions/workflows/test.yml)
+[![release](https://img.shields.io/github/v/release/Sygix/Tsuyu?include_prereleases&sort=semver)](https://github.com/Sygix/Tsuyu/releases)
+[![license](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 
-> Work in progress: no release yet.
+Tsuyu (梅雨, "rainy season") is a remote-driven privileged access service for Android TV / Google TV. It starts a service with ADB (shell) rights on the TV itself, with no computer and no phone. The complete v1 will expose the [Shizuku API](https://github.com/RikkaApps/Shizuku-API) and restart after each reboot; the phase status below describes what currently works.
+
+> Work in progress: alpha pre-releases (`tsuyu.apk`) are published on the [Releases](https://github.com/Sygix/Tsuyu/releases) page; P2 and P3 still await validation on the real TV.
 
 ## Why
 
