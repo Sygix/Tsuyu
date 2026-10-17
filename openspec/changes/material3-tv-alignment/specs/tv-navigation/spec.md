@@ -17,7 +17,7 @@ Tsuyu SHALL use French resource strings, a dark Material 3 TV interface, safe-ar
 
 #### Scenario: Material presentation across journeys
 - **WHEN** the user moves between home, setup, access, persistence, expiry, help, details and recovery
-- **THEN** the same cyan/navy visual roles, typography hierarchy, rounded surfaces and focused-action treatment apply throughout
+- **THEN** the same blue/navy visual roles, typography hierarchy, rounded surfaces and focused-action treatment apply throughout
 
 ## ADDED Requirements
 
@@ -26,7 +26,7 @@ Tsuyu SHALL present consistent resting, focused, unavailable and destructive act
 
 #### Scenario: Focused action
 - **WHEN** D-pad navigation moves between actions
-- **THEN** the focused action uses the cyan container and contrasting label with a slight scale that does not reflow its neighbours; the previous action returns to its resting style
+- **THEN** the focused action uses the shared pale-blue container and contrasting label with a slight scale that does not reflow its neighbours; the previous action returns to its resting style
 
 #### Scenario: Unavailable or destructive action
 - **WHEN** an existing operation makes an action unavailable or a revoke action is presented
@@ -116,3 +116,18 @@ Pending operations SHALL have a visible textual loading state and indeterminate 
 #### Scenario: Required warnings and technical details
 - **WHEN** setup, access, persistence, expiry or help presents explanatory content
 - **THEN** it retains the applicable local-network, debugging, group-wide access, process-termination and global-policy warnings from the owning capability; internal protocol names, numeric identifiers and raw policy units are confined to Détails or explicitly labelled technical details rather than the primary explanation
+
+### Requirement: Consistent Tsuyu brand identity
+Tsuyu SHALL show its original mascot with a readable app name in a larger home signature and a compact header on secondary screens. The artwork SHALL retain its aspect ratio and colors. Brand decoration SHALL be non-interactive and SHALL NOT replace client identity, consent information or recovery actions.
+
+#### Scenario: Home and secondary branding
+- **WHEN** home or a secondary screen is shown
+- **THEN** the shared mascot appears in the corresponding signature/header inside the safe area without stealing initial focus or obscuring the screen's main message
+
+#### Scenario: Permission identity remains distinct
+- **WHEN** an application requests access
+- **THEN** the compact Tsuyu header identifies the manager separately from the requesting application's verified name and icon, including all members of a shared group
+
+#### Scenario: Original artwork and constrained space
+- **WHEN** the supplied brand export is placed or the available text space changes
+- **THEN** only transparent outer padding can be removed from the art, it is not distorted or recolored, and the identity remains distinct without reducing essential copy below the text minimum

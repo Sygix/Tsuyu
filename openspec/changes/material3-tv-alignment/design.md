@@ -26,7 +26,7 @@ Use the Penpot file linked in proposal.md. Page/board identifiers below are the 
 
 | Penpot boards | Observed difference from code | Implementation boundary |
 | --- | --- | --- |
-| DS.1–DS.2, C.1–C.3 | Palette and component states are documented centrally; code repeats values and mixes custom/default controls | Shared theme, spacing, typography and component definitions |
+| DS.1–DS.3, C.1–C.4 | Palette, original brand artwork and component states are documented centrally; code repeats values and mixes custom/default controls | Shared theme, brand, spacing, typography and component definitions |
 | H.1–H.6 | Information-left/actions-right; boot status in a dedicated surface rather than a plain line | Recompose existing HomeUi and its controls; retain boot-failure focus override |
 | S.1–S.4 | Separated step content and pending-auth progress | Existing developer/debugging/auth/unknown states; preserve local-network disclosure and Android prompt ownership |
 | A.1–A.2 | Centered rounded decision surface rather than a plain page column | Existing PermissionActivity and live request token; keep real installed name/icon and all group members |
@@ -42,15 +42,17 @@ All 37 app boards are state-coverage references, not a requirement to create 37 
 
 Create a shared `ui/theme` foundation used at the three activity entry points or common screen roots. Continue `androidx.tv.material3`; introducing a phone component library or a second theme mechanism is unnecessary. Use semantic Material color roles, not repeated literals in each composable.
 
-The Penpot palette is: background `#10161E`, surface `#1E2936`, raised surface `#293645`, primary `#94D8DF`, on-primary `#00363B`, main text `#E6EDF5`, secondary text `#C6D1DF`, outline `#667585`, error `#FFB4AB`, error container `#493133`. Validate text and focus contrast after applying disabled opacity. Preserve real application icons and current launcher/banner assets; the generic S/A/B tiles in Penpot are placeholders.
+The Penpot palette is: background `#10161E`, surface `#1E2936`, raised surface `#293645`, primary `#A8D5FF`, on-primary `#003353`, main text `#E6EDF5`, secondary text `#C6D1DF`, outline `#667585`, error `#FFB4AB`, error container `#493133`. The primary/on-primary pair changes the current code's cyan accent to a pale blue matching the supplied blue/cyan/violet mascot; the other roles stay stable. Its measured contrast is 8.52:1; validate contrast after applying disabled opacity too. Preserve real application icons and current launcher/banner assets; the generic S/A/B tiles in Penpot are client placeholders.
 
-Reference canvas is 1920 × 1080; the existing test viewport is 960 × 540 dp at xhdpi. Convert dimensions using density rather than treating canvas pixels as dp/sp. The canvas type styles 64/48/36/32/28/26 px are a hierarchy reference: smaller labels/supporting copy must be raised to at least 16 sp at the reference viewport. Keep the currently readable 20 sp body and 36 sp state-title baseline where needed, adapting wrapping instead of shrinking text. This intentionally corrects the mockup's undersized secondary styles.
+Reference canvas is 1920 × 1080; the existing test viewport is 960 × 540 dp at xhdpi. Convert dimensions using density rather than treating canvas pixels as dp/sp. The revised canvas type styles are 64/48/36/32/32/32 px: labels and supporting copy now also meet 16 sp at the reference viewport. Keep the currently readable 20 sp body and 36 sp state-title baseline where needed, adapting wrapping instead of shrinking text. Validate physical rendering rather than assuming a canvas pixel is an Android layout unit.
 
 Use a spacing scale based on 4/8 dp increments. At the reference viewport start with 48 dp horizontal and 27 dp vertical safe inset, increasing it where existing content needs room; the focused 1.03 scale must also stay inside the inset. State-screen content/action proportions follow the approximately 55/45 mockup split, with a clear gutter; allow height and wrapping to grow. Rounded supporting panels follow the reference's 24 px radius (12 dp at reference density), and pill buttons keep the TV Material shape.
 
 ### 3. Reusable compositions, feature-owned content
 
 Extract small shared building blocks for the app header, TV action button, state/status surface, supporting panel, operation progress, app identity and access row. Compose the common information/actions shell for home, setup, persistence, expiry, help and recovery. Use a dedicated centered permission composition and a scrolling access list where the task differs, rather than forcing every screen into one generic template.
+
+Use the original mascot from `mipmap-xxxhdpi/ic_launcher_foreground.png` in a shared brand component. Only remove its transparent outer padding, preserving opaque artwork, its black backing and aspect ratio. In Penpot, `Brand/Mascot` is nested in the compact `App/Header` and larger `Brand/Signature`: H.1–H.6 use a 144 px mark with 36 px corners and editable 48 px app name; the other 31 states use a 96 px mark with 24 px corners and editable 36 px name. At reference density, home uses a 72 dp mark, 18 dp corners and 24 sp name; secondary screens use a 48 dp mark, 12 dp corners and 18 sp name. Brand content is non-interactive, shares the safe area and must not push consent or recovery actions off screen. Keep the original illustrated wordmark/banner intact on DS.3 as a brand reference; do not stretch it into an in-app header or alter launcher assets to obtain a crop. Never substitute the Tsuyu mascot for a requesting client's icon.
 
 Actions remain supplied by existing presentation models, keyed by stable control IDs; identity rows retain their UID grouping. A component accepts already-derived text, role and availability. It does not inspect platform settings, launch coroutines, mutate state or infer permission results. Add presentation fields for existing loading/supporting state only when needed; do not create duplicate booleans that compete with ViewModel StateFlow.
 
@@ -71,6 +73,8 @@ Use existing TV focus scaling and the Remote focus contract as the single naviga
 Derive progress from current startup phases, access loading and persistence loading. Use an indeterminate indicator, never a fake completion fraction. It is active only during pending work and respects system animation scale; idle pages remain static. Focus and screen transitions stay within DESIGN.md's timing guidance, with no forced animation when disabled.
 
 Keep all French copy in resources. Preserve existing messages unless grouping or clarity actually changes; split dense passages into body/supporting strings. Update help to distinguish ordinary prepared automatic restart from manual recovery and debugging re-enablement, without promising boot delivery on an unverified TV. Update DESIGN.md's visual-language section to identify Material 3 as the visual source and Penpot as the component/layout reference.
+
+The revised expiry action reads “Désactiver pour toutes les clés”; the title and supporting explanation retain the explicit global-expiration scope, so shortening the button does not narrow the consent.
 
 ### 6. Privilege and provenance
 
