@@ -7,6 +7,7 @@ All boxes are implementation work, not work completed by the specification PR. N
 - [ ] 1.1 Introduce the shared dark theme, semantic color roles, typography and spacing from design.md, replacing per-screen theme literals; verify home, access and persistence use the same definitions and remain readable at the reference viewport.
 - [ ] 1.2 Extract action, header, status, supporting-panel and progress components with stable testTags; verify Compose tests distinguish focused/resting/unavailable actions and no unavailable action can receive focus or activate.
 - [ ] 1.3 Update DESIGN.md to name Material 3 as the visual reference and retain its remote/accessibility contract; verify its palette, text minimum and motion guidance agree with the implementation and this change. Check AGPL headers on new files and update NOTICE only if a new code origin is actually introduced.
+- [ ] 1.4 Add the shared original-mascot component and home/compact brand signatures using existing artwork without changing launcher assets; verify their safe-area bounds, original aspect ratio/colors, non-focusability and distinct client identity in Compose checks and captures matching DS.3/C.4.
 
 ## 2. State-screen layout and feedback
 

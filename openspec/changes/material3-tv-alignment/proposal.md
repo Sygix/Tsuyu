@@ -6,7 +6,8 @@ The existing P1–P3 interface implements the application journeys but mixes dup
 
 ## What Changes
 
-- Centralize the existing dark cyan/navy Material 3 TV styling into shared foundations and components, including consistent focused, resting, disabled and attention states.
+- Centralize dark blue/navy Material 3 TV styling into shared foundations and components, harmonizing the primary accent with the supplied Tsuyu mascot and including consistent focused, resting, disabled and attention states.
+- Integrate the original Tsuyu mascot through a larger home signature and compact secondary-screen header, preserving the artwork and keeping client identities distinct.
 - Replace the bottom-aligned action stack on state screens with the mockup's information-left/actions-right composition.
 - Present permission requests in a centered surface and authorized applications in grouped identity/action rows.
 - Add operation-bound progress and clearly separated textual service/persistence statuses, using existing state rather than new privileged operations.
