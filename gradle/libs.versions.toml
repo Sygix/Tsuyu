@@ -1,6 +1,6 @@
 [versions]
 agp = "9.4.1"
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 composeBom = "2026.09.00"
 junit = "4.13.2"
 coroutines = "1.11.0"
@@ -8,7 +8,7 @@ lifecycle = "2.11.0"
 robolectric = "4.17"
 
 [libraries]
-work-runtime = { module = "androidx.work:work-runtime-ktx", version = "2.11.1" }
+work-runtime = { module = "androidx.work:work-runtime-ktx", version = "2.12.0" }
 hidden-compat = { module = "dev.rikka.hidden:compat", version = "4.4.0" }
 hidden-stub = { module = "dev.rikka.hidden:stub", version = "4.4.0" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version = "1.2.1" }
