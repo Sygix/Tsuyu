@@ -34,7 +34,7 @@ jobs:
       - name: Test results in PR
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d
         with:
           report_paths: 'app/build/test-results/testDebugUnitTest/TEST-*.xml'
           require_tests: true
