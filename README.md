@@ -23,16 +23,12 @@
 
 Keep USB debugging enabled while using Tsuyu. Disabling it can stop the service; enable it again and start Tsuyu to recover. ADB is available on the local network and protected by the TV's authorization prompt.
 
-## Roadmap
-
-### Implemented — validation in progress
+## Core capabilities
 
 - **Local startup** — start a shell-uid service through the TV's own ADB daemon, with a one-time system authorization.
 - **Shizuku API** — binder delivery, app permission requests, authorized-app management and revocation.
 - **Remote-first interface** — service status, setup guidance and permission screens designed for TV navigation.
 - **Boot persistence** — opt-in setup for automatic startup after a reboot, with status and recovery guidance.
-
-The implementation is covered by automated tests and emulator checks. Real-TV validation of startup, API compatibility and boot behavior remains in progress.
 
 ## Credits
 
