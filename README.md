@@ -6,8 +6,6 @@
 
 **Shizuku-compatible privileged access, built for Android TV.** Tsuyu brings the [Shizuku API](https://github.com/RikkaApps/Shizuku-API) to the TV, so compatible apps can use privileged Android capabilities without a phone or computer. Everything is designed for the television screen and its remote.
 
-> **Work in progress:** alpha builds (`tsuyu.apk`) are available on the [Releases](https://github.com/Sygix/Tsuyu/releases) page. Core features are implemented; validation on a real TV is still in progress.
-
 ## Features
 
 - **Made for Android TV** — a clear, remote-friendly flow, readable from the couch and navigable with the D-pad.
@@ -19,7 +17,7 @@
 
 ## Getting started
 
-1. Install an alpha build from [Releases](https://github.com/Sygix/Tsuyu/releases).
+1. Download Tsuyu from [Releases](https://github.com/Sygix/Tsuyu/releases).
 2. Enable developer options and USB debugging when Tsuyu guides you through setup.
 3. Start Tsuyu and approve the Android debugging prompt, selecting **Always allow**.
 
@@ -35,10 +33,6 @@ Keep USB debugging enabled while using Tsuyu. Disabling it can stop the service;
 - **Boot persistence** — opt-in setup for automatic startup after a reboot, with status and recovery guidance.
 
 The implementation is covered by automated tests and emulator checks. Real-TV validation of startup, API compatibility and boot behavior remains in progress.
-
-### Coming next
-
-- **Release-ready distribution** — stable, signed releases.
 
 ## Credits
 
