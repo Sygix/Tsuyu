@@ -17,6 +17,30 @@ class HomeViewModelTest {
     private val direct = object : BoundedIo() {
         override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block()
     }
+    @Test fun languageReturnKeepsItsFocusThroughServiceDeathAndPreparationFailureWithoutStartingAnything() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var running = true
+            var launches = 0
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = running }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) { launches++ } }, direct)
+            val persistence = kotlinx.coroutines.flow.MutableStateFlow(fr.sygix.tsuyu.persistence.PersistenceUi())
+            val model = HomeViewModel(coordinator, persistence = persistence)
+            store.put("home", model)
+            model.resume(); advanceUntilIdle()
+            model.act(Action.LANGUAGE); advanceUntilIdle()
+            assertEquals("action-language", model.ui.value.focus)
+            running = false
+            model.died()
+            persistence.value = fr.sygix.tsuyu.persistence.PersistenceUi(outcome = fr.sygix.tsuyu.persistence.RestartOutcome.LAUNCH)
+            model.resume(); advanceUntilIdle()
+            assertEquals("action-language", model.ui.value.focus)
+            assertEquals(0, launches)
+            for (phase in Phase.entries) {
+                assertTrue(HomeViewModel.present(StartState(phase), Screen.HOME, "action-main").controls.any { it.action == Action.LANGUAGE })
+            }
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
     @Test fun returnActionAppearsOnlyForASharedCallerOnceTheServiceAndPreparationAreSettled() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val store = ViewModelStore()

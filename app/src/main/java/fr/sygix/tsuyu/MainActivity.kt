@@ -27,15 +27,15 @@ class MainActivity : ComponentActivity() {
         val graph = TsuyuGraph.get(this)
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                graph.scope.launch {
+                    graph.updates.load()
+                    if (!graph.updates.state.value.auto) graph.updates.check(false)
+                }
                 @Suppress("UNCHECKED_CAST")
                 return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice, graph.updates.state.map { it.blocked }) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
-        graph.scope.launch {
-            graph.updates.load()
-            if (!graph.updates.state.value.auto) graph.updates.check(false)
-        }
         setContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { handleBack(ui.screen) }
@@ -50,6 +50,11 @@ class MainActivity : ComponentActivity() {
     }
     private fun handleAction(action: Action) {
         val graph = TsuyuGraph.get(this)
+        if (action == Action.LANGUAGE) {
+            model.act(action)
+            startActivity(Intent(this, fr.sygix.tsuyu.language.LanguageActivity::class.java))
+            return
+        }
         if (action == Action.PERSISTENCE) {
             openPersistence(false)
             return

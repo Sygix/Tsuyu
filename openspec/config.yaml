@@ -2,7 +2,7 @@ schema: spec-driven
 
 context: |
   Language: en
-  All artifacts must be written in English. The app's UI strings stay in French.
+  All artifacts must be written in English. The app's UI strings use localized Android resources in English, French, German, Spanish and Italian.
 
   Tsuyu: privileged access service for Android TV / Google TV, compatible with the Shizuku API, fully usable with the remote.
   It starts a server with shell rights on the TV itself (local adb, the app's own RSA key, "Always allow" once), restarts it after every reboot
@@ -10,7 +10,7 @@ context: |
   Priorities: 1) reliable start and restart, with no computer and no phone; 2) strict compatibility with existing Shizuku-API clients;
   3) a flow people understand with the remote (DESIGN.md); 4) security: no access without the user's explicit consent.
 
-  Stack: Kotlin, Jetpack Compose for TV, StateFlow, DataStore. Namespace fr.sygix.tsuyu, minSdk 34, compileSdk 37. UI language: French only.
+  Stack: Kotlin, Jetpack Compose for TV, StateFlow, DataStore. Namespace fr.sygix.tsuyu, minSdk 34, compileSdk 37. UI follows system languages by default, with English as fallback and a manual language selector on Home.
   Architecture: SOLID/KISS/DRY, interfaces at the boundaries (adb connection, server, system settings), no logic in composables. Uniflow ViewModel -> StateFlow -> Compose.
 
   Verified device facts and the Shizuku compatibility contract: AGENTS.md ("Verified facts" and "Shizuku API compatibility"). Licenses and Shizuku restrictions: AGENTS.md, Licenses.

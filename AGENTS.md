@@ -6,7 +6,7 @@ Tsuyu (梅雨, "rainy season") is a privileged access service for Android TV / G
 - restarts it after every reboot;
 - makes it available to Shizuku client apps, including SygixOs.
 
-Owner: Sygix. UI language: French.
+Owner: Sygix. UI languages: English, French, German, Spanish and Italian; follow the system by default, with English as fallback.
 
 Tsuyu is a clean rewrite for TV, not a fork. Shizuku and Shevery are references and a source of code. Take only what the scope needs, and leave out their side layers: modules, WebUI, terminal, AI, Dhizuku, root, rish, Sui, themes.
 
@@ -175,4 +175,4 @@ The repository will become public. Everything pushed stays readable in the histo
   - archive a change with `openspec archive <id>`.
 - Use pnpm, not npm, for any Node package.
 - Strict spec format: `### Requirement:` (SHALL/MUST), `#### Scenario:` with `- **WHEN** / **THEN**`.
-- Spec artifacts (proposal, design, tasks, specs) are written in English, as set in `openspec/config.yaml`; UI strings stay in French.
+- Spec artifacts (proposal, design, tasks, specs) are written in English, as set in `openspec/config.yaml`; UI strings use localized Android resources in the five supported languages.

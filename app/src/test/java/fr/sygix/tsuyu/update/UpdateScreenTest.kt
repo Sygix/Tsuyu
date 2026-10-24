@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w960dp-h540dp-xhdpi")
+@Config(sdk = [34], qualifiers = "fr-w960dp-h540dp-xhdpi")
 class UpdateScreenTest {
     @get:Rule val compose = createComposeRule()
     private fun press(tag: String, key: Key) = compose.onNodeWithTag(tag).performKeyInput { keyDown(key); keyUp(key) }

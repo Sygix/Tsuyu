@@ -34,6 +34,9 @@
             </intent-filter>
         </receiver>
         <activity
+            android:name=".language.LanguageActivity"
+            android:exported="false" />
+        <activity
             android:name=".persistence.PersistenceActivity"
             android:exported="false" />
         <activity

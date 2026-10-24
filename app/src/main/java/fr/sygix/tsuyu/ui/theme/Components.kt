@@ -50,7 +50,7 @@ fun BrandHeader(home: Boolean, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun TvAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun TvAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, selected: Boolean = false) {
     Button(
         onClick = onClick, enabled = enabled, modifier = modifier,
         colors = ButtonDefaults.colors(
@@ -60,7 +60,10 @@ fun TvAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, 
             disabledContainerColor = TsuyuColors.surface.copy(alpha = 0.5f), disabledContentColor = TsuyuColors.secondary.copy(alpha = 0.6f),
         ),
         scale = ButtonDefaults.scale(focusedScale = 1.03f),
-    ) { Text(label, fontSize = TsuyuType.action) }
+    ) {
+        Text(label, fontSize = TsuyuType.action, modifier = Modifier.weight(1f))
+        if (selected) Text("✓", fontSize = TsuyuType.action, modifier = Modifier.testTag("language-check"))
+    }
 }
 
 @Composable

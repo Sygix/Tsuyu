@@ -9,6 +9,7 @@
 ## Features
 
 - **Made for Android TV** — a clear, remote-friendly flow, readable from the couch and navigable with the D-pad.
+- **Five languages** — English, French, German, Spanish and Italian. Follow the TV language automatically or choose a language from Home, even before setup.
 - **Start on the TV itself** — uses the TV's local ADB service to start Tsuyu with shell-level access. No phone, computer or wireless pairing flow required.
 - **Shizuku API compatibility** — delivers the binder to compatible apps and supports their existing Shizuku API calls.
 - **Consent you control** — review each app's request, allow or refuse it, revoke access later, or let a refused app ask again, from one « Accès des applications » list.
@@ -23,6 +24,10 @@
 3. Start Tsuyu and approve the Android debugging prompt, selecting **Always allow**.
 
 Keep USB debugging enabled while using Tsuyu. Disabling it can stop the service; enable it again and start Tsuyu to recover. ADB is available on the local network and protected by the TV's authorization prompt.
+
+## Language
+
+Tsuyu follows the TV's system languages by default, using the first supported language or English if none is supported. Open **Language** on Home to choose **System language** or a specific language. Changes apply immediately to Tsuyu's screens, including app access requests, without changing the TV's language or the running service. Android remembers the choice across app restarts and updates. Selecting **System language** restores automatic language selection.
 
 ## Opening Tsuyu from another app
 

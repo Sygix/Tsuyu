@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 enum class Screen { HOME, SETUP, HELP, DETAILS, PERSISTENCE, EXPIRY, UPDATES }
-enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES }
+enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES, LANGUAGE }
 data class Control(val id: String, val label: Int, val action: Action, val args: List<Any> = emptyList(), val enabled: Boolean = true)
 interface ScreenUi {
     val screen: Screen
@@ -81,7 +81,7 @@ class HomeViewModel(
             persistenceAttention = failed,
             notice = version.takeIf { nav.screen == Screen.HOME },
             updateBlocked = blocked && nav.screen == Screen.HOME,
-            focus = if (failed && nav.screen == Screen.HOME) "action-persistence" else presentation.focus,
+            focus = if (failed && nav.screen == Screen.HOME && nav.returnFocus == "action-main") "action-persistence" else presentation.focus,
         )
     }
         .stateIn(viewModelScope, SharingStarted.Eagerly, present(StartState(), Screen.HOME, "action-main"))
@@ -93,7 +93,7 @@ class HomeViewModel(
     }
     fun died() {
         coordinator.died()
-        if (navigation.value.screen == Screen.HOME) navigation.value = navigation.value.copy(returnFocus = "action-main")
+        if (navigation.value.screen == Screen.HOME && navigation.value.returnFocus != "action-language") navigation.value = navigation.value.copy(returnFocus = "action-main")
     }
     fun settingsFailed() = coordinator.settingsFailed()
     fun caller(label: String?) { caller.value = label }
@@ -120,6 +120,7 @@ class HomeViewModel(
             Action.APPS -> navigation.value = navigation.value.copy(returnFocus = "action-apps")
             Action.PERSISTENCE -> navigation.value = navigation.value.copy(returnFocus = "action-persistence")
             Action.UPDATES -> navigation.value = navigation.value.copy(returnFocus = "action-updates")
+            Action.LANGUAGE -> navigation.value = navigation.value.copy(returnFocus = "action-language")
             Action.EXPIRY, Action.DISABLE_EXPIRY, Action.RETURN, Action.UPDATE, Action.CHECK, Action.AUTO, Action.PRERELEASES -> Unit
         }
     }
@@ -200,6 +201,7 @@ class HomeViewModel(
                     Control("action-updates", R.string.updates_title, Action.UPDATES),
                     Control("action-persistence", R.string.persistence_title, Action.PERSISTENCE),
                     Control("action-help", R.string.help_title, Action.HELP),
+                    Control("action-language", R.string.language_title, Action.LANGUAGE),
                 ) else emptyList()
             val wanted = when {
                 !home -> main.id

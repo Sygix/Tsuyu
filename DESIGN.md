@@ -31,6 +31,7 @@ Success means:
   - two buttons, "Autoriser" and "Refuser"; "Refuser" holds the initial focus.
 - **Accès des applications:** authorized and refused apps with their status; revoke an access or let a refused app ask again.
 - **Mises à jour:** the installed and offered versions, the last check, the release notes as a QR code, automatic updates and prereleases.
+- **Language:** directly accessible from Home before setup; system language by default or a manual choice among Deutsch, English, Español, Français and Italiano. Apply immediately, keep the selected option focused and restore the Home entry on Back. The selection check is independent of focus. Unsupported system languages fall back to English.
 
 The exact scope of each screen is decided in OpenSpec changes.
 
@@ -67,6 +68,6 @@ The exact scope of each screen is decided in OpenSpec changes.
   - shared components (surface, button, list row with state, numbered step) are defined once and reused.
 
 ## Copy
-- **Tone:** French UI, same tone as SygixOs.
+- **Tone:** same short, direct tone as SygixOs in English, French, German, Spanish and Italian; system language by default with English as fallback.
 - **Sentences:** short, with action verbs on buttons.
 - **Technical terms:** ADB, shell and binder appear only under "Détails".
