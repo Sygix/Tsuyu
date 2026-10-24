@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md for motivation and scope. Baseline: main at `a019775`, with P1–P3 code already integrated and P2/P3 specs still awaiting archive. The latest brand assets are newer than the mockup source inspection and must remain intact.
+See proposal.md for motivation and scope. Baseline: main at `a019775`, with P1–P3 code integrated; P2 and P3 are archived into `client-access`, `shizuku-api` and `boot-persistence`. The latest brand assets are newer than the mockup source inspection and must remain intact.
 
 Observed implementation:
 
@@ -37,6 +37,8 @@ Use the Penpot file linked in proposal.md. Page/board identifiers below are the 
 | R.1–R.8 | Consistent two-column recovery/status treatment | Existing typed failures and available actions; no new recovery backend |
 
 All 37 app boards are state-coverage references, not a requirement to create 37 composables or activities. Preserve meaningful states not individually pictured, including per-client delivery errors, pending cleanup and standard Android scheduling without a verified vendor operation.
+
+The same file also holds `client-setup-handoff` boards, placed with their families: H.7–H.8 in Home, A.7 in Access and U.1–U.6 in the 09 · Updates page. They reuse this foundation, but that change specifies them, and they are outside this change's acceptance.
 
 ### 2. Foundations and Android units
 
@@ -91,7 +93,7 @@ Reuse P1/P2/P3 manager operations, deadline handling and typed failures; there i
 
 No data migration. Introduce shared foundations, migrate the common state shell, then access compositions, then supporting copy/progress. Existing operation adapters and stored decisions remain untouched. Compare screenshots of each board family at matching viewport plus oversized-content cases. A rollback restores UI composition only and does not undo any user permission or global setting.
 
-Archive P2 → P3 → `material3-tv-alignment` only after their respective merge and real-TV validation. They touch separate delta capabilities, so no edits to the open P2/P3 plans or manual synchronization of current specs are needed.
+Archive `material3-tv-alignment` only after its implementation is merged and validated on the real TV, and before `client-setup-handoff`. It only touches `tv-navigation`, so no manual synchronization of the other current specs is needed.
 
 ## Open Questions
 

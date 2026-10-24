@@ -31,4 +31,4 @@ All boxes are implementation work, not work completed by the specification PR. N
 ## Workflow follow-up
 
 - Obtain approval of this specification before implementation.
-- After implementation merge and real-TV validation, archive P2 then P3 then `material3-tv-alignment` with `openspec archive`; re-run `openspec validate --all --strict` and verify the resulting current specs retain all pre-existing scenarios.
+- After implementation merge and real-TV validation, archive `material3-tv-alignment` with `openspec archive`, before `client-setup-handoff`; re-run `openspec validate --all --strict` and verify the resulting current specs retain all pre-existing scenarios.

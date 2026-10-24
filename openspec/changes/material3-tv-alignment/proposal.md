@@ -27,12 +27,13 @@ None.
 ## Dependencies
 
 - Builds on archived `p1-local-start` and the implementations of `p2-shizuku-compatibility` and `p3-boot-persistence` already on main.
-- P2 and P3 remain unarchived. Their `client-access`, `shizuku-api` and `boot-persistence` requirements continue to own permission, revocation, restart and global-expiry semantics; this change references them without modifying their deltas.
-- Archive in the order P2 → P3 → this change after each change's implementation and real-TV validation. This change only writes a delta for the existing `tv-navigation` capability.
+- P2 and P3 are archived. Their current `client-access`, `shizuku-api` and `boot-persistence` specs own permission, revocation, restart and global-expiry semantics; this change references them without modifying them.
+- Archive this change after its implementation and real-TV validation. This change only writes a delta for the existing `tv-navigation` capability.
+- `client-setup-handoff` builds on this foundation. It covers the caller return, the « Accès des applications » list with refusal reset, and updates. It is archived after this change and modifies the access-row requirement added here.
 
 ## Non-goals
 
-- New application functions, navigation destinations, settings, permissions, startup algorithms or Shizuku API changes: outside this visual-alignment change; any future proposal requires separate approval.
+- New application functions, navigation destinations, settings, permissions, startup algorithms or Shizuku API changes are outside this visual-alignment change. The approved caller return, refusal reset and updates belong to `client-setup-handoff`.
 - Release signing, tags and distribution: remain P4.
 - Reproducing system-owned settings or debugging dialogs: remain Android-owned surfaces.
 - Turning Penpot into an executable remote-navigation prototype: outside this implementation scope; navigation is verified in Compose and on the TV.
