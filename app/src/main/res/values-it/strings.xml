@@ -126,6 +126,6 @@
     <string name="language_body">Scegli la lingua di Tsuyu. Il cambio è immediato e non modifica la lingua della TV.</string>
     <string name="language_system">Lingua del sistema</string>
     <string name="language_system_value">Lingua del sistema: %1$s</string>
-    <string name="language_system_unsupported">Lingua del sistema non supportata. Tsuyu usa %1$s.</string>
+    <string name="language_system_unsupported">Lingua del sistema non supportata. La modalità sistema usa %1$s.</string>
     <string name="language_error">Impossibile verificare o cambiare la lingua. Riprova o torna alla schermata iniziale e riapri questa schermata.</string>
 </resources>

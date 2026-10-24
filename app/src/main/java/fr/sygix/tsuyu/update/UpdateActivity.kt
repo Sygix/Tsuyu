@@ -34,8 +34,6 @@ import fr.sygix.tsuyu.ui.StateScreen
 import fr.sygix.tsuyu.ui.theme.*
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
 
 class UpdateActivity : ComponentActivity() {
     private lateinit var model: UpdateViewModel
@@ -67,8 +65,8 @@ class UpdateActivity : ComponentActivity() {
 fun UpdateScreen(ui: UpdateScreenUi, onAction: (Action) -> Unit) {
     StateScreen(ui, onAction) {
         ui.checkedAt?.let { checked ->
-            val locale = LocalConfiguration.current.locales[0]
-            val time = remember(checked, locale) { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale).format(Date(checked)) }
+            val locales = LocalConfiguration.current.locales
+            val time = remember(checked, locales) { formatUpdateTime(checked, List(locales.size()) { locales[it] }) }
             StatusSurface(stringResource(R.string.update_checked_at, time), if (ui.attention) StatusKind.ATTENTION else StatusKind.NEUTRAL, Modifier.testTag("update-checked"))
         }
         ui.notes?.let { page ->

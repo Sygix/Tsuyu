@@ -12,6 +12,7 @@ The existing shared [Tsuyu · Material 3 TV Penpot file](https://design.penpot.a
 
 - `TSUYU_VERSION=v0.3.0 ./gradlew test assembleRelease --no-daemon`: passed. Local release builds use the development signing configuration; production signing remains in CI.
 - `LanguageTest`: first supported system locale, regional variants, English fallback, native preference persistence/reset, unchanged system language, localized resources and failed-write recovery.
+- `UpdateTimeTest`: unsupported system language uses English date formatting; ordered locale fallback preserves a supported regional locale. The test failed with the previous first-requested-locale formatter and passed with effective-language resolution.
 - `LanguageNavigationTest`: initial selection focus, independent check/focus, immediate selection, D-pad edges, visible options and read-error retry.
 - `HomeViewModelTest.languageReturnKeepsItsFocusThroughServiceDeathAndPreparationFailureWithoutStartingAnything`: passed; deliberately restoring the old focus policy made this test fail, then restoring the change made it pass.
 - Existing navigation tests explicitly use a French locale where asserting French copy.
@@ -34,6 +35,8 @@ The local release APK was installed on an Android TV 14 emulator. Screenshots we
 | Back from Language | Home Language action regains focus in English, French and German |
 | Help, updates, app-access error and persistence in English/French/German | Localized, no observed text clipping |
 | Update dates | French, German and English formats match the UI language |
+| Unsupported-system date fallback after review fix | Japanese system + System formats the timestamp in English; French override still formats it in French |
+| Unsupported-system explanation after review fix | Explicitly describes System mode in both English and French, without contradicting a manual French override; both fit in two lines |
 | Side effects | Service remains stopped; no server launch from language changes; crash buffer empty |
 
 ## Limits

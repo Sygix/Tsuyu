@@ -17,7 +17,8 @@ enum class AppLanguage(val tag: String, val nativeName: String) {
     companion object {
         val fallback = ENGLISH
         fun of(locale: Locale): AppLanguage? = entries.firstOrNull { it.tag == locale.language }
-        fun resolve(locales: List<Locale>): AppLanguage? = locales.firstNotNullOfOrNull(::of)
+        fun resolveLocale(locales: List<Locale>): Locale? = locales.firstOrNull { of(it) != null }
+        fun resolve(locales: List<Locale>): AppLanguage? = resolveLocale(locales)?.let(::of)
     }
 }
 
