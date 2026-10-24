@@ -23,7 +23,7 @@ Permission requests SHALL use a centered distinct surface containing the verifie
 - **WHEN** the server restarts after a TV reboot
 - **THEN** no old permission surface can confirm a pre-reboot request and `checkSelfPermission()` reflects only the persisted matching decision after reattachment
 
-#### Scenario: List navigation, revocation and reset
+#### Scenario: List navigation and revocation
 - **WHEN** the list opens, the user revokes or resets a group or the focused row disappears
 - **THEN** the first row action initially holds focus, up/down follows visible rows without wrapping, left/right cannot leave its action, Back returns home to the list entry, and removal selects next row, previous row or return in that order; revoked clients observe denial and reset clients stay denied until a new request under `client-access`
 
