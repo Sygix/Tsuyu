@@ -17,7 +17,7 @@ The existing shared [Tsuyu · Material 3 TV Penpot file](https://design.penpot.a
 - `HomeViewModelTest.languageReturnKeepsItsFocusThroughServiceDeathAndPreparationFailureWithoutStartingAnything`: passed; deliberately restoring the old focus policy made this test fail, then restoring the change made it pass.
 - Existing navigation tests explicitly use a French locale where asserting French copy.
 - `openspec validate --all --strict`: all six existing capabilities passed; no change artifacts or current specs were edited.
-- `./gradlew lintRelease --no-daemon`: blocked by the existing `QueryAllPackagesPermission` error on the unchanged `QUERY_ALL_PACKAGES` declaration. The report contains no translation/format errors. No lint suppression was introduced.
+- `TSUYU_VERSION=v0.3.0 ./gradlew test lintRelease --no-daemon`: passed; app lint reports 0 errors and 11 warnings. The previous `QueryAllPackagesPermission` error is addressed with a suppression scoped to that permission declaration. Tsuyu needs package visibility to resolve names and icons for arbitrary client packages and shared-UID group members returned by the privileged server, including clients without launcher activities. A fixed package list or intent-based `<queries>` cannot describe every app requesting the Shizuku API manifest permission. The permission is retained; other lint checks remain enabled.
 
 ## Android TV emulator
 
