@@ -2,9 +2,9 @@
 
 ## Scope and evidence
 
-Read-only comparison on 2026-10-17: Tsuyu main `a019775`; only open Tsuyu PR #13, `material3-tv-alignment`, head `13293b5`; SygixOs PR #76 `tsuyu-home-setup`, head `df9504244a7d97c0e7bc0935b2532c179a3b05c0`, design D2/D4/D5 and Suggestions. All source paths below are relative to Tsuyu. Code conformity is not a new real-TV claim.
+Read-only comparison on 2026-10-17: Tsuyu main `a019775`; PR #13, `material3-tv-alignment`, head `13293b5`; SygixOs PR #76 `tsuyu-home-setup`, head `df9504244a7d97c0e7bc0935b2532c179a3b05c0`, design D2/D4/D5 and Suggestions. All source paths below are relative to Tsuyu. Code conformity is not a new real-TV claim.
 
-P2/P3 implementations are already on main; their planning changes still await archive. PR #13 contains no implementation. Penpot's existing Home, Setup, Restart, Expiry and Access pages were inspected, not inferred from the PR description.
+P2/P3 implementations were on main at audit time; both changes have since been archived. PR #13 contains no implementation. Penpot's existing Home, Setup, Restart, Expiry and Access pages were inspected, not inferred from the PR description.
 
 ## Point-by-point contract
 
@@ -31,23 +31,30 @@ Tsuyu does not permanently forbid a denied client from calling requestPermission
 - P.1 already explains preparation and exposes optional expiry; E.1 keeps “Conserver la politique actuelle” focused. A post-start offer changes sequencing and needs approval, not a second copy of P3.
 - A.1/A.2 already match refusal-first consent. A.3–A.6 cannot support a refused-app recovery guide because they contain no refused row.
 - PR #13 changes layout/branding/components only and explicitly preserves P2/P3 outcomes. It fixes neither refusal recovery nor caller-return automation.
-- New CS.1–CS.3 are separately marked UNSELECTED on “Client setup · proposals”; see design.md for the alternatives. They do not supersede the originals.
+- Penpot now holds the selected boards with their families: H.7 and H.8 in Home, A.7 in Access, and U.1–U.6 in a new Updates page. See design.md.
 
-## Suggestions: assessment, not selection
+## Suggestions and selection
 
-| Suggestion | Assessment | Product selection |
+| Suggestion | Assessment | Selection by Sygix |
 | --- | --- | --- |
-| Return immediately when service becomes active | Useful goal, but the milestone can precede preparation/read-back and hide errors | Q1 compares explicit return after outcome, automatic return after sequence, and existing Back |
-| Offer boot restart just after first start | Goal already largely fulfilled by one consented sequence; moving the offer is a P3 behavior change | Q2 compares retaining that sequence with a separate post-start offer |
-| Change a refusal in Tsuyu | Real missing capability; important for SygixOs's rationale branch | Q3 compares reset-to-undecided with a direct consent review and selects neither |
-| Integrated updates | Valuable maintenance; broader release/installer policy than handoff | Q4 compares a separate distribution follow-up, in-scope updater and external updates |
+| Return immediately when service becomes active | The milestone can precede preparation/read-back and hide errors | Explicit « Revenir à … » after verified startup and persistence outcome, only with a platform-shared caller identity (design D1) |
+| Offer boot restart just after first start | Already fulfilled by one consented sequence | Keep the existing P3 sequence; correct the SygixOs guide (design D2) |
+| Change a refusal in Tsuyu | Real missing capability for SygixOs's rationale branch | Reset to undecided in one « Accès des applications » list (design D3) |
+| Integrated updates | Valuable maintenance | SygixOs-style verified updates plus silent auto-update, off by default, with automatic restart (design D4–D7) |
 
-## Corrections for Claude in SygixOs
+## Corrections for SygixOs
 
-1. Revise 9.7: account for “Activer Tsuyu” as well as “Démarrer” and the existing preparation disclosure/start sequence. Do not instruct the user to activate a nonexistent independent switch after successful preparation. Treat “Démarrage au redémarrage” as status/repair when needed. Keep separate service-liveness and preparation outcomes.
-2. Revise 9.9: for current Tsuyu, “Ouvrir Tsuyu” cannot recover a persisted refusal. Do not promise that recovery until an implementation providing it is shipped and the supported Tsuyu version/capability is defined. Do not invent a new minimum version in this audit. Reinstallation would discard the private key and all consent and is not an appropriate silent substitute.
-3. Keep explicit `MainActivity` launch without `FLAG_ACTIVITY_NEW_TASK`, user Back, refusal-focused permission and per-sequence UserService teardown as the current baseline. Automatic return and CS boards are proposals only.
-4. Keep the three-second binder wait as a bounded SygixOs policy with retry/fallback; no Tsuyu guarantee makes a slow delivery impossible. Verify client state again after any reset/reattachment.
+1. Revise 9.7:
+   - Account for « Activer Tsuyu » as well as « Démarrer », and for the existing preparation disclosure/start sequence.
+   - Do not instruct the user to activate an independent switch after successful preparation.
+   - Treat « Démarrage au redémarrage » as status/repair when needed.
+2. Revise 9.9:
+   - Below the first Tsuyu release that ships this change, « Ouvrir Tsuyu » cannot recover a persisted refusal. That release is planned as v0.2.0; gate on its `versionCode`.
+   - From that release, guide the user to « Accès des applications » → « Autoriser une nouvelle demande », then request permission again.
+3. Launch `MainActivity` explicitly, without `FLAG_ACTIVITY_NEW_TASK`. Pass `ActivityOptions.setShareIdentityEnabled(true)` so Tsuyu can offer « Revenir à SygixOs ». Back stays valid. Keep refusal-focused permission and per-sequence UserService teardown.
+4. Keep the three-second binder wait as a bounded SygixOs policy with retry/fallback:
+   - Tsuyu updates now restart the service by themselves, so SygixOs must tolerate `binderDied` followed by a new binder.
+   - Verify client state again after a reset or reattachment.
 
 The APK asset, release digest/size and cross-application signing-certificate equality are not established by the Kotlin audit or Penpot. They require inspection of the actual release artifacts during SygixOs's existing installation-verification task; no new release or certificate claim is made here.
 

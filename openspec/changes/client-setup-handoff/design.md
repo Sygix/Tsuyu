@@ -2,80 +2,206 @@
 
 ## Context
 
-See proposal.md for motivation and contract-audit.md for the point-by-point evidence. Baselines inspected: Tsuyu main `a019775`, presentation PR #13 head `13293b5`, SygixOs PR #76 head `df9504244a7d97c0e7bc0935b2532c179a3b05c0`. SygixOs is read-only for this work.
+See proposal.md for scope and `contract-audit.md` for the evidence behind it. Current boundaries:
 
-Current boundaries relevant to the suggestions:
-
-- `MainActivity` is exported with standard task behavior. Home Back calls `finish()`; no caller-return mode or automatic success finish exists.
-- `MainActivity.handleAction` already routes START/ENABLE through `PersistenceController.startRoute()`. If not previously enabled, the disclosure precedes startup. `PersistenceController.enable()` starts the server, prepares and reads back persistence, then saves enablement when schedulable. This is already one consented sequence, not a later switch.
-- `AccessAuthority` stores allow/deny decisions for verified identity groups. `ClientService.accessList()` exposes authorized and pending-cleanup groups, not ordinary refused groups. `clear(uid)` exists; no denied-list/reset UI exists.
-- `HomeViewModel`, `AccessViewModel` and `PersistenceViewModel` own presentation state. A new route cannot rely on composable-local duplicate state.
-- P2 defines live request identity, refusal focus, client callbacks, revocation and shell UserServices. P3 defines disclosure, preparation and optional expiry. PR #13 changes presentation, not those outcomes.
+- **`MainActivity`:**
+  - exported with standard task behavior;
+  - Back on home calls `finish()`;
+  - START/ENABLE go through `PersistenceController.startRoute()`, which already chains disclosure, startup and verified preparation.
+- **`AccessAuthority`:**
+  - persists allow and deny decisions per verified identity group;
+  - `ClientService.accessList()` returns authorized and pending-cleanup groups only;
+  - `clear(uid)` exists but has no UI.
+- **`local-start`:** the running server exits when Tsuyu is replaced or removed.
+- **`boot-persistence` (P3):**
+  - when persistence is enabled, `MY_PACKAGE_REPLACED` schedules a restart through `RestartWorker`/`RestartRunner` with the shared startup budget;
+  - preparation makes Tsuyu's AUTO_START modes allow, which unblocks that delivery on the reference TV.
+- **Releases:**
+  - CI publishes a signed `tsuyu.apk` asset for each `vX.Y.Z[-(alpha|beta|rc).N]` tag;
+  - GitHub exposes the asset size and a `sha256:` digest;
+  - `versionCode` is derived from the tag in `app/build.gradle.kts`.
 
 ## Goals / Non-Goals
 
-**Goals:** make the actual integration contract inspectable; distinguish current behavior, device assumptions and unselected recommendations; let the owner approve the smallest useful scope.
+**Goals:**
+- implement Sygix's four selections with the smallest new privileged surface;
+- reuse the existing start, restart and consent authorities;
+- never leave Tsuyu stopped after one of its own updates without a visible cause.
 
-**Non-Goals:** choose a new startup mode, invent caller authentication from intent extras, grant client access on manager entry, or add a second startup/authorization authority. Full scope exclusions are in proposal.md.
+**Non-Goals:** listed in proposal.md.
 
 ## Decisions
 
-### Evidence and planning boundary
+### D1. Caller return relies on Android's shared launch identity
 
-Keep the code and current requirements unchanged in this revision. The user explicitly requested unmade product decisions in the PR, so the alternatives below are review material, not normative behavior. There are no candidate implementation tasks or SHALL clauses hidden outside Open questions. `skip_specs` is only appropriate for this documentation-stage revision; it must be removed if approved behavioral scope is added.
+- **Identity:** Android 14 lets a launching app share its identity: `ActivityOptions.setShareIdentityEnabled(true)` on the caller side, then `getLaunchedFromUid()` / `getLaunchedFromPackage()` on Tsuyu's side.
+  - Tsuyu uses only this platform-verified identity. Intent extras or the referrer never name the caller.
+  - Without a shared identity, a self-launch, or a caller package that is no longer installed, no return action exists and Back keeps its behavior.
+- **When it appears:** the action is labelled « Revenir à <label> » with the installed app label. It appears only after both:
+  - the service is verified running;
+  - the persistence step has a final outcome (prepared, unsupported, refused or failed).
 
-### Existing security and error contracts
+  While startup or preparation is pending, or after a failure, the action is absent and recovery stays first.
+- **What it does:** activation finishes `MainActivity`. Because it runs in the caller's task (no `NEW_TASK`), the caller's activity is shown again. Tsuyu reports nothing to the caller: its API state stays the source of truth.
+- **Focus:** when the action appears, it becomes the main action and receives focus once. If the user had already moved focus, it is restored to the initiating control instead.
+- **Recreation:** the launched-from identity belongs to the activity record and survives recreation. The presentation state keeps the resolved label in the ViewModel.
+- **Alternatives rejected:** automatic return, rejected by Sygix because it hides preparation and errors; trusting extras, rejected because they authenticate nothing.
 
-Continue to treat manager identity as the authority for access administration; a package label/referrer supplied by another app is not authentication. Existing public client binders do not authorize manager operations. Reuse verified installed identities and shared-UID groups. Existing bounded startup, provider, storage and preparation outcomes distinguish denial, unsupported facilities, timeout and unverified mutation. Finishing a screen proves neither binder delivery nor client authorization. No privileged endpoint, copied source or dependency is introduced by these documents; existing provenance and licenses remain unchanged.
+### D2. Boot restart stays in the existing pre-start sequence
 
-### Visual evidence
+There is no new behavior. `contract-audit.md` records the SygixOs guide corrections.
 
-[Penpot exploratory page](https://design.penpot.app/#/workspace?team-id=52a5041f-08a1-80f1-8008-c3c379c88195&file-id=cd444aaf-0d8c-801b-8008-ce19b8b9f465&page-id=b41ac809-9298-800b-8008-ce292740e460), “Client setup · proposals”, contains three UNSELECTED boards. A named version preserves the preceding state. The existing 44 boards and shared components were preserved; three new boards make 47 across ten pages. The new boards are alternatives supporting the questions below, not changes to PR #13's accepted reference or additional application routes.
+### D3. Refusal reset is a server-side clear of a deny decision
+
+- **List:** « Accès des applications » replaces « Applications autorisées ». The server returns authorized, refused and pending-cleanup groups for currently installed identities. Each row shows a status text and exactly one action:
+  - « Retirer l'accès » for authorized groups (P2 revocation, unchanged);
+  - « Autoriser une nouvelle demande » for refused groups;
+  - the existing revoke retry for pending cleanup.
+- **Ordering:** rows are sorted by status (authorized, then refused), then by label. Shared-UID groups keep all members visible.
+- **Reset:**
+  - A new manager-only server operation clears the deny decision for that group. It never writes allow.
+  - Its result separates success, missing identity, storage failure and timeout.
+  - On success the row leaves the list. The client's next `checkSelfPermission()` stays denied. After reattachment `shouldShowRequestPermissionRationale()` returns false, and a new `requestPermission` opens the usual confirmation with « Refuser » focused.
+  - Resetting is not revocation: it neither terminates processes nor reuses the revoke wording.
+- **Alternative rejected:** a manager grant toggle, because consent stays bound to a live client request.
+
+### D4. Updates follow SygixOs's `self-update` principle
+
+- **Source:**
+  - One unauthenticated HTTPS request to the public releases of the Tsuyu repository, with bounded connect, read and total timeouts.
+  - Eligible releases are non-draft, carry an exact `vX.Y.Z` or `vX.Y.Z-(alpha|beta|rc).N` tag and a fully uploaded `tsuyu.apk` asset with size and `sha256:` digest, and are served over HTTPS.
+  - The highest `versionCode` computed with the build formula is offered if it is strictly greater than the installed one.
+  - Prereleases are offered only when « Inclure les préversions » is on; it is off by default.
+  - A rate limit stores the retry time from the response, or one hour later. No automatic request is sent before it, even after reboot.
+- **Checks:**
+  - **Manual:** « Rechercher les mises à jour » always sends a request.
+  - **Automatic:** at most once per 24 h. While auto-update is off, it runs when home opens. While auto-update is on, it also runs as a periodic WorkManager job with a network constraint.
+  - An automatic failure is silent and only updates the stored result shown on the update screen.
+- **Download:**
+  - Into app cache, with a bounded total time.
+  - Then ordered checks: size, SHA-256, package `fr.sygix.tsuyu`, `versionCode` equal to the tag and greater than installed, signing certificates identical to the installed ones.
+  - Any failure deletes the file and records a cause. Temporary files are deleted after handoff, after failure and at cold start.
+- **Release notes:** a non-focusable QR code pointing to the release page, in the update screen's supporting panel.
+
+### D5. Installation goes through Tsuyu's own shell server
+
+- **Why the server installs:**
+  - The shell uid installs packages without a confirmation dialog.
+  - The app needs no `REQUEST_INSTALL_PACKAGES` and no unknown-sources toggle.
+  - This is the only way to satisfy "no interaction" on the reference TV.
+- **New manager-only operation on the existing manager binder:** `installUpdate(file descriptor, expected size, expected SHA-256, expected versionCode)`.
+  - Shizuku clients cannot reach it: it is absent from the client binder and gated by the existing manager authentication.
+  - The server opens a PackageInstaller session as shell, restricted to package `fr.sygix.tsuyu`, and recomputes SHA-256 while copying. A mismatch abandons the session.
+  - It commits with replace-existing and no downgrade. Android itself rejects a different signer.
+  - The result separates success, verification failure, installer failure with its status, and timeout.
+  - No shell command is built from input: the session API is used directly.
+- **Preconditions:** both are re-read immediately before install.
+  - The service is running.
+  - `boot-persistence` is ready: the same preparation as boot restart, including AUTO_START allow.
+- **When preparation is not ready:**
+  - « Mettre à jour vers X » opens the existing P3 disclosure → preparation flow, then continues the update only after a verified ready outcome.
+  - Enabling « Mises à jour automatiques » follows the same rule.
+  - Refusing preparation leaves the update unapplied and the setting off.
+  - Rationale: the existing P3 restart-after-update path then applies unchanged, so restart needs no second mechanism.
+- **Install timeline:**
+  1. Commit replaces the APK.
+  2. Android kills the app process.
+  3. The server exits through `local-start`'s package lifecycle observation; clients see `binderDied`.
+  4. `MY_PACKAGE_REPLACED` reaches `BootReceiver`, and `RestartRunner` starts the new server from the new APK within the shared budget.
+  5. The new server delivers binders to clients and to the manager. Consent and key survive (same signer).
+- **Failure:** a restart that fails records the P3 outcome and shows it on home with recovery focused, exactly like a failed boot restart. Tsuyu never stops silently.
+- **Without the server:** when the service is stopped, update actions are unavailable with « Démarrez Tsuyu pour installer la mise à jour. ». Checking still works.
+
+### D6. Silent automatic update
+
+- **Setting:** « Mises à jour automatiques », off by default, persisted.
+- **Flow:** when it is on and an automatic check finds an eligible release, the job downloads and verifies it, then installs through D5 without any UI.
+- **Idle gate:** installation waits until the server reports idle state:
+  - no client-owned remote process;
+  - no live UserService;
+  - no pending permission request;
+  - Tsuyu not in the foreground.
+
+  The idle query is a manager-only read. While the service is busy, the verified file is kept and the gate is re-evaluated at most every 15 minutes for up to 24 h. After that the file is dropped and the next daily check starts over.
+- **Rationale:** Binder-only clients are not "busy". The API already defines how they re-attach after `binderDied`, and SygixOs tears down its UserService per sequence.
+- **Missing prerequisites:** if debugging is off, the service is stopped or preparation is lost, the job records the cause and installs nothing. Home and the update screen show it.
+- **Prereleases:** they follow the same opt-in as manual updates.
+
+### D7. Update screen
+
+- **Entry point:** home gains a « Mises à jour » entry, after « Accès des applications ».
+- **Layout:** the screen uses the `material3-tv-alignment` state-screen shell.
+  - **Left:** status (« À jour », « Version X disponible », progress, last error with cause, last check time) and the release-notes QR.
+  - **Right column, in order:**
+    - « Mettre à jour vers X » (only when offered);
+    - « Rechercher les mises à jour »;
+    - « Mises à jour automatiques : Activées/Désactivées »;
+    - « Inclure les préversions : Activées/Désactivées »;
+    - « Retour ».
+- **Focus:**
+  - Initial focus goes to « Mettre à jour vers X » when present, otherwise to « Rechercher les mises à jour ».
+  - Toggles keep focus after activation.
+- **Effect of updating:** the app process ends when the update is applied. Home of the new version shows « Mis à jour vers X » once, then normal status.
+
+### Privileged surface
+
+The server gains three manager-only operations: install a verified Tsuyu update, clear a deny decision, and read idle state.
+- None of them is reachable through the Shizuku client binder.
+- None accepts a package name or a path: the update package is fixed and the payload is a file descriptor.
+- Each has a bounded deadline and a typed result.
+
+### Provenance
+
+No code is taken from Shizuku, Shevery or SygixOs. SygixOs's `self-update` capability is a behavioral reference only. New files carry the Tsuyu AGPL header.
 
 ## Risks / Trade-offs
 
-- [SygixOs describes a button that depends on state] → correct its guide from actual startup routing; keep the external integration test before coding.
-- [A launch referrer is mistaken for caller authentication] → no privileged consequence may follow merely from entry context; a proposed return affordance needs a separately verified lifecycle/identity design after selection.
-- [Static success board implies a verified future boot] → existing P3 read-back/status semantics prevail; rendering is not execution evidence.
-- [Resetting a server decision leaves an upstream client cache stale] → validate with the unchanged upstream library and a reattached client before defining the final recovery contract.
-- [Immediate return hides preparation or an error] → keep the service-live and persistence-result milestones separate in the decision; never finish on cached RUNNING alone.
+- **`MY_PACKAGE_REPLACED` delivery on the reference TV after a shell install is not yet verified.**
+  - Mitigation: task 1.1 verifies it before code.
+  - P3's "replacement delivery unavailable" outcome remains the visible fallback.
+- **A shell PackageInstaller session may require a user action on some firmware.**
+  - Mitigation: task 1.1 verifies it.
+  - If confirmation is required, the update fails with a typed installer status and auto-update reports it. No silent retry loop.
+- **Key expiry.** An unattended restart can hit the « Autoriser le débogage » prompt when the key expired.
+  - Mitigation: P3 preparation includes the optional expiry policy.
+  - Otherwise the P3 AUTHENTICATION outcome is shown.
+- **A client mid-operation.**
+  - Mitigation: the idle gate (D6). Manual updates are user-initiated and warn that clients reconnect.
+- **The opening app does not share its identity.**
+  - Mitigation: no return action, Back only. SygixOs adopts `setShareIdentityEnabled(true)`.
 
 ## Migration Plan
 
-This revision migrates no data and changes no running behavior. Publishing the exploratory page does not select its variants. Rollback of these documents leaves existing code and Penpot originals intact.
+- No storage migration.
+- New preferences:
+  - auto-update, default off;
+  - prereleases, default off;
+  - check result and retry time;
+  - pending verified file metadata.
+- Rollback removes the update screen and server operations. Installed versions remain usable through external installation.
 
-Archive order for implemented behavior remains P2 → P3 → `material3-tv-alignment` where applicable. This decision-stage change is not ready for archive. After selection, reconcile the affected capability deltas and document their archive order before implementation; never edit `openspec/specs/` directly. A future refusal-recovery extension belongs to `client-access`; any preparation change belongs to `boot-persistence`; navigation belongs to `tv-navigation`, avoiding duplicate requirements.
+Archive order: `material3-tv-alignment` → `client-setup-handoff`. This change MODIFIES the `tv-navigation` access-row requirement added by `material3-tv-alignment`.
+
+## Penpot
+
+The boards live with their family in the `material3-tv-alignment` file and reuse its shared components:
+- **02 · Home:**
+  - **H.7:** running, opened by an app with « Revenir à SygixOs »;
+  - **H.8:** first home after an update.
+- **04 · Access:**
+  - **A.7:** « Accès des applications » with an authorized row and a refused row.
+- **09 · Updates:**
+  - **U.1:** up to date;
+  - **U.2:** update available, with the release-notes QR;
+  - **U.3:** downloading and verifying;
+  - **U.4:** silent update waiting for idle;
+  - **U.5:** update failed;
+  - **U.6:** service stopped.
+
+When an update needs preparation, it opens the existing P.1 disclosure; there is no dedicated board. H.1–H.6 and A.3–A.6 stay the `material3-tv-alignment` baseline.
+
+The separate post-start offer explored during the audit was not selected and was removed. A named file version keeps it.
 
 ## Open questions
 
-All recommendations below are **to confirm**. The conservative default until selection is the existing behavior. These questions intentionally block a behavior-changing apply, while allowing the requested audit PR to be reviewed now.
-
-### Q1 — Return to the opening application
-
-- **Recommendation, to confirm:** retain a caller-return improvement, using an explicit “Revenir à …” action after verified startup and the persistence outcome, rather than immediately closing on service liveness. This avoids hiding preparation, optional policy explanation and failures. CS.2 illustrates this option; it is not selected.
-- Alternatives: automatic return only after the agreed sequence completes; or retain Back-only navigation. Immediate return as soon as the server is live is not recommended because it can race preparation and hides useful recovery.
-- Conservative default: Back-only, unchanged. An ordinary launcher entry must keep working without a claimed caller.
-- Selection must also settle whether a client opts into the return flow or any external opening qualifies. An explicit launch alone does not reliably authenticate the application to name, especially across recreation; arbitrary intent text must not become a trusted return destination. Cancel, lost caller, caller death, recreation and already-running entry need observable fallback behavior before this is specified.
-- Any selected variant must preserve separate Shizuku permission consent and must not promise delivery within SygixOs's three-second local wait. That wait remains a client policy, not a Tsuyu guarantee.
-
-### Q2 — Boot preparation in the startup sequence
-
-- **Recommendation, to confirm:** retain the goal of one understandable sequence, but reuse the already implemented pre-start disclosure → start → verified preparation path. Do not add a second mandatory post-start consent page. Correct SygixOs's instruction that the user must activate a separate setting afterwards.
-- Alternative: separate manual service start from a post-start persistence offer. CS.1 illustrates this unselected variant only; it would change P3, not merely its styling. Its “Préparer le redémarrage” action is exploratory wording, not an accepted replacement for the existing labels.
-- Conservative default: existing P3 route, with global key expiry still separately optional and initially focused on keeping the policy. Choosing a new post-start offer also requires deciding what skipping means, what is stored and whether manual-only operation is a new supported state.
-- Neither service startup nor a return action may imply persistence readiness without its checks. Unsupported vendor access, partial preparation, refusal and timeout retain distinct outcomes.
-
-### Q3 — Reconsider a persisted refusal in Tsuyu
-
-- **Recommendation, to confirm:** retain this improvement as the priority functional extension: show refused identity groups and offer “Autoriser une nouvelle demande”. Clear the matching recorded refusal without granting access; the client then makes a fresh `Shizuku.requestPermission`, with Refuser initially focused and normal callback/return semantics. CS.3 illustrates this unselected option.
-- Alternatives: a manager-owned permission review that can explicitly grant; or leave refusal recovery unavailable. A direct allow switch needs an additional deliberate consent design and is not the conservative recommendation.
-- Conservative default: current authorized-only list, with no claim that opening Tsuyu can clear a refusal.
-- Placement also needs selection: extend the current list into “Accès des applications” with status rows (recommended), or keep separate authorized/refused lists. CS.3 intentionally does not settle its home entry.
-- Before normative deltas, verify the unchanged API client's cached rationale/reattachment behavior: denial should remain until fresh consent; after reset and appropriate reattachment, `shouldShowRequestPermissionRationale()` should cease reporting a recorded refusal; a new request must again receive its matching result. Define missing identity, shared-group changes, storage/server failure, timeout/reconciliation, concurrent requests, reboot and focus fallback. Resetting a refusal is not revocation and must not reuse its process-cleanup success wording.
-
-### Q4 — Integrated Tsuyu updates
-
-- **Recommendation, to confirm:** retain the need for an accessible update path, but defer implementation to a separate distribution follow-up after P4's release contract is settled. It is useful maintenance, not required for this caller handoff.
-- Alternatives: include a minimal user-initiated updater in this change; or rely on externally installed updates. No automatic background installation is implied by any option.
-- Conservative default: current GitHub release/install path. No updater screen is proposed and no update dependency is introduced here.
-- A follow-up needs decisions about trigger, prerelease policy, unavailable/offline releases, installer cancellation, minimum compatible API and signing-key rotation. Use Tsuyu's own installed signing identity as the update trust anchor, not a runtime dependency on SygixOs being installed. P1/P3 already own old-server shutdown, same-signature key/consent preservation and replacement restart; do not duplicate them in an updater.
+None.
