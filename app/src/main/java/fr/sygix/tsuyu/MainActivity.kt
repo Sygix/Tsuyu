@@ -27,10 +27,14 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state) as T
+                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
+        lifecycleScope.launch {
+            graph.updates.load()
+            if (!graph.updates.state.value.auto) graph.updates.check(false)
+        }
         setContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { handleBack(ui.screen) }
@@ -59,6 +63,15 @@ class MainActivity : ComponentActivity() {
             }
             return
         }
+        if (action == Action.RETURN) {
+            finish()
+            return
+        }
+        if (action == Action.UPDATES) {
+            model.act(action)
+            startActivity(Intent(this, fr.sygix.tsuyu.update.UpdateActivity::class.java))
+            return
+        }
         if (action == Action.APPS) {
             model.act(action)
             startActivity(Intent(this, fr.sygix.tsuyu.access.AccessActivity::class.java))
@@ -80,8 +93,14 @@ class MainActivity : ComponentActivity() {
         try { observer = TsuyuGraph.get(this).settings.observe { model.resume() } }
         catch (unavailable: Exception) { model.settingsFailed() }
     }
-    override fun onResume() { super.onResume(); model.resume(); lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).persistenceController.refresh() } }
+    private fun resolveCaller(): String? {
+        val name = launchedFromPackage?.takeIf { it != packageName } ?: return null
+        return try { packageManager.getApplicationInfo(name, 0).loadLabel(packageManager).toString() }
+        catch (missing: android.content.pm.PackageManager.NameNotFoundException) { null }
+    }
+    override fun onResume() { super.onResume(); model.caller(resolveCaller()); model.resume(); lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).persistenceController.refresh() } }
     override fun onStop() {
+        lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).updates.consumeNotice() }
         try { observer?.close() } catch (failure: Exception) { model.settingsFailed() }
         observer = null
         super.onStop()

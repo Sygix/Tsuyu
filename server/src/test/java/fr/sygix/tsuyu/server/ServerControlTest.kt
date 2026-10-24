@@ -30,6 +30,9 @@ class ServerControlTest {
         assertThrows(SecurityException::class.java) { server.persistence }
         assertThrows(SecurityException::class.java) { server.preparePersistence() }
         assertThrows(SecurityException::class.java) { server.disableKeyExpiry() }
+        assertThrows(SecurityException::class.java) { server.resetRefusal(10001) }
+        assertThrows(SecurityException::class.java) { server.isIdle }
+        assertThrows(SecurityException::class.java) { server.installUpdate(android.os.ParcelFileDescriptor.open(java.io.File.createTempFile("tsuyu", ".apk"), android.os.ParcelFileDescriptor.MODE_READ_ONLY), 1, "0".repeat(64)) }
         assertFalse(stopped)
         caller = 10100
         server.exit()

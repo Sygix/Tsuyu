@@ -30,7 +30,7 @@ class AccessActivity : ComponentActivity() {
             val ui = model.ui.collectAsStateWithLifecycle().value
             val back = model::back
             BackHandler { back() }
-            AccessScreen(ui, model::confirm, model::revoke, model::refresh, back)
+            AccessScreen(ui, model::confirm, model::revoke, model::refresh, back, model::reset)
             LaunchedEffect(ui.finished) { if (ui.finished) finish() }
         }
     }

@@ -20,7 +20,7 @@ Success means:
 - **Nothing at rest.** No animation or refresh when nothing changes.
 
 ## Screens
-- **Home:** the service state with its main action (enable, start, retry), the authorized apps, and help.
+- **Home:** the service state with its main action (enable, start, retry), « Revenir à <app> » when another app opened Tsuyu, the apps' access, updates, restart preparation and help.
 - **Guided setup:**
   - turn on developer options and debugging;
   - confirm "Always allow" on the system prompt;
@@ -29,7 +29,8 @@ Success means:
   - opens over the requesting app;
   - shows the app's icon and name, and what the access allows;
   - two buttons, "Autoriser" and "Refuser"; "Refuser" holds the initial focus.
-- **Authorized apps:** the list, with revocation per app.
+- **Accès des applications:** authorized and refused apps with their status; revoke an access or let a refused app ask again.
+- **Mises à jour:** the installed and offered versions, the last check, the release notes as a QR code, automatic updates and prereleases.
 
 The exact scope of each screen is decided in OpenSpec changes.
 
@@ -44,6 +45,9 @@ The exact scope of each screen is decided in OpenSpec changes.
 - **Back:** leaves a sub-screen; on Home, it exits the app.
 
 ## Visual language
+- **Reference:** Google Material 3 for TV, laid out in the Penpot file « Tsuyu · Material 3 TV » (pages per journey, shared components on « 01 · Components »). The written specs take precedence over static boards.
+- **Palette:** background `#10161E`, surfaces `#1E2936` / `#293645`, primary `#A8D5FF` on `#003353`, text `#E6EDF5` / `#C6D1DF`, outline `#667585`, error `#FFB4AB` on `#493133`.
+- **Layout:** state screens put the information on the left and the actions in a right column (about 55/45); permission requests use a centered surface; access rows group the identity, its status and its action.
 - **Style:** same family as SygixOs:
   - dark theme only;
   - quiet surfaces;

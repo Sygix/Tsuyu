@@ -16,4 +16,7 @@ interface ITsuyuServer {
     Bundle getPersistence();
     Bundle preparePersistence();
     Bundle disableKeyExpiry();
+    boolean resetRefusal(int uid);
+    boolean isIdle();
+    Bundle installUpdate(in ParcelFileDescriptor apk, long size, String sha256);
 }

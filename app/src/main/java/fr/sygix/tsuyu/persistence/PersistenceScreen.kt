@@ -7,10 +7,9 @@ package fr.sygix.tsuyu.persistence
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import fr.sygix.tsuyu.ui.theme.*
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import fr.sygix.tsuyu.R
 import fr.sygix.tsuyu.ui.Action
@@ -31,20 +30,25 @@ data class PersistenceScreenUi(
     override val controls: List<Control>,
     override val focus: String,
     val details: PersistenceDetails,
+    override val busy: Boolean = false,
 ) : ScreenUi
 
 @Composable
 fun PersistenceScreen(ui: PersistenceScreenUi, onAction: (Action) -> Unit) {
     StateScreen(ui, onAction) {
-        when (val details = ui.details) {
-            is PersistenceDetails.Modes -> Text(
-                stringResource(R.string.persistence_modes, stringResource(details.uid), stringResource(details.pkg)),
-                fontSize = 18.sp,
-                color = Color(0xffc6d1df),
-                modifier = Modifier.testTag("persistence-modes"),
-            )
-            is PersistenceDetails.Expiry -> details.milliseconds?.let { value ->
-                Text(stringResource(R.string.expiry_value, value), fontSize = 18.sp, color = Color(0xffc6d1df), modifier = Modifier.testTag("expiry-value"))
+        val details = ui.details
+        if (details is PersistenceDetails.Expiry && details.milliseconds == null) return@StateScreen
+        SupportingPanel {
+            Text(stringResource(R.string.technical_details), fontSize = TsuyuType.supporting, color = TsuyuColors.text)
+            when (details) {
+                is PersistenceDetails.Modes -> Text(
+                    stringResource(R.string.persistence_modes, stringResource(details.uid), stringResource(details.pkg)),
+                    fontSize = TsuyuType.supporting, color = TsuyuColors.secondary, modifier = Modifier.testTag("persistence-modes"),
+                )
+                is PersistenceDetails.Expiry -> Text(
+                    stringResource(R.string.expiry_value, requireNotNull(details.milliseconds)),
+                    fontSize = TsuyuType.supporting, color = TsuyuColors.secondary, modifier = Modifier.testTag("expiry-value"),
+                )
             }
         }
     }

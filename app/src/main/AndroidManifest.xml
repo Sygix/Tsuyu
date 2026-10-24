@@ -36,6 +36,9 @@
             android:name=".persistence.PersistenceActivity"
             android:exported="false" />
         <activity
+            android:name=".update.UpdateActivity"
+            android:exported="false" />
+        <activity
             android:name=".access.AccessActivity"
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"

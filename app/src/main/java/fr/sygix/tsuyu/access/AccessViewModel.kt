@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class AccessApp(val name: String, val icon: Bitmap)
-data class AccessRow(val uid: Int, val apps: List<AccessApp>, val cleanupPending: Boolean = false)
+data class AccessRow(val uid: Int, val apps: List<AccessApp>, val cleanupPending: Boolean = false, val refused: Boolean = false)
 data class AccessUi(
     val loading: Boolean = true,
     val rows: List<AccessRow> = emptyList(),
@@ -33,6 +33,7 @@ data class AccessUi(
     val permission: Boolean = false,
     val retryRevoke: Int? = null,
     val deliveryFailures: List<AccessApp> = emptyList(),
+    val resetFailed: Int? = null,
 ) {
     val presentation = AccessPresentation.from(this)
 }
@@ -82,11 +83,12 @@ class AccessViewModel(
         val bundle = if (token == null) service.access else service.getRequest(token)
         val uids = if (token == null) bundle.getIntArray("uids") ?: intArrayOf() else intArrayOf(bundle.getInt("uid"))
         val pending = bundle.getIntArray("cleanupPending") ?: intArrayOf()
+        val refused = bundle.getIntArray("refused") ?: intArrayOf()
         val rows = uids.map { uid ->
             val key = if (token == null) uid.toString() else "packages"
             val names = requireNotNull(bundle.getStringArrayList(key))
-            AccessRow(uid, names.map(::app), uid in pending)
-        }
+            AccessRow(uid, names.map(::app), uid in pending, uid in refused && uid !in pending)
+        }.sortedWith(compareBy<AccessRow> { it.refused }.thenBy { row -> row.apps.joinToString { it.name }.lowercase() })
         return rows to bundle.getStringArrayList("deliveryFailures").orEmpty().map(::app)
     }
 
@@ -134,7 +136,28 @@ class AccessViewModel(
         }
     }
 
+    fun reset(uid: Int) {
+        if (revocation?.isActive == true) return
+        revocation = viewModelScope.launch {
+            val old = mutable.value.rows.map { it.uid }
+            mutable.value = mutable.value.copy(loading = true, error = false, resetFailed = null)
+            try {
+                io.call(RESET_TIMEOUT_MS) { requireNotNull(server()).resetRefusal(uid) }
+                val rows = mutable.value.rows.filterNot { it.uid == uid }
+                val index = old.indexOf(uid)
+                mutable.value = mutable.value.copy(loading = false, rows = rows, focus = rows.getOrNull(index)?.uid ?: rows.lastOrNull()?.uid)
+            } catch (cancelled: CancellationException) {
+                if (cancelled !is kotlinx.coroutines.TimeoutCancellationException) throw cancelled
+                mutable.value = mutable.value.copy(loading = false, resetFailed = uid, focus = uid)
+            } catch (failure: Exception) {
+                Log.e("Tsuyu", "Refusal reset failed", failure)
+                mutable.value = mutable.value.copy(loading = false, resetFailed = uid, focus = uid)
+            }
+        }
+    }
+
     companion object {
+        private const val RESET_TIMEOUT_MS = 10_000L
         private const val LOOKUP_TIMEOUT_MS = 10_000L
         private const val CONFIRM_TIMEOUT_MS = 5_000L
         private const val REVOKE_TIMEOUT_MS = 60_000L

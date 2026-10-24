@@ -241,10 +241,12 @@ internal class ClientService(
         manager()
         val decisions = shell { storage.read().filter { it.allowed && hasAccess(it.group.uid) } }
         val pending = revocations.groups
-        val groups = (decisions.map { it.group } + pending).distinctBy { it.uid }
+        val refused = shell { access.refused() }.filterNot { group -> pending.any { it.uid == group.uid } }
+        val groups = (decisions.map { it.group } + pending + refused).distinctBy { it.uid }
         return Bundle().apply {
             putIntArray("uids", groups.map { it.uid }.toIntArray())
             putIntArray("cleanupPending", pending.map { it.uid }.toIntArray())
+            putIntArray("refused", refused.map { it.uid }.toIntArray())
             putStringArrayList("deliveryFailures", ArrayList(deliveryFailures.sorted()))
             groups.forEach { putStringArrayList(it.uid.toString(), ArrayList(it.members.keys)) }
         }
@@ -257,6 +259,14 @@ internal class ClientService(
         lifecycle.withUid(uid) {
             shell { revocations.revoke(uid) }
         }
+    }
+    fun resetRefusal(uid: Int): Boolean {
+        manager()
+        return lifecycle.withUid(uid) { shell { !revocations.contains(uid) && access.reset(uid) } }
+    }
+    fun idle(): Boolean {
+        manager()
+        return processes.idle && userServices.idle && requests.idle
     }
     override fun newProcess(cmd: Array<out String>, env: Array<out String>?, dir: String?): IRemoteProcess {
         return lifecycle.withUid(uid()) {

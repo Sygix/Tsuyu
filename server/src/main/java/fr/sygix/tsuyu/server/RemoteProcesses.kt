@@ -33,6 +33,8 @@ internal class RemoteProcesses(
         return remote
     }
 
+    val idle: Boolean get() = processes.isEmpty()
+
     fun stop(uid: Int, pid: Int? = null) {
         Cleanup.run(processes.entries.filter { it.value.uid == uid && (pid == null || it.value.pid == pid) }
             .map { entry -> { entry.key.close() } })

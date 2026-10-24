@@ -172,6 +172,7 @@ internal class UserServices(
         else disconnect(record, requireNotNull(conn).asBinder())?.let { pending += it }
         return 0
     }
+    val idle: Boolean @Synchronized get() = records.isEmpty() && retiring.isEmpty()
     fun revoke(uid: Int) {
         operation { pending ->
             (records.values + retiring.keys).filter { it.uid == uid }.distinct().forEach { pending += remove(it) }

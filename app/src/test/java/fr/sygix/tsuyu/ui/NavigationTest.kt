@@ -33,6 +33,8 @@ class NavigationTest {
         press("action-main", Key.DirectionDown)
         compose.onNodeWithTag("action-apps").assertIsFocused()
         press("action-apps", Key.DirectionDown)
+        compose.onNodeWithTag("action-updates").assertIsFocused()
+        press("action-updates", Key.DirectionDown)
         compose.onNodeWithTag("action-persistence").assertIsFocused()
         press("action-persistence", Key.DirectionDown)
         compose.onNodeWithTag("action-help").assertIsFocused()
@@ -40,6 +42,37 @@ class NavigationTest {
         compose.onNodeWithTag("action-help").assertIsFocused()
         press("action-help", Key.DirectionCenter)
         assertEquals(listOf(Action.HELP), actions)
+    }
+    @Test fun returnActionTakesInitialFocusAndFallsBackWhenRemoved() {
+        val actions = mutableListOf<Action>()
+        val state = mutableStateOf(HomeViewModel.present(StartState(Phase.RUNNING), Screen.HOME, "action-main", "SygixOs"))
+        compose.setContent { HomeScreen(state.value, actions::add) }
+        compose.onNodeWithTag("action-return").assertIsFocused().assertTextEquals("Revenir à SygixOs")
+        press("action-return", Key.DirectionUp)
+        compose.onNodeWithTag("action-return").assertIsFocused()
+        press("action-return", Key.DirectionDown)
+        compose.onNodeWithTag("action-main").assertIsFocused()
+        press("action-main", Key.DirectionUp)
+        press("action-return", Key.DirectionCenter)
+        assertEquals(listOf(Action.RETURN), actions)
+        compose.runOnIdle { state.value = HomeViewModel.present(StartState(Phase.RUNNING), Screen.HOME, "action-return") }
+        compose.onNodeWithTag("action-main").assertIsFocused()
+    }
+    @Test fun informationStaysLeftOfTheActionColumnInsideTheSafeArea() {
+        compose.setContent { HomeScreen(HomeViewModel.present(StartState(Phase.LAUNCHING), Screen.HOME, "action-main"), {}) }
+        val root = compose.onRoot().getBoundsInRoot()
+        val body = compose.onNodeWithTag("state-body").getBoundsInRoot()
+        val brand = compose.onNodeWithTag("brand-signature").getBoundsInRoot()
+        compose.onNodeWithTag("operation-progress").assertExists()
+        assertTrue(compose.onNodeWithTag("brand-signature").fetchSemanticsNode().config.contains(androidx.compose.ui.semantics.SemanticsProperties.Focused).not())
+        for (tag in listOf("action-cancel", "action-apps", "action-updates", "action-persistence", "action-help")) {
+            val action = compose.onNodeWithTag(tag).getBoundsInRoot()
+            assertTrue(tag, action.left > body.right && action.left > brand.right)
+            assertTrue(tag, action.right <= root.right - (root.right - root.left) * 0.05f + androidx.compose.ui.unit.Dp.Hairline)
+            assertTrue(tag, action.top >= root.top && action.bottom <= root.bottom)
+        }
+        assertTrue(HomeViewModel.present(StartState(Phase.AUTHORIZING), Screen.SETUP, "action-main").busy)
+        assertFalse(HomeViewModel.present(StartState(Phase.RUNNING), Screen.HOME, "action-main").busy)
     }
     @Test fun helpReturnAndRemovedFocusedActionRestoreValidFocus() {
         val state = mutableStateOf(HomeViewModel.present(StartState(Phase.STOPPED), Screen.HELP, "action-help"))

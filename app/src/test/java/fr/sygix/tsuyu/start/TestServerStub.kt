@@ -18,4 +18,7 @@ abstract class TestServerStub : ITsuyuServer.Stub() {
     override fun getPersistence() = Bundle()
     override fun preparePersistence() = Bundle()
     override fun disableKeyExpiry() = Bundle()
+    override fun resetRefusal(uid: Int) = false
+    override fun isIdle() = true
+    override fun installUpdate(apk: android.os.ParcelFileDescriptor, size: Long, sha256: String) = Bundle()
 }

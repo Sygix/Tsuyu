@@ -18,15 +18,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, SETUP, HELP, DETAILS, PERSISTENCE, EXPIRY }
-enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY }
-data class Control(val id: String, val label: Int, val action: Action)
+enum class Screen { HOME, SETUP, HELP, DETAILS, PERSISTENCE, EXPIRY, UPDATES }
+enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES }
+data class Control(val id: String, val label: Int, val action: Action, val args: List<Any> = emptyList(), val enabled: Boolean = true)
 interface ScreenUi {
     val screen: Screen
     val title: Int
     val body: Int
     val controls: List<Control>
     val focus: String
+    val titleArgs: List<Any> get() = emptyList()
+    val bodyArgs: List<Any> get() = emptyList()
+    val busy: Boolean get() = false
 }
 data class HomeUi(
     override val screen: Screen,
@@ -35,6 +38,9 @@ data class HomeUi(
     override val controls: List<Control>,
     override val focus: String,
     val persistenceStatus: Int? = null,
+    val persistenceAttention: Boolean = false,
+    val notice: String? = null,
+    override val busy: Boolean = false,
 ) : ScreenUi
 private data class Navigation(val screen: Screen = Screen.HOME, val returnFocus: String = "action-main")
 
@@ -46,11 +52,15 @@ class HomeViewModel(
     private val coordinator: StartCoordinator,
     compatibility: StateFlow<Boolean> = MutableStateFlow(true),
     persistence: StateFlow<PersistenceUi> = MutableStateFlow(PersistenceUi()),
+    notice: StateFlow<String?> = MutableStateFlow(null),
 ) : ViewModel() {
     private val navigation = MutableStateFlow(Navigation())
+    private val caller = MutableStateFlow<String?>(null)
     private var startup: Job? = null
-    val ui = combine(coordinator.state, navigation, compatibility, persistence) { state, nav, compatible, preparation ->
-        val presentation = present(state, nav.screen, nav.returnFocus)
+    private val extras = combine(caller, notice) { label, version -> label to version }
+    val ui = combine(coordinator.state, navigation, compatibility, persistence, extras) { state, nav, compatible, preparation, (label, version) ->
+        val returning = label.takeIf { !preparation.loading && preparation.enabledKnown }
+        val presentation = present(state, nav.screen, nav.returnFocus, returning)
         val failed = preparation.outcome.failed
         val verified = !preparation.loading && !preparation.error
         val status = when {
@@ -64,6 +74,8 @@ class HomeViewModel(
         presentation.copy(
             body = if (compatibilityError) R.string.compatibility_error else presentation.body,
             persistenceStatus = status,
+            persistenceAttention = failed,
+            notice = version.takeIf { nav.screen == Screen.HOME },
             focus = if (failed && nav.screen == Screen.HOME) "action-persistence" else presentation.focus,
         )
     }
@@ -79,6 +91,7 @@ class HomeViewModel(
         if (navigation.value.screen == Screen.HOME) navigation.value = navigation.value.copy(returnFocus = "action-main")
     }
     fun settingsFailed() = coordinator.settingsFailed()
+    fun caller(label: String?) { caller.value = label }
     fun persistenceEntry(fromMain: Boolean) {
         cancelPending()
         navigation.value = navigation.value.copy(returnFocus = if (fromMain) "action-main" else "action-persistence")
@@ -101,7 +114,8 @@ class HomeViewModel(
             Action.SETTINGS -> Unit
             Action.APPS -> navigation.value = navigation.value.copy(returnFocus = "action-apps")
             Action.PERSISTENCE -> navigation.value = navigation.value.copy(returnFocus = "action-persistence")
-            Action.EXPIRY, Action.DISABLE_EXPIRY -> Unit
+            Action.UPDATES -> navigation.value = navigation.value.copy(returnFocus = "action-updates")
+            Action.EXPIRY, Action.DISABLE_EXPIRY, Action.RETURN, Action.UPDATE, Action.CHECK, Action.AUTO, Action.PRERELEASES -> Unit
         }
     }
     private fun start() {
@@ -113,7 +127,7 @@ class HomeViewModel(
         }
     }
     companion object {
-        fun present(state: StartState, screen: Screen, restore: String): HomeUi {
+        fun present(state: StartState, screen: Screen, restore: String, caller: String? = null): HomeUi {
             val main: Control
             val title: Int
             val body: Int
@@ -173,9 +187,22 @@ class HomeViewModel(
                     }
                 }
             }
-            val controls = listOf(main) + if (screen == Screen.HOME) listOf(Control("action-apps", R.string.access_apps, Action.APPS), Control("action-persistence", R.string.persistence_title, Action.PERSISTENCE), Control("action-help", R.string.help_title, Action.HELP)) else emptyList()
-            val wanted = if (screen == Screen.HOME) restore else main.id
-            return HomeUi(screen, title, body, controls, FocusPolicy.restore(wanted, controls.map { it.id }))
+            val home = screen == Screen.HOME
+            val returning = caller?.takeIf { home && state.phase == Phase.RUNNING }
+            val controls = listOfNotNull(returning?.let { Control("action-return", R.string.return_to_caller, Action.RETURN, listOf(it)) }) + main +
+                if (home) listOf(
+                    Control("action-apps", R.string.access_apps, Action.APPS),
+                    Control("action-updates", R.string.updates_title, Action.UPDATES),
+                    Control("action-persistence", R.string.persistence_title, Action.PERSISTENCE),
+                    Control("action-help", R.string.help_title, Action.HELP),
+                ) else emptyList()
+            val wanted = when {
+                !home -> main.id
+                returning != null && restore == "action-main" -> "action-return"
+                else -> restore
+            }
+            val busy = state.phase in listOf(Phase.CHECKING, Phase.CONNECTING, Phase.AUTHORIZING, Phase.LAUNCHING)
+            return HomeUi(screen, title, body, controls, FocusPolicy.restore(wanted, controls.map { it.id }), busy = busy)
         }
     }
 }

@@ -37,6 +37,8 @@ internal class ConsentRequests(
     private val requests = ConcurrentHashMap<String, Request>()
     private val events = Executors.newSingleThreadScheduledExecutor()
 
+    val idle: Boolean get() = requests.isEmpty()
+
     fun detach(client: ClientRecord) {
         requests.values.filter { it.client == client }.forEach { requests.remove(it.token); ended(it.token) }
     }

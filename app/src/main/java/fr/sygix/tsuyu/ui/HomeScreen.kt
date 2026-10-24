@@ -7,67 +7,82 @@ package fr.sygix.tsuyu.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import androidx.tv.material3.darkColorScheme
 import fr.sygix.tsuyu.R
+import fr.sygix.tsuyu.ui.theme.*
 
 @Composable
 fun HomeScreen(ui: HomeUi, onAction: (Action) -> Unit) {
-    StateScreen(ui, onAction) {
+    StateScreen(ui, onAction, home = true) {
+        ui.notice?.let { StatusSurface(stringResource(R.string.update_installed, it), StatusKind.ACTIVE, Modifier.testTag("update-notice")) }
         ui.persistenceStatus?.let {
-            Text(stringResource(it), fontSize = 18.sp, color = Color(0xffc6d1df), modifier = Modifier.testTag("persistence-status"))
+            StatusSurface(stringResource(it), if (ui.persistenceAttention) StatusKind.ATTENTION else StatusKind.ACTIVE, Modifier.testTag("persistence-status"))
         }
     }
 }
 
 @Composable
-fun StateScreen(ui: ScreenUi, onAction: (Action) -> Unit, details: @Composable () -> Unit) {
+fun StateScreen(ui: ScreenUi, onAction: (Action) -> Unit, home: Boolean = false, details: @Composable ColumnScope.() -> Unit = {}) {
+    val focusable = ui.controls.filter { it.enabled }
     val requesters = remember(ui.controls.map { it.id }) { ui.controls.associate { it.id to FocusRequester() } }
-    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xff94d8df), background = Color(0xff10161e), surface = Color(0xff1e2936))) {
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 56.dp, vertical = 40.dp).testTag("screen-${ui.screen.name.lowercase()}")) {
-            Text(stringResource(R.string.app_name), color = MaterialTheme.colorScheme.primary, fontSize = 24.sp)
-            Spacer(Modifier.height(24.dp))
-            Text(stringResource(ui.title), fontSize = 36.sp, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.testTag("state-title"))
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(ui.body), fontSize = 20.sp, color = Color(0xffc6d1df), modifier = Modifier.widthIn(max = 720.dp).testTag("state-body"))
-            details()
-            Spacer(Modifier.weight(1f))
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                ui.controls.forEachIndexed { index, control ->
+    TsuyuTheme {
+        Row(
+            Modifier.fillMaxSize().background(TsuyuColors.background)
+                .padding(horizontal = TsuyuSpacing.horizontal, vertical = TsuyuSpacing.vertical)
+                .testTag("screen-${ui.screen.name.lowercase()}"),
+        ) {
+            Column(Modifier.weight(0.55f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(TsuyuSpacing.gap)) {
+                BrandHeader(home)
+                Spacer(Modifier.height(8.dp))
+                Text(localized(ui.title, ui.titleArgs), fontSize = TsuyuType.title, color = TsuyuColors.text, modifier = Modifier.testTag("state-title"))
+                Text(localized(ui.body, ui.bodyArgs), fontSize = TsuyuType.body, color = TsuyuColors.secondary, modifier = Modifier.testTag("state-body"))
+                if (ui.busy) OperationProgress(Modifier.padding(vertical = 8.dp))
+                details()
+            }
+            Spacer(Modifier.width(TsuyuSpacing.gutter))
+            Column(
+                Modifier.weight(0.45f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(TsuyuSpacing.actionGap, Alignment.CenterVertically),
+            ) {
+                ui.controls.forEach { control ->
                     key(control.id) {
-                        Button(onClick = { onAction(control.action) },
-                            modifier = Modifier.widthIn(min = 260.dp).testTag(control.id)
+                        val index = focusable.indexOf(control)
+                        TvAction(
+                            localized(control.label, control.args), { onAction(control.action) },
+                            Modifier.fillMaxWidth().testTag(control.id)
                                 .focusRequester(requesters.getValue(control.id))
                                 .focusProperties {
-                                    up = if (index > 0) requesters.getValue(ui.controls[index - 1].id) else FocusRequester.Cancel
-                                    down = if (index < ui.controls.lastIndex) requesters.getValue(ui.controls[index + 1].id) else FocusRequester.Cancel
+                                    up = focusable.getOrNull(index - 1)?.let { requesters.getValue(it.id) } ?: FocusRequester.Cancel
+                                    down = focusable.getOrNull(index + 1)?.let { requesters.getValue(it.id) } ?: FocusRequester.Cancel
                                     left = FocusRequester.Cancel; right = FocusRequester.Cancel
                                 },
-                            colors = ButtonDefaults.colors(containerColor = MaterialTheme.colorScheme.surface, focusedContainerColor = MaterialTheme.colorScheme.primary),
-                            scale = ButtonDefaults.scale(focusedScale = 1.03f)
-                        ) { Text(stringResource(control.label), fontSize = 20.sp) }
+                            enabled = control.enabled,
+                        )
                     }
                 }
             }
         }
-        LaunchedEffect(ui.screen, ui.focus, requesters) {
-            if (!requesters.getValue(ui.focus).requestFocus(FocusDirection.Enter)) {
-                requesters.getValue(ui.controls.first().id).requestFocus(FocusDirection.Enter)
+        LaunchedEffect(ui.screen, ui.focus, requesters, focusable.map { it.id }) {
+            val target = requesters[ui.focus]?.takeIf { focusable.any { it.id == ui.focus } }
+            if (target?.requestFocus(FocusDirection.Enter) != true) {
+                focusable.firstOrNull()?.let { requesters.getValue(it.id).requestFocus(FocusDirection.Enter) }
             }
         }
     }
 }
+
+@Composable
+fun localized(resource: Int, args: List<Any>): String =
+    stringResource(resource, *args.map { if (it is Int) stringResource(it) else it }.toTypedArray())

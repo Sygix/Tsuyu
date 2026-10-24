@@ -27,6 +27,14 @@ class TsuyuGraph private constructor(context: Context) {
     }, LocalAdbLauncher(context, broker, io), io) { failure -> android.util.Log.e("Tsuyu", "Startup operation failed", failure) }
     suspend fun stopReplacedServer() = ServerShutdown(io) { broker.server.value }.stop()
     val persistenceController = fr.sygix.tsuyu.persistence.PersistenceController(persistence, coordinator, { broker.server.value }, io)
+    private val tracker = fr.sygix.tsuyu.update.ForegroundTracker().also { (context.applicationContext as android.app.Application).registerActivityLifecycleCallbacks(it) }
+    val updateHost = fr.sygix.tsuyu.update.AndroidUpdateHost(context, coordinator, persistence, { broker.server.value }, tracker, io)
+    val updates = fr.sygix.tsuyu.update.UpdateController(
+        fr.sygix.tsuyu.update.UpdateStore(context),
+        fr.sygix.tsuyu.update.GitHubReleases("Tsuyu/${updateHost.installedVersion}"),
+        fr.sygix.tsuyu.update.AndroidUpdateFiles(context),
+        updateHost,
+    )
     companion object {
         @Volatile private var graph: TsuyuGraph? = null
         fun get(context: Context): TsuyuGraph = graph ?: synchronized(this) {

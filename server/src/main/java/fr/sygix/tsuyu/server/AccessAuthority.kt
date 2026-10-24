@@ -43,4 +43,14 @@ class AccessAuthority(private val resolve: (Int) -> AccessGroup, private val sto
         write(read().filterNot { it.group.uid == expected.uid } + AccessDecision(expected, allowed))
     }
     @Synchronized fun clear(uid: Int) { write(read().filterNot { it.group.uid == uid }) }
+    @Synchronized fun reset(uid: Int): Boolean {
+        val group = try { resolve(uid) } catch (missing: Exception) { return false }
+        val decisions = read()
+        if (decisions.none { it.group == group && !it.allowed }) return false
+        write(decisions.filterNot { it.group.uid == uid })
+        return true
+    }
+    @Synchronized fun refused(): List<AccessGroup> = read().filter { decision ->
+        !decision.allowed && try { resolve(decision.group.uid) == decision.group } catch (missing: Exception) { false }
+    }.map { it.group }
 }

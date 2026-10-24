@@ -48,6 +48,39 @@ class ClientServiceTest {
         override fun showPermissionConfirmation(uid: Int, pid: Int, name: String, code: Int) = Unit
     }
     private fun attach(name: String = "client") = service.attachApplication(callback, Bundle().apply { putString(ATTACH_APPLICATION_PACKAGE_NAME, name); putInt(ATTACH_APPLICATION_API_VERSION, 13) })
+    @Test fun refusedGroupIsListedAndItsResetNeverGrantsAccess() {
+        attach()
+        access.decide(uid, false)
+        val client = uid
+        uid = 10002
+        val listed = service.accessList()
+        assertArrayEquals(intArrayOf(client), listed.getIntArray("refused"))
+        assertArrayEquals(intArrayOf(client), listed.getIntArray("uids"))
+        assertEquals(arrayListOf("client"), listed.getStringArrayList(client.toString()))
+        assertTrue(service.idle())
+        assertTrue(service.resetRefusal(client))
+        assertFalse(service.resetRefusal(client))
+        assertTrue(storage.decisions.isEmpty())
+        assertEquals(0, service.accessList().getIntArray("refused")?.size)
+        uid = client
+        assertFalse(service.checkSelfPermission())
+        assertFalse(service.shouldShowRequestPermissionRationale())
+        assertThrows(SecurityException::class.java) { service.resetRefusal(client) }
+        assertThrows(SecurityException::class.java) { service.idle() }
+        uid = 10002
+        access.decide(client, true)
+        assertFalse(service.resetRefusal(client))
+        assertTrue(access.allowed(client))
+    }
+    @Test fun changedIdentityIsNeitherListedAsRefusedNorReset() {
+        access.decide(uid, false)
+        val client = uid
+        group = AccessGroup(uid, mapOf("client" to "other-signer"))
+        identities.invalidate()
+        uid = 10002
+        assertEquals(0, service.accessList().getIntArray("refused")?.size)
+        assertFalse(service.resetRefusal(client))
+    }
     @Test fun attachmentRejectsSpoofAndPrivilegesRequireConsent() {
         assertThrows(SecurityException::class.java) { service.getVersion() }
         assertThrows(IllegalArgumentException::class.java) { attach("spoof") }

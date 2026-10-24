@@ -64,6 +64,7 @@ class PersistenceViewModel(private val controller: PersistenceController) : View
                 focus = wanted,
                 details = if (optional) PersistenceDetails.Expiry(state.expiry)
                 else PersistenceDetails.Modes(mode(state.uid), mode(state.pkg)),
+                busy = state.loading,
             )
         }
 

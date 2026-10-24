@@ -11,8 +11,9 @@
 - **Made for Android TV** — a clear, remote-friendly flow, readable from the couch and navigable with the D-pad.
 - **Start on the TV itself** — uses the TV's local ADB service to start Tsuyu with shell-level access. No phone, computer or wireless pairing flow required.
 - **Shizuku API compatibility** — delivers the binder to compatible apps and supports their existing Shizuku API calls.
-- **Consent you control** — review each app's request, allow or refuse it, and revoke access later from Tsuyu.
-- **Designed to survive reboots** — prepare automatic startup so Tsuyu can resume after the TV restarts.
+- **Consent you control** — review each app's request, allow or refuse it, revoke access later, or let a refused app ask again, from one « Accès des applications » list.
+- **Designed to survive reboots and updates** — prepare automatic startup so Tsuyu resumes after the TV restarts or after one of its own updates.
+- **Updates from the TV** — check the published releases, install a verified update in one press, or turn on silent automatic updates (off by default).
 - **No account or telemetry** — Tsuyu runs locally on your TV.
 
 ## Getting started
@@ -23,10 +24,18 @@
 
 Keep USB debugging enabled while using Tsuyu. Disabling it can stop the service; enable it again and start Tsuyu to recover. ADB is available on the local network and protected by the TV's authorization prompt.
 
+## Opening Tsuyu from another app
+
+An app can open Tsuyu to help the user set it up. Launch `fr.sygix.tsuyu.MainActivity` explicitly, without `FLAG_ACTIVITY_NEW_TASK`, and pass `ActivityOptions.makeBasic().setShareIdentityEnabled(true)`. Once the service runs and the restart preparation has a result, Tsuyu shows « Revenir à <app> » to return to it. Without a shared identity, the user returns with Back.
+
+## Updates
+
+Tsuyu reads the public releases of this repository, verifies the downloaded APK (size, SHA-256, package, version and signing certificate) and installs it through its own service, without any dialog. Updates therefore need the service running and « Démarrage au redémarrage » prepared: the service restarts by itself afterwards, and apps reconnect with their access preserved. Prereleases are only offered when « Inclure les préversions » is on.
+
 ## Core capabilities
 
 - **Local startup** — start a shell-uid service through the TV's own ADB daemon, with a one-time system authorization.
-- **Shizuku API** — binder delivery, app permission requests, authorized-app management and revocation.
+- **Shizuku API** — binder delivery, app permission requests, access management, revocation and refusal reset. A shared-UID group is authorized, revoked or reset as a whole, and revoking access stops its privileged processes immediately.
 - **Remote-first interface** — service status, setup guidance and permission screens designed for TV navigation.
 - **Boot persistence** — opt-in setup for automatic startup after a reboot, with status and recovery guidance.
 

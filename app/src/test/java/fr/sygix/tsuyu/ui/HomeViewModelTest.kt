@@ -17,6 +17,30 @@ class HomeViewModelTest {
     private val direct = object : BoundedIo() {
         override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block()
     }
+    @Test fun returnActionAppearsOnlyForASharedCallerOnceTheServiceAndPreparationAreSettled() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var running = true
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = running }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+            val persistence = kotlinx.coroutines.flow.MutableStateFlow(fr.sygix.tsuyu.persistence.PersistenceUi())
+            val model = HomeViewModel(coordinator, persistence = persistence)
+            store.put("home", model)
+            model.caller("SygixOs"); model.resume(); advanceUntilIdle()
+            assertFalse(model.ui.value.controls.any { it.id == "action-return" })
+            persistence.value = fr.sygix.tsuyu.persistence.PersistenceUi(enabled = true, loading = false, enabledKnown = true)
+            advanceUntilIdle()
+            assertEquals("action-return", model.ui.value.focus)
+            assertEquals(listOf<Any>("SygixOs"), model.ui.value.controls.first().args)
+            model.act(Action.APPS); advanceUntilIdle()
+            assertEquals("action-apps", model.ui.value.focus)
+            model.caller(null); advanceUntilIdle()
+            assertFalse(model.ui.value.controls.any { it.id == "action-return" })
+            model.caller("SygixOs"); running = false; model.resume(); advanceUntilIdle()
+            assertFalse(model.ui.value.controls.any { it.id == "action-return" })
+            assertFalse(HomeViewModel.present(StartState(Phase.RUNNING), Screen.DETAILS, "action-main", "SygixOs").controls.any { it.id == "action-return" })
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
     @Test fun persistenceEntryRestoresTheActualInitiatingControl() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val store = ViewModelStore()
