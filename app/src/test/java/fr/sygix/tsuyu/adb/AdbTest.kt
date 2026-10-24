@@ -14,9 +14,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files
 import java.security.KeyPairGenerator
+import java.security.MessageDigest
+import java.security.Signature
 import java.security.interfaces.RSAPublicKey
 import java.util.Base64
-import javax.crypto.Cipher
 
 class AdbTest {
     @Test fun fragmentedPacketsRoundTrip() {
@@ -118,9 +119,20 @@ class AdbTest {
         assertEquals(BigInteger.ONE.shiftLeft(4096).mod(n), BigInteger(1, rr.reversedArray()))
         assertEquals(65537, bytes.int)
         assertEquals(0xffffffffL, ((ByteBuffer.wrap(modulus).order(ByteOrder.LITTLE_ENDIAN).int.toLong() and 0xffffffffL) * n0inv) and 0xffffffffL)
-        val token = ByteArray(20) { it.toByte() }
-        val decoded = Cipher.getInstance("RSA/ECB/PKCS1Padding").apply { init(Cipher.DECRYPT_MODE, pair.public) }.doFinal(key.sign(token))
-        assertArrayEquals(token, decoded.takeLast(20).toByteArray())
-        assertEquals(35, decoded.size)
+        val challenge = ByteArray(32) { it.toByte() }
+        val token = MessageDigest.getInstance("SHA-1").digest(challenge)
+        val signature = key.sign(token)
+        assertEquals(256, signature.size)
+        val verifier = Signature.getInstance("SHA1withRSA").apply { initVerify(pair.public) }
+        verifier.update(challenge)
+        assertTrue(verifier.verify(signature))
+        verifier.update(challenge + byteArrayOf(1))
+        assertFalse(verifier.verify(signature))
+    }
+    @Test fun signatureRejectsInvalidTokenLengths() {
+        val key = AdbKey(KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair())
+        for (size in listOf(0, 19, 21, 256)) {
+            assertThrows(IllegalArgumentException::class.java) { key.sign(ByteArray(size)) }
+        }
     }
 }

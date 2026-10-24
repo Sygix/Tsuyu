@@ -11,16 +11,18 @@ import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyPair
+import java.security.Signature
 import java.security.interfaces.RSAPublicKey
 import java.util.Base64
-import javax.crypto.Cipher
 
 class AdbKey(private val pair: KeyPair) {
     fun sign(token: ByteArray): ByteArray {
         require(token.size == 20) { "Invalid ADB token" }
         val sha1Identifier = byteArrayOf(0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14)
-        return Cipher.getInstance("RSA/ECB/PKCS1Padding").apply { init(Cipher.ENCRYPT_MODE, pair.private) }
-            .doFinal(sha1Identifier + token)
+        return Signature.getInstance("NONEwithRSA").apply {
+            initSign(pair.private)
+            update(sha1Identifier + token)
+        }.sign()
     }
     fun publicKey(): ByteArray {
         val public = pair.public as RSAPublicKey
