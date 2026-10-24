@@ -13,6 +13,7 @@ import fr.sygix.tsuyu.ui.Control
 import fr.sygix.tsuyu.ui.Screen
 import fr.sygix.tsuyu.ui.ScreenUi
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -35,17 +36,18 @@ class UpdateViewModel(
     private val updates: UpdateController,
     running: Flow<Boolean>,
     private val prepared: suspend () -> Boolean,
+    private val work: CoroutineScope,
 ) : ViewModel() {
     private val focus = MutableStateFlow<String?>(null)
     private val events = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val preparation: SharedFlow<Unit> = events
-    private var afterPreparation: Action? = null
+    @Volatile private var afterPreparation: Action? = null
     val ui = combine(updates.state, running, focus) { state, live, wanted -> present(state, live, wanted) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, present(UpdateUi(), false, null))
 
     fun act(action: Action) {
         focus.value = ids[action]
-        viewModelScope.launch {
+        work.launch {
             when (action) {
                 Action.CHECK -> updates.check(true)
                 Action.UPDATE -> if (ready()) updates.update() else prepare(action)
@@ -59,7 +61,7 @@ class UpdateViewModel(
     fun resumed() {
         val pending = afterPreparation ?: return
         afterPreparation = null
-        viewModelScope.launch {
+        work.launch {
             if (!ready()) return@launch
             when (pending) {
                 Action.UPDATE -> updates.update()
@@ -117,7 +119,7 @@ class UpdateViewModel(
                 offer != null -> { titleArgs = listOf(offer.version); bodyArgs = listOf(state.installed); R.string.update_available_title to R.string.update_available_body }
                 failure != null && !installing -> R.string.update_check_failed_title to cause(failure)
                 failure != null -> R.string.update_failed_title to cause(failure)
-                state.result == UpdateController.UP_TO_DATE -> { bodyArgs = listOf(state.installed); R.string.update_current_title to R.string.update_current_body }
+                state.result == UpdateController.UP_TO_DATE || state.result == UpdateController.AVAILABLE -> { bodyArgs = listOf(state.installed); R.string.update_current_title to R.string.update_current_body }
                 else -> { bodyArgs = listOf(state.installed); R.string.updates_title to R.string.update_never_body }
             }
             val idle = !busy

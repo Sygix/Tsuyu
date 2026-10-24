@@ -27,6 +27,7 @@ import fr.sygix.tsuyu.ui.theme.*
 fun HomeScreen(ui: HomeUi, onAction: (Action) -> Unit) {
     StateScreen(ui, onAction, home = true) {
         ui.notice?.let { StatusSurface(stringResource(R.string.update_installed, it), StatusKind.ACTIVE, Modifier.testTag("update-notice")) }
+        if (ui.updateBlocked) StatusSurface(stringResource(R.string.update_blocked_home), StatusKind.ATTENTION, Modifier.testTag("update-blocked"))
         ui.persistenceStatus?.let {
             StatusSurface(stringResource(it), if (ui.persistenceAttention) StatusKind.ATTENTION else StatusKind.ACTIVE, Modifier.testTag("persistence-status"))
         }

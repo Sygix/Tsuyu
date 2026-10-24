@@ -47,6 +47,12 @@ class AndroidUpdateHost(
     override fun boot() = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0)
     override fun foreground() = tracker.foreground
 
+    override fun online(): Boolean {
+        val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
     override suspend fun running(): Boolean {
         coordinator.refresh()
         return coordinator.state.value.phase == Phase.RUNNING

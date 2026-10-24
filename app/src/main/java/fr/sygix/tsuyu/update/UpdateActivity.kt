@@ -45,7 +45,7 @@ class UpdateActivity : ComponentActivity() {
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return UpdateViewModel(graph.updates, graph.coordinator.state.map { it.phase == Phase.RUNNING }, graph.updateHost::prepared) as T
+                return UpdateViewModel(graph.updates, graph.coordinator.state.map { it.phase == Phase.RUNNING }, graph.updateHost::prepared, graph.scope) as T
             }
         })[UpdateViewModel::class.java]
         lifecycleScope.launch { graph.updates.load() }

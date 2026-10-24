@@ -15,7 +15,7 @@ data class InstallOutcome(val status: InstallStatus, val detail: String = "")
 class UpdateInstaller(
     private val userId: Int,
     private val launch: (List<String>) -> Process = { ProcessBuilder(it).redirectErrorStream(true).start() },
-    private val stepTimeoutMs: Long = 90_000,
+    private val stepTimeoutMs: Long = 60_000,
 ) {
     init { require(userId in 0..21474) }
 
@@ -33,9 +33,9 @@ class UpdateInstaller(
             } ?: return InstallOutcome(InstallStatus.TIMEOUT)
             if (!success(written)) return InstallOutcome(InstallStatus.INSTALLER, failure(written))
             if (digest.digest().joinToString("") { "%02x".format(it) } != sha256) return InstallOutcome(InstallStatus.DIGEST)
-            committed = true
             val result = step(listOf(PM, "install-commit", session)) ?: return InstallOutcome(InstallStatus.TIMEOUT)
-            return if (success(result)) InstallOutcome(InstallStatus.SUCCESS) else InstallOutcome(InstallStatus.INSTALLER, failure(result))
+            committed = success(result)
+            return if (committed) InstallOutcome(InstallStatus.SUCCESS) else InstallOutcome(InstallStatus.INSTALLER, failure(result))
         } catch (failure: Exception) {
             return InstallOutcome(InstallStatus.INSTALLER, failure.javaClass.simpleName)
         } finally {

@@ -186,5 +186,5 @@ Home SHALL offer « Mises à jour » after « Accès des applications ». The up
 - **THEN** focus returns to the initiating action when present, otherwise to the current main action
 
 #### Scenario: Focused action disappears
-- **WHEN** an offer disappears or an update starts
-- **THEN** focus moves to « Rechercher les mises à jour »
+- **WHEN** an offer disappears, or a check or an update starts while the focused action becomes unavailable
+- **THEN** focus moves to « Rechercher les mises à jour » when it is available, otherwise to « Retour »

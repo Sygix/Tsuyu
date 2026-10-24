@@ -35,7 +35,8 @@ class UpdateControllerTest {
         var verifyCause: UpdateCause? = null
         var downloads = 0
         override fun file(release: Release) = File(folder.root, "tsuyu-${release.code}.apk")
-        override fun download(release: Release, target: File): UpdateCause? { downloads++; target.writeBytes(ByteArray(4)); return downloadCause }
+        var during: () -> Unit = {}
+        override fun download(release: Release, target: File): UpdateCause? { downloads++; during(); target.writeBytes(ByteArray(4)); return downloadCause }
         override fun verify(release: Release, file: File, installed: Long) = verifyCause
         override fun clean(keep: File?) { folder.root.listFiles()?.filter { it != keep }?.forEach { it.delete() } }
     }
@@ -43,6 +44,7 @@ class UpdateControllerTest {
         override var installed = 100099L
         override val installedVersion get() = if (installed == 100099L) "0.1.0" else "0.2.0"
         var bootCount = 1
+        var network = true
         var visible = false
         var live = true
         var ready = true
@@ -53,10 +55,12 @@ class UpdateControllerTest {
         var scheduled: Boolean? = null
         override fun boot() = bootCount
         override fun foreground() = visible
+        override fun online() = network
         override suspend fun running() = live
         override suspend fun prepared() = ready
         override suspend fun idle() = quiet
-        override suspend fun install(file: File, release: Release): UpdateCause? { assertTrue(file.exists()); installs += release; return installResult }
+        var pendingAtCommit: Pending? = Pending(0, "", "", 0, 0)
+        override suspend fun install(file: File, release: Release): UpdateCause? { assertTrue(file.exists()); pendingAtCommit = storage.saved.pending; installs += release; return installResult }
         override fun schedule(auto: Boolean) { scheduled = auto }
         override fun recheck(delayMs: Long) { rechecks += delayMs }
     }
@@ -204,5 +208,63 @@ class UpdateControllerTest {
         assertNull(storage.saved.pending)
         assertFalse(files.file(release).exists())
         assertFalse(stray.exists())
+    }
+
+    @Test fun committedSilentUpdateIsNeverRetriedByTheNewVersion() = runTest {
+        controller.setAuto(true)
+        host.quiet = false
+        controller.automatic()
+        assertNotNull(storage.saved.pending)
+        host.quiet = true
+        now += hour
+        controller.automatic()
+        assertEquals(listOf(release), host.installs)
+        assertNull(host.pendingAtCommit)
+        storage.saved = storage.saved.copy(pending = Pending(release.code, release.version, files.file(release).apply { writeBytes(ByteArray(4)) }.path, now, 1))
+        host.installed = release.code
+        val restarted = UpdateController(storage, { fetched }, files, host, { now }, direct)
+        restarted.load()
+        assertNull(storage.saved.pending)
+        restarted.automatic()
+        assertEquals(1, host.installs.size)
+        assertFalse(files.file(release).exists())
+    }
+
+    @Test fun manualUpdateReReadsPreconditionsAfterTheDownload() = runTest {
+        controller.check(manual = true)
+        files.during = { host.live = false }
+        assertEquals(UpdateCause.SERVICE, controller.update())
+        assertTrue(host.installs.isEmpty())
+        assertFalse(files.file(release).exists())
+    }
+
+    @Test fun pendingPrereleaseIsDroppedAfterOptOutAndOfflineAutomaticChecksWait() = runTest {
+        val beta = release.copy(tag = "v0.3.0-beta.1", version = "0.3.0-beta.1", code = 300031, prerelease = true)
+        fetched = Fetch.Found(listOf(beta))
+        controller.setPrereleases(true)
+        controller.setAuto(true)
+        host.quiet = false
+        controller.automatic()
+        assertNotNull(storage.saved.pending)
+        controller.setPrereleases(false)
+        host.quiet = true
+        controller.automatic()
+        assertTrue(host.installs.isEmpty())
+        assertNull(storage.saved.pending)
+        host.network = false
+        now += 2 * UpdateController.DAY_MS
+        val before = fetches
+        controller.check(manual = false)
+        assertEquals(before, fetches)
+        controller.check(manual = true)
+        assertEquals(before + 1, fetches)
+    }
+
+    @Test fun togglesApplyWhileAnOperationHoldsTheController() = runTest {
+        controller.check(manual = true)
+        files.during = { kotlinx.coroutines.runBlocking { controller.setAuto(true) } }
+        controller.update()
+        assertTrue(storage.saved.auto)
+        assertTrue(controller.state.value.blocked.not())
     }
 }

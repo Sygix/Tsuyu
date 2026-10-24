@@ -120,6 +120,7 @@
     <string name="update_back">Retour</string>
     <string name="update_checked_at">Dernière vérification : %1$s</string>
     <string name="update_notes">Notes de version</string>
+    <string name="update_blocked_home">Mise à jour automatique bloquée : ouvrez « Mises à jour ».</string>
     <string name="toggle_on">Activées</string>
     <string name="toggle_off">Désactivées</string>
 </resources>

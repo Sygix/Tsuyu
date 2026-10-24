@@ -28,6 +28,7 @@ class AccessViewModelTest {
         val store = ViewModelStore()
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         var resets = 0
+        var unchanged = false
         val server = object : TestServerStub() {
             override fun getUid() = 2000
             override fun isReady() = true
@@ -42,7 +43,7 @@ class AccessViewModelTest {
                 assertEquals(10002, uid)
                 resets++
                 check(resets > 1) { "Storage unavailable" }
-                return true
+                return !unchanged
             }
         }
         val direct = object : BoundedIo() {
@@ -65,6 +66,13 @@ class AccessViewModelTest {
             assertEquals(listOf(10001), model.ui.value.rows.map { it.uid })
             assertNull(model.ui.value.resetFailed)
             assertEquals("revoke-10001", model.ui.value.presentation.focus)
+            unchanged = true
+            model.refresh()
+            advanceUntilIdle()
+            model.reset(10002)
+            advanceUntilIdle()
+            assertEquals(listOf(10001, 10002), model.ui.value.rows.map { it.uid })
+            assertNull(model.ui.value.resetFailed)
         } finally { store.clear(); Dispatchers.resetMain() }
     }
     @Test fun retryFinishesRevocationInsteadOfReloadingAwayTheFailedRow() = runTest {

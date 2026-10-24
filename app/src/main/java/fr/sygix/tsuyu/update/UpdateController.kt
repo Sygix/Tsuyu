@@ -25,14 +25,16 @@ data class UpdateUi(
     val auto: Boolean = false,
     val prereleases: Boolean = false,
     val phase: UpdatePhase = UpdatePhase.IDLE,
-    val loaded: Boolean = false,
-)
+) {
+    val blocked: Boolean get() = auto && result in setOf(UpdateCause.SERVICE.name, UpdateCause.PREPARATION.name)
+}
 
 interface UpdateHost {
     val installed: Long
     val installedVersion: String
     fun boot(): Int
     fun foreground(): Boolean
+    fun online(): Boolean
     suspend fun running(): Boolean
     suspend fun prepared(): Boolean
     suspend fun idle(): Boolean
@@ -57,7 +59,7 @@ class UpdateController(
 
     suspend fun load() = mutex.withLock {
         val saved = storage.update { value ->
-            val pending = value.pending?.takeIf { it.boot == host.boot() && File(it.path).exists() && clock() - it.verifiedAt in 0..WAIT_WINDOW_MS }
+            val pending = value.pending?.takeIf { it.code > host.installed && it.boot == host.boot() && File(it.path).exists() && clock() - it.verifiedAt in 0..WAIT_WINDOW_MS }
             value.copy(pending = pending)
         }
         files.clean(saved.pending?.let { File(it.path) })
@@ -73,21 +75,21 @@ class UpdateController(
 
     suspend fun check(manual: Boolean) = mutex.withLock { checkLocked(manual) }
 
-    suspend fun setAuto(enabled: Boolean) = mutex.withLock {
+    suspend fun setAuto(enabled: Boolean) {
         val saved = storage.update { it.copy(auto = enabled) }
         host.schedule(enabled)
-        publish(saved, UpdatePhase.IDLE)
+        publish(saved, mutable.value.phase)
     }
 
-    suspend fun setPrereleases(enabled: Boolean) = mutex.withLock {
-        publish(storage.update { it.copy(prereleases = enabled) }, UpdatePhase.IDLE)
+    suspend fun setPrereleases(enabled: Boolean) {
+        publish(storage.update { it.copy(prereleases = enabled) }, mutable.value.phase)
     }
 
     suspend fun update(): UpdateCause? = mutex.withLock {
         val offer = mutable.value.offer ?: return@withLock UpdateCause.WITHDRAWN
-        val cause = preconditions() ?: run {
-            val prepared = prepare(offer)
-            if (prepared is Prepared.Failed) prepared.cause else install((prepared as Prepared.Ready).file, offer)
+        val cause = preconditions() ?: when (val prepared = prepare(offer)) {
+            is Prepared.Failed -> prepared.cause
+            is Prepared.Ready -> preconditions()?.also { prepared.file.delete() } ?: install(prepared.file, offer)
         }
         if (cause != null) record(cause)
         cause
@@ -99,7 +101,11 @@ class UpdateController(
         val pending = saved.pending
         if (pending != null) {
             val release = saved.releases.firstOrNull { it.code == pending.code }
-            if (release != null) { waitOrInstall(release, File(pending.path), pending); return@withLock }
+            if (release != null && release.code > host.installed && (saved.prereleases || !release.prerelease)) {
+                waitOrInstall(release, File(pending.path), pending)
+                return@withLock
+            }
+            drop(File(pending.path))
         }
         checkLocked(false)
         saved = storage.read()
@@ -116,7 +122,7 @@ class UpdateController(
     }
 
     private suspend fun waitOrInstall(release: Release, file: File, pending: Pending) {
-        if (clock() - pending.verifiedAt !in 0..WAIT_WINDOW_MS || !file.exists()) {
+        if (clock() - pending.verifiedAt !in 0..WAIT_WINDOW_MS || !file.exists() || release.code <= host.installed) {
             drop(file)
             return
         }
@@ -175,7 +181,7 @@ class UpdateController(
 
     private suspend fun install(file: File, release: Release): UpdateCause? {
         mutable.value = mutable.value.copy(phase = UpdatePhase.INSTALLING)
-        storage.update { it.copy(target = release.code, targetVersion = release.version, noticeShown = false) }
+        storage.update { it.copy(target = release.code, targetVersion = release.version, noticeShown = false, pending = null) }
         val cause = try { host.install(file, release) } catch (cancelled: CancellationException) {
             if (cancelled !is TimeoutCancellationException) throw cancelled
             UpdateCause.TIMEOUT
@@ -184,14 +190,14 @@ class UpdateController(
             UpdateCause.INSTALLER
         }
         file.delete()
-        if (cause != null) storage.update { it.copy(target = null, targetVersion = null, noticeShown = true, pending = null) }
+        if (cause != null) storage.update { it.copy(target = null, targetVersion = null, noticeShown = true) }
         return cause
     }
 
     private suspend fun checkLocked(manual: Boolean) {
         val saved = storage.read()
         val now = clock()
-        if (!manual && !due(saved, now)) { publish(saved, UpdatePhase.IDLE); return }
+        if (!manual && (!due(saved, now) || !host.online())) { publish(saved, UpdatePhase.IDLE); return }
         mutable.value = mutable.value.copy(phase = UpdatePhase.CHECKING)
         val next = when (val fetched = fetch()) {
             is Fetch.Found -> storage.update {
@@ -224,7 +230,6 @@ class UpdateController(
             auto = saved.auto,
             prereleases = saved.prereleases,
             phase = if (phase == UpdatePhase.IDLE && saved.pending != null) UpdatePhase.WAITING else phase,
-            loaded = true,
         )
     }
 

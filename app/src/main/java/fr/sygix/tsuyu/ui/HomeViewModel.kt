@@ -40,6 +40,7 @@ data class HomeUi(
     val persistenceStatus: Int? = null,
     val persistenceAttention: Boolean = false,
     val notice: String? = null,
+    val updateBlocked: Boolean = false,
     override val busy: Boolean = false,
 ) : ScreenUi
 private data class Navigation(val screen: Screen = Screen.HOME, val returnFocus: String = "action-main")
@@ -53,13 +54,16 @@ class HomeViewModel(
     compatibility: StateFlow<Boolean> = MutableStateFlow(true),
     persistence: StateFlow<PersistenceUi> = MutableStateFlow(PersistenceUi()),
     notice: StateFlow<String?> = MutableStateFlow(null),
+    updateBlocked: kotlinx.coroutines.flow.Flow<Boolean> = MutableStateFlow(false),
 ) : ViewModel() {
     private val navigation = MutableStateFlow(Navigation())
     private val caller = MutableStateFlow<String?>(null)
     private var startup: Job? = null
-    private val extras = combine(caller, notice) { label, version -> label to version }
-    val ui = combine(coordinator.state, navigation, compatibility, persistence, extras) { state, nav, compatible, preparation, (label, version) ->
-        val returning = label.takeIf { !preparation.loading && preparation.enabledKnown }
+    private val extras = combine(caller, notice, updateBlocked) { label, version, blocked -> Triple(label, version, blocked) }
+    val ui = combine(coordinator.state, navigation, compatibility, persistence, extras) { state, nav, compatible, preparation, (label, version, blocked) ->
+        val settled = !preparation.loading && preparation.enabledKnown && !preparation.error && !preparation.outcome.failed &&
+            preparation.enabled && (preparation.ready || preparation.unsupported)
+        val returning = label.takeIf { settled }
         val presentation = present(state, nav.screen, nav.returnFocus, returning)
         val failed = preparation.outcome.failed
         val verified = !preparation.loading && !preparation.error
@@ -76,6 +80,7 @@ class HomeViewModel(
             persistenceStatus = status,
             persistenceAttention = failed,
             notice = version.takeIf { nav.screen == Screen.HOME },
+            updateBlocked = blocked && nav.screen == Screen.HOME,
             focus = if (failed && nav.screen == Screen.HOME) "action-persistence" else presentation.focus,
         )
     }

@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import fr.sygix.tsuyu.ui.*
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -27,11 +28,11 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice) as T
+                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice, graph.updates.state.map { it.blocked }) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
-        lifecycleScope.launch {
+        graph.scope.launch {
             graph.updates.load()
             if (!graph.updates.state.value.auto) graph.updates.check(false)
         }
@@ -100,7 +101,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onResume() { super.onResume(); model.caller(resolveCaller()); model.resume(); lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).persistenceController.refresh() } }
     override fun onStop() {
-        lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).updates.consumeNotice() }
+        TsuyuGraph.get(this).let { graph -> graph.scope.launch { graph.updates.consumeNotice() } }
         try { observer?.close() } catch (failure: Exception) { model.settingsFailed() }
         observer = null
         super.onStop()

@@ -58,7 +58,7 @@ class UpdateInstallerTest {
         val outcome = installer("Success: created install session [9]" to true, "Success" to true, "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures]" to true)
             .install(ByteArrayInputStream(apk), apk.size.toLong(), sha)
         assertEquals(InstallOutcome(InstallStatus.INSTALLER, "INSTALL_FAILED_UPDATE_INCOMPATIBLE"), outcome)
-        assertTrue(commands.none { "install-abandon" in it })
+        assertEquals(listOf("/system/bin/pm", "install-abandon", "9"), commands.last())
     }
 
     @Test fun stalledWriteTimesOutAndAbandons() {
@@ -66,6 +66,13 @@ class UpdateInstallerTest {
             .install(ByteArrayInputStream(apk), apk.size.toLong(), sha)
         assertEquals(InstallStatus.TIMEOUT, outcome.status)
         assertEquals(listOf("/system/bin/pm", "install-abandon", "5"), commands.last())
+    }
+
+    @Test fun commitTimeoutAbandonsTheStillOpenSession() {
+        val outcome = installer("Success: created install session [11]" to true, "Success" to true, "" to false)
+            .install(ByteArrayInputStream(apk), apk.size.toLong(), sha)
+        assertEquals(InstallStatus.TIMEOUT, outcome.status)
+        assertEquals(listOf("/system/bin/pm", "install-abandon", "11"), commands.last())
     }
 
     @Test fun shortFileNeverCommitsAndInputIsBounded() {

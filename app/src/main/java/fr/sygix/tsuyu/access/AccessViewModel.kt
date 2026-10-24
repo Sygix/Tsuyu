@@ -61,7 +61,7 @@ class AccessViewModel(
     fun refresh() {
         viewModelScope.launch {
             mutable.value.retryRevoke?.let { revoke(it); return@launch }
-            mutable.value = mutable.value.copy(loading = true, error = false)
+            mutable.value = mutable.value.copy(loading = true, error = false, resetFailed = null)
             try {
                 val (rows, failures) = io.call(LOOKUP_TIMEOUT_MS) { load() }
                 if (!mutable.value.finished) {
@@ -119,7 +119,7 @@ class AccessViewModel(
         if (revocation?.isActive == true) return
         revocation = viewModelScope.launch {
             val old = mutable.value.rows.map { it.uid }
-            mutable.value = mutable.value.copy(loading = true, error = false, retryRevoke = uid)
+            mutable.value = mutable.value.copy(loading = true, error = false, retryRevoke = uid, resetFailed = null)
             try {
                 io.call(REVOKE_TIMEOUT_MS) { requireNotNull(server()).revoke(uid) }
                 val rows = mutable.value.rows.filterNot { it.uid == uid }
@@ -142,7 +142,12 @@ class AccessViewModel(
             val old = mutable.value.rows.map { it.uid }
             mutable.value = mutable.value.copy(loading = true, error = false, resetFailed = null)
             try {
-                io.call(RESET_TIMEOUT_MS) { requireNotNull(server()).resetRefusal(uid) }
+                if (!io.call(RESET_TIMEOUT_MS) { requireNotNull(server()).resetRefusal(uid) }) {
+                    mutable.value = mutable.value.copy(loading = false)
+                    revocation = null
+                    refresh()
+                    return@launch
+                }
                 val rows = mutable.value.rows.filterNot { it.uid == uid }
                 val index = old.indexOf(uid)
                 mutable.value = mutable.value.copy(loading = false, rows = rows, focus = rows.getOrNull(index)?.uid ?: rows.lastOrNull()?.uid)

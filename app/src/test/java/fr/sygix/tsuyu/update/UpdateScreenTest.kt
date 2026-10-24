@@ -24,7 +24,7 @@ class UpdateScreenTest {
     @get:Rule val compose = createComposeRule()
     private fun press(tag: String, key: Key) = compose.onNodeWithTag(tag).performKeyInput { keyDown(key); keyUp(key) }
     private val offer = Release("v0.3.0", "0.3.0", 300099, false, "https://example.org/a.apk", 4, "c".repeat(64), "https://example.org/v0.3.0")
-    private val available = UpdateUi(installed = "0.2.0", offer = offer, checkedAt = 1, result = UpdateController.AVAILABLE, loaded = true)
+    private val available = UpdateUi(installed = "0.2.0", offer = offer, checkedAt = 1, result = UpdateController.AVAILABLE)
 
     @Test fun offeredUpdateTakesInitialFocusAndTheColumnDoesNotWrap() {
         val actions = mutableListOf<Action>()
