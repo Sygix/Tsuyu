@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 kotlin = "2.4.21"
 composeBom = "2026.09.00"
 junit = "4.13.2"
@@ -9,10 +9,10 @@ robolectric = "4.17"
 
 [libraries]
 work-runtime = { module = "androidx.work:work-runtime-ktx", version = "2.12.0" }
-zxing-core = { module = "com.google.zxing:core", version = "3.5.3" }
+zxing-core = { module = "com.google.zxing:core", version = "3.5.4" }
 hidden-compat = { module = "dev.rikka.hidden:compat", version = "4.4.0" }
 hidden-stub = { module = "dev.rikka.hidden:stub", version = "4.4.0" }
-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version = "1.2.1" }
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version = "1.3.0" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.13.0" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.19.1" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
