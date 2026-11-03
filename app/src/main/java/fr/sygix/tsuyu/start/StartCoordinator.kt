@@ -14,11 +14,24 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.sync.withLock
 
 class StartCoordinator(private val settings: SystemSettings, private val server: ServerAccess, private val launcher: ServerLauncher, private val io: BoundedIo = BoundedIo(), private val report: (Exception) -> Unit = {}) {
     private val mutex = Mutex()
     private val mutable = MutableStateFlow(StartState())
     val state = mutable.asStateFlow()
+    @Volatile private var attempt: Job? = null
+    fun cancel() { attempt?.cancel() }
+    suspend fun cancelAndJoin() {
+        attempt?.cancelAndJoin()
+        mutex.withLock { }
+    }
     suspend fun refresh() {
         mutex.lock()
         try { inspect() }
@@ -37,6 +50,17 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
     }
     suspend fun start() {
         if (!mutex.tryLock()) return
+        try {
+            supervisorScope {
+                val work = async(start = CoroutineStart.LAZY) { performStart() }
+                attempt = work
+                try { work.await() }
+                catch (cancelled: CancellationException) { currentCoroutineContext().ensureActive() }
+                finally { attempt = null }
+            }
+        } finally { mutex.unlock() }
+    }
+    private suspend fun performStart() {
         val active = AtomicBoolean(true)
         val owner = currentCoroutineContext().job
         try {
@@ -57,7 +81,7 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
             active.set(false)
             report(failure)
             mutable.value = mutable.value.copy(phase = Phase.ERROR, failure = (failure as? StartException)?.failure ?: Failure.LAUNCH)
-        } finally { active.set(false); mutex.unlock() }
+        } finally { active.set(false) }
     }
     fun died() { if (mutable.value.phase == Phase.RUNNING) mutable.value = mutable.value.copy(phase = Phase.STOPPED) }
     fun settingsFailed() { mutable.value = mutable.value.copy(phase = Phase.ERROR, failure = Failure.SETTINGS) }

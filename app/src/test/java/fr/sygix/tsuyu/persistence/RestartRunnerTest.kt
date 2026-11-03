@@ -15,6 +15,27 @@ import org.junit.Test
 class RestartRunnerTest {
     private val direct = object : BoundedIo() { override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block() }
     private class Store : FakePersistenceStorage(enabled = true)
+    @Test fun userCancellationStopsAutomaticRetriesWithoutCancellingTheWorker() = runTest {
+        val store = Store()
+        var attempts = 0
+        val settings = object : SystemSettings { override fun read() = true to Debugging.ENABLED }
+        val coordinator = StartCoordinator(settings, object : ServerAccess { override suspend fun alive() = false }, object : ServerLauncher {
+            override suspend fun launch(progress: (Phase) -> Unit) {
+                attempts++
+                progress(Phase.AUTHORIZING)
+                awaitCancellation()
+            }
+        }, direct)
+        val runner = RestartRunner(store, coordinator, settings, { testScheduler.currentTime }, io = direct)
+        val work = async { runner.run("boot:1") }
+        runCurrent()
+        coordinator.cancelAndJoin()
+        assertEquals(RestartResult.FAILURE, work.await())
+        assertFalse(work.isCancelled)
+        assertEquals(RestartOutcome.CANCELLED, store.read().record.outcome)
+        assertEquals(RestartResult.FAILURE, runner.run("boot:1"))
+        assertEquals(1, attempts)
+    }
     @Test fun delayedEndpointRetriesThenEstablishesLiveServerOnce() = runTest {
         val store = Store()
         var running = false

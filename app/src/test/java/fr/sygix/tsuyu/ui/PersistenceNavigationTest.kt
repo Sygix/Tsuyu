@@ -11,6 +11,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import fr.sygix.tsuyu.persistence.*
 import fr.sygix.tsuyu.ipc.Preparation
+import fr.sygix.tsuyu.start.Phase
+import fr.sygix.tsuyu.start.StartState
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -23,6 +25,24 @@ import org.robolectric.annotation.Config
 class PersistenceNavigationTest {
     @get:Rule val compose = createComposeRule()
     private fun press(tag: String, key: Key) = compose.onNodeWithTag(tag).performKeyInput { keyDown(key); keyUp(key) }
+    @Test fun automaticAuthorizationOffersCancelAndRequestAgainWithStableFocus() {
+        val actions = mutableListOf<Action>()
+        val state = mutableStateOf(PersistenceViewModel.present(PersistenceUi(loading = true), false, "persistence-enable", StartState(Phase.AUTHORIZING)))
+        compose.setContent { PersistenceScreen(state.value, actions::add) }
+        compose.onNodeWithTag("persistence-cancel").assertIsFocused()
+        press("persistence-cancel", Key.DirectionUp)
+        compose.onNodeWithTag("persistence-cancel").assertIsFocused()
+        press("persistence-cancel", Key.DirectionDown)
+        compose.onNodeWithTag("persistence-reauthorize").assertIsFocused()
+        press("persistence-reauthorize", Key.DirectionDown)
+        compose.onNodeWithTag("persistence-reauthorize").assertIsFocused()
+        press("persistence-reauthorize", Key.DirectionCenter)
+        assertEquals(listOf(Action.REAUTHORIZE), actions)
+        compose.runOnIdle { state.value = PersistenceViewModel.present(PersistenceUi(loading = false, error = true), false, "persistence-cancel", StartState(Phase.STOPPED)) }
+        compose.onNodeWithTag("persistence-enable").assertIsFocused()
+        compose.onNodeWithTag("persistence-cancel").assertDoesNotExist()
+        compose.onNodeWithTag("persistence-reauthorize").assertDoesNotExist()
+    }
     @Test fun optionalChoiceInitiallyKeepsPolicyAndDoesNotWrap() {
         val actions = mutableListOf<Action>()
         val state = mutableStateOf(PersistenceViewModel.present(PersistenceUi(loading = false, expiry = 604800000), true, "expiry-disable"))

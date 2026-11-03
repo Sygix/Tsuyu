@@ -17,6 +17,91 @@ class HomeViewModelTest {
     private val direct = object : BoundedIo() {
         override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block()
     }
+    @Test fun anAutomaticSuccessIsDistinctFromConfigurationAndRequiresALiveService() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var running = true
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = running }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+            val persistence = kotlinx.coroutines.flow.MutableStateFlow(fr.sygix.tsuyu.persistence.PersistenceUi(
+                enabled = true, loading = false, enabledKnown = true,
+                uid = fr.sygix.tsuyu.ipc.Preparation.READY, pkg = fr.sygix.tsuyu.ipc.Preparation.READY,
+            ))
+            val model = HomeViewModel(coordinator, persistence = persistence)
+            store.put("home", model)
+            model.resume(); runCurrent()
+            assertEquals(fr.sygix.tsuyu.R.string.persistence_home_ready, model.ui.value.persistenceStatus)
+            persistence.value = persistence.value.copy(outcome = fr.sygix.tsuyu.persistence.RestartOutcome.RUNNING)
+            runCurrent()
+            assertEquals(fr.sygix.tsuyu.R.string.persistence_home_started, model.ui.value.persistenceStatus)
+            running = false
+            model.died(); runCurrent()
+            assertNotEquals(fr.sygix.tsuyu.R.string.persistence_home_started, model.ui.value.persistenceStatus)
+            persistence.value = persistence.value.copy(outcome = fr.sygix.tsuyu.persistence.RestartOutcome.RECOVERED)
+            model.resume(); runCurrent()
+            assertEquals(fr.sygix.tsuyu.R.string.persistence_home_ready, model.ui.value.persistenceStatus)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun requestAgainReplacesAnAutomaticWaitAndReportsManualRecovery() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var attempts = 0
+            var running = false
+            var recovered = 0
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = running }, object : ServerLauncher {
+                override suspend fun launch(progress: (Phase) -> Unit) {
+                    progress(Phase.AUTHORIZING)
+                    if (++attempts == 1) awaitCancellation() else running = true
+                }
+            }, direct)
+            val automatic = backgroundScope.launch { coordinator.start() }
+            val model = HomeViewModel(coordinator, recovered = { recovered++ })
+            store.put("home", model)
+            runCurrent()
+            assertTrue(model.ui.value.controls.any { it.action == Action.REAUTHORIZE })
+            model.act(Action.REAUTHORIZE)
+            runCurrent()
+            assertTrue(automatic.isCompleted)
+            assertEquals(2, attempts)
+            assertEquals(Phase.RUNNING, coordinator.state.value.phase)
+            assertEquals(1, recovered)
+            assertFalse(model.ui.value.controls.any { it.action == Action.REAUTHORIZE })
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+    @Test fun cancellingAnAutomaticAuthorizationReleasesItAndAllowsAnotherPrompt() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var attempts = 0
+            var running = false
+            val coordinator = StartCoordinator(object : SystemSettings {
+                override fun read() = true to Debugging.ENABLED
+            }, object : ServerAccess {
+                override suspend fun alive() = running
+            }, object : ServerLauncher {
+                override suspend fun launch(progress: (Phase) -> Unit) {
+                    attempts++
+                    progress(Phase.AUTHORIZING)
+                    if (attempts == 1) awaitCancellation() else running = true
+                }
+            }, direct)
+            val automatic = backgroundScope.launch { coordinator.start() }
+            val model = HomeViewModel(coordinator)
+            store.put("home", model)
+            runCurrent()
+            assertEquals(Phase.AUTHORIZING, coordinator.state.value.phase)
+            model.act(Action.CANCEL)
+            runCurrent()
+            assertTrue(automatic.isCompleted)
+            assertEquals(Phase.STOPPED, coordinator.state.value.phase)
+            model.act(Action.START)
+            runCurrent()
+            assertEquals(2, attempts)
+            assertEquals(Phase.RUNNING, coordinator.state.value.phase)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
     @Test fun languageReturnKeepsItsFocusThroughServiceDeathAndPreparationFailureWithoutStartingAnything() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val store = ViewModelStore()

@@ -47,12 +47,13 @@ class RestartRunner(private val store: PersistenceStorage, private val coordinat
                         val observer = launch { coordinator.state.collect { if (it.phase == Phase.AUTHORIZING) authorizing = true } }
                         try {
                             coordinator.start()
-                            coordinator.refresh()
+                            if (coordinator.state.value.phase != Phase.STOPPED) coordinator.refresh()
                         } finally { observer.cancel() }
                     }
                     val state = coordinator.state.value
                     when {
                         state.phase == Phase.RUNNING -> RestartOutcome.RUNNING
+                        state.phase == Phase.STOPPED -> RestartOutcome.CANCELLED
                         state.debugging == Debugging.DISABLED -> RestartOutcome.SETUP
                         state.debugging == Debugging.UNKNOWN -> RestartOutcome.UNKNOWN
                         authorizing && state.failure == Failure.TIMEOUT -> RestartOutcome.AUTHENTICATION

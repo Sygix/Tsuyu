@@ -30,6 +30,7 @@ data class PersistenceUi(
     val setup: Boolean = false,
     val enabledKnown: Boolean = false,
     val settingsError: Boolean = false,
+    val keyRefresh: KeyRefreshOutcome = KeyRefreshOutcome.NONE,
 ) {
     val ready get() = uid == Preparation.READY && pkg == Preparation.READY
     val unsupported get() = uid == Preparation.UNSUPPORTED && pkg == Preparation.UNSUPPORTED
@@ -39,9 +40,17 @@ class PersistenceController(
     private val coordinator: StartCoordinator,
     private val server: () -> ITsuyuServer?,
     private val io: BoundedIo = BoundedIo(),
+    private val scheduleKeyRefresh: () -> Unit = {},
+    private val currentEvent: (String) -> Boolean = { true },
 ) {
     private val mutable = MutableStateFlow(PersistenceUi())
     val state = mutable.asStateFlow()
+    val startState get() = coordinator.state
+    fun cancelStart() = coordinator.cancel()
+    suspend fun retryAuthorization() {
+        coordinator.cancelAndJoin()
+        enable()
+    }
     private val mutex = Mutex()
     suspend fun startRoute(): StartRoute = mutex.withLock {
         try {
@@ -62,6 +71,10 @@ class PersistenceController(
         mutable.value = mutable.value.copy(loading = false, error = true, settingsError = true)
     }
     suspend fun refresh() = operation { inspect() }
+    suspend fun recovered() = operation {
+        withTimeout(STORAGE_TIMEOUT_MS) { store.recovered() }
+        inspect()
+    }
     suspend fun enable() = operation {
         coordinator.start()
         if (coordinator.state.value.phase != Phase.RUNNING) {
@@ -74,6 +87,7 @@ class PersistenceController(
                 store.enable()
                 store.recovered()
             }
+            scheduleKeyRefresh()
         }
         update(snapshot)
         if (!snapshot.getBoolean("schedulable")) mutable.value = mutable.value.copy(error = true)
@@ -90,7 +104,7 @@ class PersistenceController(
         coordinator.refresh()
         val saved = withTimeout(STORAGE_TIMEOUT_MS) { store.read() }
         mutable.value = mutable.value.copy(
-            enabled = saved.enabled, enabledKnown = true, outcome = saved.record.outcome,
+            enabled = saved.enabled, enabledKnown = true, outcome = outcome(saved), keyRefresh = saved.keyRefresh,
             setup = coordinator.state.value.debugging != Debugging.ENABLED,
         )
         val binder = server()
@@ -107,11 +121,15 @@ class PersistenceController(
             uid = Preparation.decode(snapshot.getString("uid")),
             pkg = Preparation.decode(snapshot.getString("package")),
             expiry = if (snapshot.containsKey("expiry")) snapshot.getLong("expiry") else null,
-            outcome = saved.record.outcome,
+            outcome = outcome(saved),
+            keyRefresh = saved.keyRefresh,
             loading = false,
             enabledKnown = true,
         )
     }
+    private suspend fun outcome(saved: StoredPersistence): RestartOutcome =
+        if (saved.record.event == PersistenceStore.MANUAL || io.call(5000) { currentEvent(saved.record.event) }) saved.record.outcome
+        else RestartOutcome.NONE
     private suspend fun operation(block: suspend () -> Unit) = mutex.withLock {
         mutable.value = mutable.value.copy(loading = true, error = false)
         try { block() }

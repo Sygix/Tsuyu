@@ -32,10 +32,11 @@ class MainActivity : ComponentActivity() {
                     if (!graph.updates.state.value.auto) graph.updates.check(false)
                 }
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice, graph.updates.state.map { it.blocked }) as T
+                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice, graph.updates.state.map { it.blocked }, graph.persistenceController::recovered) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
+        lifecycleScope.launch { graph.persistence.state.collect { graph.persistenceController.refresh() } }
         setContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { handleBack(ui.screen) }

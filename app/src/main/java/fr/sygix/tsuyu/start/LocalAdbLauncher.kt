@@ -6,56 +6,33 @@
 package fr.sygix.tsuyu.start
 
 import android.content.Context
-import fr.sygix.tsuyu.adb.AdbKeyStore
 import fr.sygix.tsuyu.adb.AdbConnectionFactory
 import fr.sygix.tsuyu.adb.SocketAdbConnection
-import fr.sygix.tsuyu.adb.UnsupportedAdb
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.delay
-import java.io.File
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 class LocalAdbLauncher(private val context: Context, private val broker: ServerBroker, private val io: BoundedIo, private val connections: AdbConnectionFactory = AdbConnectionFactory { SocketAdbConnection() }, private val ports: () -> List<Int> = { AndroidAdbPorts.discover() }) : ServerLauncher {
     override suspend fun launch(progress: (Phase) -> Unit) {
-        val key = try { io.call(5000) { AdbKeyStore(File(context.noBackupFilesDir, "adb-key")).load() } }
-        catch (cancelled: CancellationException) { throw cancelled }
-        catch (failure: Exception) { throw StartException(Failure.KEY, failure) }
         val identity = broker.prepare()
-        val candidates = io.call(5000) { ports().filter { it in 1..65535 }.distinct() }
-        var connected = false
-        for (port in candidates) {
-            val connection = connections.create()
+        LocalAdbClient(context, io, connections, ports).use(awaiting = { progress(Phase.AUTHORIZING) }) { connection ->
+            progress(Phase.LAUNCHING)
             try {
-                try { io.call(5500, { connection.close() }) { connection.connect(port) } }
-                catch (failure: java.io.IOException) { continue }
-                connected = true
-                try {
-                    io.call(125_000, { connection.close() }) { connection.authenticate(key) { progress(Phase.AUTHORIZING) } }
-                } catch (failure: UnsupportedAdb) { throw StartException(Failure.UNSUPPORTED, failure) }
-                catch (cancelled: CancellationException) { throw cancelled }
-                catch (failure: SocketTimeoutException) { throw StartException(Failure.TIMEOUT, failure) }
-                catch (failure: Exception) { throw StartException(Failure.AUTHENTICATION, failure) }
-                progress(Phase.LAUNCHING)
-                try {
-                    val path = io.call(5000) { context.packageManager.getApplicationInfo(context.packageName, 0).sourceDir }
-                    val command = LaunchCommand.create(path, identity.first, identity.second, android.os.Process.myUid() / 100000)
-                    val output = io.call(30_000, { connection.close() }) { connection.shell(command) }
-                    if (output.lineSequence().none { it == "TSUYU_LAUNCHED" }) throw StartException(Failure.LAUNCH)
-                    withTimeout(30_000) {
-                        val service = broker.server.filterNotNull().first()
-                        while (!io.call(5000) { service.isReady }) delay(100)
-                    }
-                    return
-                } catch (failure: TimeoutCancellationException) { throw StartException(Failure.LAUNCH, failure) }
-                catch (failure: SocketTimeoutException) { throw StartException(Failure.LAUNCH, failure) }
-            } finally { connection.close() }
+                val path = io.call(5000) { context.packageManager.getApplicationInfo(context.packageName, 0).sourceDir }
+                val command = LaunchCommand.create(path, identity.first, identity.second, android.os.Process.myUid() / 100000)
+                val output = io.call(30_000, { connection.close() }) { connection.shell(command) }
+                if (output.lineSequence().none { it == "TSUYU_LAUNCHED" }) throw StartException(Failure.LAUNCH)
+                withTimeout(30_000) {
+                    val service = broker.server.filterNotNull().first()
+                    while (!io.call(5000) { service.isReady }) delay(100)
+                }
+            } catch (failure: TimeoutCancellationException) { throw StartException(Failure.LAUNCH, failure) }
+            catch (failure: SocketTimeoutException) { throw StartException(Failure.LAUNCH, failure) }
         }
-        throw StartException(if (connected) Failure.AUTHENTICATION else Failure.ENDPOINT)
     }
 }
 

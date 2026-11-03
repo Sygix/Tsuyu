@@ -10,6 +10,9 @@ import fr.sygix.tsuyu.start.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import fr.sygix.tsuyu.R
 import org.junit.Assert.*
@@ -20,6 +23,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
+@OptIn(ExperimentalCoroutinesApi::class)
 class PersistenceControllerTest {
     private val direct = object : BoundedIo() { override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block() }
     private class Store : FakePersistenceStorage() {
@@ -29,6 +33,50 @@ class PersistenceControllerTest {
         var failRead = false
         var gate: CompletableDeferred<Unit>? = null
         override suspend fun read(): StoredPersistence { gate?.await(); check(!failRead); return saved }
+    }
+    @Test fun repairCanReplaceItsOwnAuthorizationWaitWithoutDeadlockingItsRefresh() = runTest {
+        val store = Store()
+        var attempts = 0
+        var running = false
+        var scheduled = 0
+        val server = object : TestServerStub() {
+            override fun getUid() = 2000
+            override fun isReady() = true
+            override fun exit() = Unit
+            override fun preparePersistence() = Bundle().apply { putString("uid", "READY"); putString("package", "READY"); putBoolean("schedulable", true) }
+        }
+        val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = running }, object : ServerLauncher {
+            override suspend fun launch(progress: (Phase) -> Unit) {
+                progress(Phase.AUTHORIZING)
+                if (++attempts == 1) awaitCancellation() else running = true
+            }
+        }, direct)
+        val controller = PersistenceController(store, coordinator, { server }, direct, scheduleKeyRefresh = { scheduled++ })
+        val first = launch { controller.enable() }
+        runCurrent()
+        val refresh = launch { controller.refresh() }
+        runCurrent()
+        controller.retryAuthorization()
+        first.join(); refresh.join()
+        assertEquals(2, attempts)
+        assertEquals(Phase.RUNNING, coordinator.state.value.phase)
+        assertTrue(controller.state.value.ready)
+        assertEquals(RestartOutcome.RECOVERED, controller.state.value.outcome)
+        assertEquals(1, scheduled)
+    }
+    @Test fun previousBootSuccessIsNotPresentedAsCurrentAndManualRecoveryClearsFailure() = runTest {
+        val store = Store()
+        store.saved = StoredPersistence(true, RestartRecord("boot:1", outcome = RestartOutcome.RUNNING))
+        val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+        val controller = PersistenceController(store, coordinator, { null }, direct, currentEvent = { it == "boot:2" })
+        controller.refresh()
+        assertEquals(RestartOutcome.NONE, controller.state.value.outcome)
+        store.saved = StoredPersistence(true, RestartRecord("boot:2", outcome = RestartOutcome.AUTHENTICATION), KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        controller.refresh()
+        assertEquals(RestartOutcome.AUTHENTICATION, controller.state.value.outcome)
+        controller.recovered()
+        assertEquals(RestartOutcome.RECOVERED, controller.state.value.outcome)
+        assertEquals(KeyRefreshOutcome.CURRENT, controller.state.value.keyRefresh)
     }
     @Test fun routingWaitsForConfigurationAndReadFailureIsVisible() = runTest {
         val store = Store()

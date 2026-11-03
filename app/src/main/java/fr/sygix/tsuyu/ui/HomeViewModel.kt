@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import fr.sygix.tsuyu.R
 import fr.sygix.tsuyu.start.*
 import fr.sygix.tsuyu.persistence.PersistenceUi
+import fr.sygix.tsuyu.persistence.RestartOutcome
+import fr.sygix.tsuyu.persistence.KeyRefreshOutcome
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,9 +19,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelAndJoin
 
 enum class Screen { HOME, SETUP, HELP, DETAILS, PERSISTENCE, EXPIRY, UPDATES }
-enum class Action { ENABLE, START, CANCEL, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES, LANGUAGE }
+enum class Action { ENABLE, START, CANCEL, REAUTHORIZE, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES, LANGUAGE }
 data class Control(val id: String, val label: Int, val action: Action, val args: List<Any> = emptyList(), val enabled: Boolean = true)
 interface ScreenUi {
     val screen: Screen
@@ -55,6 +58,7 @@ class HomeViewModel(
     persistence: StateFlow<PersistenceUi> = MutableStateFlow(PersistenceUi()),
     notice: StateFlow<String?> = MutableStateFlow(null),
     updateBlocked: kotlinx.coroutines.flow.Flow<Boolean> = MutableStateFlow(false),
+    private val recovered: suspend () -> Unit = {},
 ) : ViewModel() {
     private val navigation = MutableStateFlow(Navigation())
     private val caller = MutableStateFlow<String?>(null)
@@ -65,10 +69,14 @@ class HomeViewModel(
             preparation.enabled && (preparation.ready || preparation.unsupported)
         val returning = label.takeIf { settled }
         val presentation = present(state, nav.screen, nav.returnFocus, returning)
-        val failed = preparation.outcome.failed
+        val failed = preparation.outcome.failed || preparation.keyRefresh in listOf(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, KeyRefreshOutcome.FAILED)
         val verified = !preparation.loading && !preparation.error
         val status = when {
+            preparation.keyRefresh == KeyRefreshOutcome.AUTHORIZATION_REQUIRED -> R.string.persistence_key_required
+            preparation.keyRefresh == KeyRefreshOutcome.FAILED -> R.string.persistence_key_refresh_failed
+            preparation.outcome == RestartOutcome.AUTHENTICATION -> R.string.persistence_key_required
             failed -> R.string.persistence_boot_failed
+            verified && preparation.enabled && preparation.outcome == RestartOutcome.RUNNING && state.phase == Phase.RUNNING -> R.string.persistence_home_started
             verified && preparation.ready && preparation.enabled -> R.string.persistence_home_ready
             verified && preparation.unsupported && preparation.enabled -> R.string.persistence_home_standard
             else -> R.string.persistence_home_unverified
@@ -81,7 +89,7 @@ class HomeViewModel(
             persistenceAttention = failed,
             notice = version.takeIf { nav.screen == Screen.HOME },
             updateBlocked = blocked && nav.screen == Screen.HOME,
-            focus = if (failed && nav.screen == Screen.HOME && nav.returnFocus == "action-main") "action-persistence" else presentation.focus,
+            focus = if (failed && !presentation.busy && nav.screen == Screen.HOME && nav.returnFocus == "action-main") "action-persistence" else presentation.focus,
         )
     }
         .stateIn(viewModelScope, SharingStarted.Eagerly, present(StartState(), Screen.HOME, "action-main"))
@@ -101,9 +109,9 @@ class HomeViewModel(
         cancelPending()
         navigation.value = navigation.value.copy(returnFocus = if (fromMain) "action-main" else "action-persistence")
     }
-    fun cancelPending() { startup?.cancel() }
+    fun cancelPending() { coordinator.cancel(); startup?.cancel() }
     fun back() {
-        startup?.cancel()
+        cancelPending()
         navigation.value = navigation.value.copy(screen = Screen.HOME)
         resume()
     }
@@ -111,7 +119,12 @@ class HomeViewModel(
         when (action) {
             Action.ENABLE -> navigation.value = Navigation(Screen.SETUP)
             Action.START -> start()
-            Action.CANCEL -> { startup?.cancel(); navigation.value = Navigation(); resume() }
+            Action.CANCEL -> { cancelPending(); navigation.value = Navigation(); resume() }
+            Action.REAUTHORIZE -> viewModelScope.launch {
+                startup?.cancelAndJoin()
+                coordinator.cancelAndJoin()
+                start()
+            }
             Action.HELP -> { cancelPending(); navigation.value = Navigation(Screen.HELP, "action-help") }
             Action.DETAILS -> navigation.value = Navigation(Screen.DETAILS, "action-main")
             Action.BACK -> back()
@@ -129,7 +142,10 @@ class HomeViewModel(
         navigation.value = navigation.value.copy(returnFocus = "action-main")
         startup = viewModelScope.launch {
             coordinator.start()
-            if (coordinator.state.value.phase == Phase.RUNNING) navigation.value = Navigation()
+            if (coordinator.state.value.phase == Phase.RUNNING) {
+                recovered()
+                navigation.value = Navigation()
+            }
         }
     }
     companion object {
@@ -196,6 +212,7 @@ class HomeViewModel(
             val home = screen == Screen.HOME
             val returning = caller?.takeIf { home && state.phase == Phase.RUNNING }
             val controls = listOfNotNull(returning?.let { Control("action-return", R.string.return_to_caller, Action.RETURN, listOf(it)) }) + main +
+                (if (state.phase == Phase.AUTHORIZING && screen in listOf(Screen.HOME, Screen.SETUP)) listOf(Control("action-reauthorize", R.string.retry_authorization, Action.REAUTHORIZE)) else emptyList()) +
                 if (home) listOf(
                     Control("action-apps", R.string.access_apps, Action.APPS),
                     Control("action-updates", R.string.updates_title, Action.UPDATES),

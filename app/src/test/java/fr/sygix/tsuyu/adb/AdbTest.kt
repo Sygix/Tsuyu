@@ -20,6 +20,18 @@ import java.security.interfaces.RSAPublicKey
 import java.util.Base64
 
 class AdbTest {
+    @Test fun nonInteractiveAuthenticationNeverSendsAnUnknownPublicKey() {
+        val key = AdbKey(KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair())
+        val challenge = AdbPacket(AdbPacket.AUTH, 1, 0, ByteArray(20) { 7 }).encode(false)
+        val output = ByteArrayOutputStream()
+        assertThrows(IllegalStateException::class.java) {
+            AdbSession(ByteArrayInputStream(challenge + challenge), output, key).authenticate { error("Authorization required") }
+        }
+        val packets = ByteArrayInputStream(output.toByteArray())
+        assertEquals(AdbPacket.CNXN, AdbPacket.read(packets, false).command)
+        assertEquals(2, AdbPacket.read(packets, false).arg0)
+        assertEquals(0, packets.available())
+    }
     @Test fun fragmentedPacketsRoundTrip() {
         val packet = AdbPacket(AdbPacket.WRTE, 4, 1, byteArrayOf(1, 2, -1))
         val stream = object : ByteArrayInputStream(packet.encode()) {

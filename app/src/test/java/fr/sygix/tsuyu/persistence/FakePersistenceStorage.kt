@@ -9,10 +9,12 @@ open class FakePersistenceStorage(enabled: Boolean = false) : PersistenceStorage
     private var enabled = enabled
     private var selected = ""
     private var records = emptyMap<String, RestartRecord>()
+    private var keyRefresh = KeyRefreshOutcome.NONE
     var value: StoredPersistence
-        get() = StoredPersistence(enabled, records[selected] ?: RestartRecord())
+        get() = StoredPersistence(enabled, records[selected] ?: RestartRecord(), keyRefresh)
         set(value) {
             enabled = value.enabled
+            keyRefresh = value.keyRefresh
             selected = value.record.event
             records = if (selected.isEmpty()) emptyMap() else mapOf(selected to value.record)
         }
@@ -28,10 +30,15 @@ open class FakePersistenceStorage(enabled: Boolean = false) : PersistenceStorage
         }
     }
     override suspend fun complete(record: RestartRecord, result: RestartOutcome) {
-        if (records[record.event]?.attempts == record.attempts) records += record.event to record.copy(outcome = result)
+        if (records[record.event]?.attempts == record.attempts) {
+            records += record.event to record.copy(outcome = result)
+            if (result == RestartOutcome.RUNNING) keyRefresh = KeyRefreshOutcome.CURRENT
+        }
     }
     override suspend fun recovered() {
+        keyRefresh = KeyRefreshOutcome.CURRENT
         selected = PersistenceStore.MANUAL
         records += selected to RestartRecord(selected, outcome = RestartOutcome.RECOVERED)
     }
+    override suspend fun keyRefreshed(outcome: KeyRefreshOutcome) { keyRefresh = outcome }
 }

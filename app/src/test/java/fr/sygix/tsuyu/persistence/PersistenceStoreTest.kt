@@ -20,6 +20,19 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class PersistenceStoreTest {
     @get:Rule val temporary = TemporaryFolder()
+    @Test fun refreshStatusSurvivesReloadAndASuccessfulStartClearsItsWarning() = runTest {
+        val data = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { temporary.newFile("key.preferences_pb") })
+        val store = PersistenceStore(data)
+        store.enable()
+        store.keyRefreshed(KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, PersistenceStore(data).read().keyRefresh)
+        val boot = requireNotNull(store.reserve("boot:1", 1000))
+        store.complete(boot, RestartOutcome.RUNNING)
+        assertEquals(KeyRefreshOutcome.CURRENT, store.read().keyRefresh)
+        store.keyRefreshed(KeyRefreshOutcome.FAILED)
+        store.recovered()
+        assertEquals(KeyRefreshOutcome.CURRENT, store.read().keyRefresh)
+    }
 
     @Test fun realStorageAndFakePreserveIndependentBudgetsAcrossManualRecovery() = runTest {
         val data = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { temporary.newFile("state.preferences_pb") })

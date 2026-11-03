@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 private val Context.persistenceData by preferencesDataStore("persistence")
 
-data class StoredPersistence(val enabled: Boolean = false, val record: RestartRecord = RestartRecord())
+data class StoredPersistence(val enabled: Boolean = false, val record: RestartRecord = RestartRecord(), val keyRefresh: KeyRefreshOutcome = KeyRefreshOutcome.NONE)
 
 interface PersistenceStorage {
     suspend fun read(): StoredPersistence
@@ -24,6 +24,7 @@ interface PersistenceStorage {
     suspend fun reserve(id: String, now: Long): RestartRecord?
     suspend fun complete(record: RestartRecord, result: RestartOutcome)
     suspend fun recovered()
+    suspend fun keyRefreshed(outcome: KeyRefreshOutcome)
 }
 
 class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceStorage {
@@ -34,6 +35,7 @@ class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceSt
     private val legacyStarted = longPreferencesKey("started")
     private val legacyAttempts = intPreferencesKey("attempts")
     private val legacyOutcome = stringPreferencesKey("outcome")
+    private val keyRefresh = stringPreferencesKey("key_refresh")
 
     private fun records(value: Preferences): Map<String, RestartRecord> {
         val json = JSONObject(value[ledger] ?: "{}")
@@ -69,6 +71,7 @@ class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceSt
     private fun decode(value: Preferences) = StoredPersistence(
         value[enabled] ?: false,
         records(value)[currentEvent(value)] ?: RestartRecord(),
+        KeyRefreshOutcome.entries.firstOrNull { it.name == value[keyRefresh] } ?: KeyRefreshOutcome.NONE,
     )
 
     val state = data.data.map(::decode)
@@ -86,7 +89,11 @@ class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceSt
     override suspend fun recovered() {
         data.edit { value ->
             save(value, records(value) + (MANUAL to RestartRecord(MANUAL, outcome = RestartOutcome.RECOVERED)), MANUAL)
+            value[keyRefresh] = KeyRefreshOutcome.CURRENT.name
         }
+    }
+    override suspend fun keyRefreshed(outcome: KeyRefreshOutcome) {
+        data.edit { it[keyRefresh] = outcome.name }
     }
     override suspend fun reserve(id: String, now: Long): RestartRecord? {
         var reserved: RestartRecord? = null
@@ -104,6 +111,7 @@ class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceSt
             val all = records(value)
             if (all[record.event]?.attempts == record.attempts) {
                 save(value, all + (record.event to record.copy(outcome = result)), currentEvent(value))
+                if (result == RestartOutcome.RUNNING) value[keyRefresh] = KeyRefreshOutcome.CURRENT.name
             }
         }
     }

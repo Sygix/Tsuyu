@@ -25,6 +25,10 @@
 
 Keep USB debugging enabled while using Tsuyu. Disabling it can stop the service; enable it again and start Tsuyu to recover. ADB is available on the local network and protected by the TV's authorization prompt.
 
+With automatic startup enabled, Tsuyu periodically reconnects with its own ADB key to refresh that key's authorization. It does not change the global expiry policy or other keys, run shell commands during refresh, or open a new authorization prompt in the background. Android schedules the refresh roughly every twelve hours; prolonged power-off or background-work restrictions can still let the authorization expire. In that case, open Tsuyu and retry startup to approve the system prompt. An automatic startup waiting for authorization can be cancelled from Home or the startup repair screen, then retried without restarting the app.
+
+Home distinguishes configured automatic startup from an automatic startup that actually succeeded during the current TV boot. A successful manual recovery clears an earlier startup failure without claiming that automatic startup succeeded.
+
 ## Language
 
 Tsuyu follows the TV's system languages by default, using the first supported language or English if none is supported. Open **Language** on Home to choose **System language** or a specific language. Changes apply immediately to Tsuyu's screens, including app access requests, without changing the TV's language or the running service. Android remembers the choice across app restarts and updates. Selecting **System language** restores automatic language selection.

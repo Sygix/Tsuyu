@@ -7,7 +7,7 @@ package fr.sygix.tsuyu.persistence
 
 enum class RestartOutcome {
     NONE, ATTEMPT, RUNNING, RECOVERED, SETUP, AUTHENTICATION, KEY, UNSUPPORTED, UNKNOWN,
-    EXHAUSTED, ENDPOINT, TIMEOUT, LAUNCH, BUSY, SETTINGS;
+    EXHAUSTED, ENDPOINT, TIMEOUT, LAUNCH, BUSY, SETTINGS, CANCELLED;
 
     val retryable get() = when (this) {
         ENDPOINT, TIMEOUT, LAUNCH, BUSY, ATTEMPT -> true
@@ -18,7 +18,7 @@ enum class RestartOutcome {
         else -> true
     }
     val terminal get() = when (this) {
-        RUNNING, RECOVERED, SETUP, AUTHENTICATION, KEY, UNSUPPORTED, UNKNOWN, EXHAUSTED -> true
+        RUNNING, RECOVERED, SETUP, AUTHENTICATION, KEY, UNSUPPORTED, UNKNOWN, EXHAUSTED, CANCELLED -> true
         else -> false
     }
 

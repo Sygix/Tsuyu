@@ -15,11 +15,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import fr.sygix.tsuyu.start.Phase
+import fr.sygix.tsuyu.start.StartState
 
 class PersistenceViewModel(private val controller: PersistenceController) : ViewModel() {
     private val expiry = MutableStateFlow(false)
     private var returnFocus = "persistence-enable"
-    val ui = combine(controller.state, expiry) { state, optional -> present(state, optional, returnFocus) }
+    val ui = combine(controller.state, expiry, controller.startState) { state, optional, start -> present(state, optional, returnFocus, start) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, present(PersistenceUi(), false, returnFocus))
     fun refresh() {
         viewModelScope.launch { controller.refresh() }
@@ -28,6 +30,8 @@ class PersistenceViewModel(private val controller: PersistenceController) : View
     fun act(action: Action) {
         when (action) {
             Action.ENABLE -> viewModelScope.launch { controller.enable() }
+            Action.CANCEL -> controller.cancelStart()
+            Action.REAUTHORIZE -> viewModelScope.launch { controller.retryAuthorization() }
             Action.REFRESH -> refresh()
             Action.EXPIRY -> {
                 returnFocus = "persistence-expiry"
@@ -40,17 +44,26 @@ class PersistenceViewModel(private val controller: PersistenceController) : View
     }
     val optional get() = expiry.value
     companion object {
-        fun present(state: PersistenceUi, optional: Boolean, focus: String): PersistenceScreenUi {
-            val controls = if (optional) expiryControls(state) else persistenceControls(state)
+        fun present(state: PersistenceUi, optional: Boolean, focus: String, start: StartState = StartState()): PersistenceScreenUi {
+            val starting = !optional && start.phase in listOf(Phase.CONNECTING, Phase.AUTHORIZING, Phase.LAUNCHING)
+            val controls = if (optional) expiryControls(state) else if (starting) buildList {
+                add(Control("persistence-cancel", R.string.cancel, Action.CANCEL))
+                if (start.phase == Phase.AUTHORIZING) add(Control("persistence-reauthorize", R.string.retry_authorization, Action.REAUTHORIZE))
+            } else persistenceControls(state)
             val body = if (optional) when {
                 state.error -> R.string.expiry_error
                 state.expiry == 0L -> R.string.expiry_disabled
                 else -> R.string.expiry_body
             } else when {
+                starting && start.phase == Phase.AUTHORIZING -> R.string.auth_body
+                starting -> R.string.starting_body
                 state.settingsError -> R.string.error_settings
                 state.loading -> R.string.checking_body
                 state.error -> R.string.persistence_error
                 !state.enabled -> R.string.persistence_disclosure
+                state.keyRefresh == KeyRefreshOutcome.AUTHORIZATION_REQUIRED -> R.string.persistence_key_required
+                state.keyRefresh == KeyRefreshOutcome.FAILED -> R.string.persistence_key_refresh_failed
+                state.outcome == RestartOutcome.RUNNING && start.phase == Phase.RUNNING -> R.string.persistence_started
                 state.ready -> R.string.persistence_ready
                 state.unsupported -> R.string.persistence_standard
                 else -> R.string.persistence_unverified
@@ -58,13 +71,13 @@ class PersistenceViewModel(private val controller: PersistenceController) : View
             val wanted = if (optional) "expiry-keep" else FocusPolicy.restore(focus, controls.map { it.id })
             return PersistenceScreenUi(
                 screen = if (optional) Screen.EXPIRY else Screen.PERSISTENCE,
-                title = if (optional) R.string.expiry_title else R.string.persistence_title,
+                title = if (optional) R.string.expiry_title else if (starting && start.phase == Phase.AUTHORIZING) R.string.auth_title else R.string.persistence_title,
                 body = body,
                 controls = controls,
                 focus = wanted,
                 details = if (optional) PersistenceDetails.Expiry(state.expiry)
                 else PersistenceDetails.Modes(mode(state.uid), mode(state.pkg)),
-                busy = state.loading,
+                busy = state.loading || starting,
             )
         }
 
