@@ -136,6 +136,43 @@ class StartTest {
         } catch (expected: TimeoutCancellationException) { assertTrue(closed) }
         finally { gate.countDown() }
     }
+    @Test fun overlappingChecksWaitForAFreeWorkerInsteadOfReportingFalseBusy() = runBlocking {
+        val io = BoundedIo()
+        val entered = CountDownLatch(2)
+        val release = CountDownLatch(1)
+        supervisorScope {
+            val first = async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { entered.countDown(); release.await(); 1 } }
+            val second = async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { entered.countDown(); release.await(); 2 } }
+            try {
+                withContext(Dispatchers.IO) { check(entered.await(5, java.util.concurrent.TimeUnit.SECONDS)) }
+                val refresh = async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { 3 } }
+                release.countDown()
+                assertEquals(3, refresh.await())
+                assertEquals(1, first.await())
+                assertEquals(2, second.await())
+            } finally { release.countDown() }
+        }
+    }
+    @Test fun queuedCancellationReleasesCapacityAndExcessWorkRemainsBounded() = runBlocking {
+        val io = BoundedIo()
+        val entered = CountDownLatch(2)
+        val release = CountDownLatch(1)
+        supervisorScope {
+            val workers = List(2) { async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { entered.countDown(); release.await() } } }
+            try {
+                withContext(Dispatchers.IO) { check(entered.await(5, java.util.concurrent.TimeUnit.SECONDS)) }
+                val cancelled = List(2) { async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { error("Cancelled work must not run") } } }
+                cancelled.forEach { it.cancelAndJoin() }
+                val recovery = List(2) { value -> async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { value } } }
+                val overflow = async(start = CoroutineStart.UNDISPATCHED) { io.call(5000) { error("Queue must stay bounded") } }
+                val failure = runCatching { overflow.await() }.exceptionOrNull() as StartException
+                assertEquals(Failure.BUSY, failure.failure)
+                release.countDown()
+                assertEquals(listOf(0, 1), recovery.awaitAll())
+                workers.forEach { it.await() }
+            } finally { release.countDown() }
+        }
+    }
     @Test fun launchCommandRejectsUntrustedArgumentsAndDetaches() {
         val token = "a".repeat(32)
         val command = LaunchCommand.create("/data/app/example/base.apk", token, token)

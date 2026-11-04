@@ -7,12 +7,12 @@ package fr.sygix.tsuyu.start
 
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 open class BoundedIo {
-    private val workers = ThreadPoolExecutor(0, 2, 30, TimeUnit.SECONDS, SynchronousQueue())
+    private val workers = ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, ArrayBlockingQueue(2)).apply { allowCoreThreadTimeOut(true) }
     open suspend fun <T> call(timeout: Long, cancel: () -> Unit = {}, block: () -> T): T = withTimeout(timeout) {
         suspendCancellableCoroutine { continuation ->
             val task = try { workers.submit {
@@ -21,7 +21,13 @@ open class BoundedIo {
                 continuation.resumeWith(Result.failure(StartException(Failure.BUSY, error)))
                 null
             }
-            continuation.invokeOnCancellation { cancel(); task?.cancel(true) }
+            continuation.invokeOnCancellation {
+                try { cancel() }
+                finally {
+                    task?.cancel(true)
+                    if (task is Runnable) workers.remove(task)
+                }
+            }
         }
     }
 }
