@@ -70,7 +70,7 @@ class PersistenceController(
     fun settingsFailed() {
         mutable.value = mutable.value.copy(loading = false, error = true, settingsError = true)
     }
-    suspend fun refresh() = operation { inspect() }
+    suspend fun refresh(showProgress: Boolean = false) = operation(showProgress) { inspect() }
     suspend fun recovered() = operation {
         withTimeout(STORAGE_TIMEOUT_MS) { store.recovered() }
         inspect()
@@ -109,7 +109,7 @@ class PersistenceController(
         )
         val binder = server()
         if (binder == null) {
-            mutable.value = mutable.value.copy(uid = Preparation.UNKNOWN, pkg = Preparation.UNKNOWN, expiry = null, loading = false)
+            mutable.value = mutable.value.copy(uid = Preparation.UNKNOWN, pkg = Preparation.UNKNOWN, expiry = null, loading = false, error = false, settingsError = false)
             return
         }
         update(io.call(STATUS_TIMEOUT_MS) { binder.persistence })
@@ -130,8 +130,8 @@ class PersistenceController(
     private suspend fun outcome(saved: StoredPersistence): RestartOutcome =
         if (saved.record.event == PersistenceStore.MANUAL || io.call(5000) { currentEvent(saved.record.event) }) saved.record.outcome
         else RestartOutcome.NONE
-    private suspend fun operation(block: suspend () -> Unit) = mutex.withLock {
-        mutable.value = mutable.value.copy(loading = true, error = false)
+    private suspend fun operation(showProgress: Boolean = true, block: suspend () -> Unit) = mutex.withLock {
+        if (showProgress) mutable.value = mutable.value.copy(loading = true, error = false)
         try { block() }
         catch (timeout: TimeoutCancellationException) { failed("Persistence operation timed out", timeout) }
         catch (cancelled: CancellationException) { throw cancelled }

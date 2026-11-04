@@ -6,7 +6,10 @@
 package fr.sygix.tsuyu.persistence
 
 import android.os.Bundle
+import androidx.lifecycle.ViewModelStore
 import fr.sygix.tsuyu.start.*
+import fr.sygix.tsuyu.ui.Action
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CompletableDeferred
@@ -14,6 +17,9 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import fr.sygix.tsuyu.R
 import org.junit.Assert.*
 import org.junit.Test
@@ -33,6 +39,60 @@ class PersistenceControllerTest {
         var failRead = false
         var gate: CompletableDeferred<Unit>? = null
         override suspend fun read(): StoredPersistence { gate?.await(); check(!failRead); return saved }
+    }
+    @Test fun automaticRefreshKeepsTheVerifiedPresentationUntilTheNewResultArrives() = runTest {
+        val store = Store()
+        store.saved = StoredPersistence(enabled = true)
+        val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+        val controller = PersistenceController(store, coordinator, { null }, direct)
+        store.gate = CompletableDeferred()
+        val initial = launch { controller.refresh() }
+        runCurrent()
+        assertTrue(controller.state.value.loading)
+        store.gate!!.complete(Unit)
+        initial.join()
+        val verified = controller.state.value
+        assertFalse(verified.loading)
+        store.saved = store.saved.copy(keyRefresh = KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        store.gate = CompletableDeferred()
+        val refresh = launch { controller.refresh() }
+        runCurrent()
+        assertFalse(refresh.isCompleted)
+        assertEquals(verified, controller.state.value)
+        assertFalse(PersistenceViewModel.present(controller.state.value, false, "persistence-enable").busy)
+        store.gate!!.complete(Unit)
+        refresh.join()
+        assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, controller.state.value.keyRefresh)
+        assertFalse(controller.state.value.loading)
+        store.failRead = true
+        controller.refresh()
+        assertTrue(controller.state.value.error)
+        store.failRead = false
+        controller.refresh()
+        assertFalse(controller.state.value.error)
+    }
+    @Test fun reopeningUsesTheLoadedStateAndExplicitRefreshStillShowsProgress() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val models = ViewModelStore()
+        try {
+            val store = Store()
+            store.saved = StoredPersistence(enabled = true)
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+            val controller = PersistenceController(store, coordinator, { null }, direct)
+            controller.refresh()
+            val model = PersistenceViewModel(controller)
+            models.put("persistence", model)
+            assertEquals(PersistenceViewModel.present(controller.state.value, false, "persistence-enable", coordinator.state.value), model.ui.value)
+            assertFalse(model.ui.value.busy)
+            store.gate = CompletableDeferred()
+            model.act(Action.REFRESH)
+            runCurrent()
+            assertTrue(model.ui.value.busy)
+            assertEquals(R.string.checking_body, model.ui.value.body)
+            store.gate!!.complete(Unit)
+            runCurrent()
+            assertFalse(model.ui.value.busy)
+        } finally { models.clear(); Dispatchers.resetMain() }
     }
     @Test fun repairCanReplaceItsOwnAuthorizationWaitWithoutDeadlockingItsRefresh() = runTest {
         val store = Store()

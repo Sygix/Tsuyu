@@ -22,9 +22,9 @@ class PersistenceViewModel(private val controller: PersistenceController) : View
     private val expiry = MutableStateFlow(false)
     private var returnFocus = "persistence-enable"
     val ui = combine(controller.state, expiry, controller.startState) { state, optional, start -> present(state, optional, returnFocus, start) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, present(PersistenceUi(), false, returnFocus))
-    fun refresh() {
-        viewModelScope.launch { controller.refresh() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, present(controller.state.value, false, returnFocus, controller.startState.value))
+    fun refresh(showProgress: Boolean = false) {
+        viewModelScope.launch { controller.refresh(showProgress) }
     }
     fun settingsFailed() = controller.settingsFailed()
     fun act(action: Action) {
@@ -32,7 +32,7 @@ class PersistenceViewModel(private val controller: PersistenceController) : View
             Action.ENABLE -> viewModelScope.launch { controller.enable() }
             Action.CANCEL -> controller.cancelStart()
             Action.REAUTHORIZE -> viewModelScope.launch { controller.retryAuthorization() }
-            Action.REFRESH -> refresh()
+            Action.REFRESH -> refresh(showProgress = true)
             Action.EXPIRY -> {
                 returnFocus = "persistence-expiry"
                 expiry.value = true
