@@ -37,3 +37,26 @@ None of these topics is specified or decided. Each one will become an OpenSpec c
 **Observation:** the adb private key is a PKCS#8 file in app-private, no-backup storage. A key held by the Android Keystore could not be extracted even by code running as the app.
 
 **To decide:** whether to import the existing key into the Keystore (with file fallback where TV firmware lacks suitable RSA support) or use it for new installations only, and how to keep the TV's « Always allow » approval across the migration.
+
+## 6. Amazon Appstore and Fire TV
+
+**Status:** postponed by Sygix and removed from `multi-store-distribution`. Nothing about this channel is specified.
+
+**Observation (public sources and reports, checked in November 2026):**
+- Amazon publishes no Fire OS emulator image; only generic Android TV images exist, so Fire OS behavior cannot be tested in the development environment, and no Fire TV device is available to the project.
+- An on-device block of local ADB connections was reported as shipped by over-the-air update in February 2024 to Fire OS 7 and Fire OS 8, which together cover every Android-based Fire TV meeting the API 28 minimum. Fire OS 6 is reported as affected too and is below that minimum (API 25).
+- Newer Fire TV devices run Vega OS, which is not Android.
+- Amazon documents that it removes the submitted signature, re-signs the APK and adds a wrapper, even with DRM disabled. An Amazon-delivered build would therefore not be a compatible-signature upgrade of the other channels: switching would mean reinstalling and reconfiguring.
+
+**What would reopen it:** a tester with an unpatched Android-based Fire TV at API 28 or later, and a reviewed feasibility result from that device covering local legacy ADB, client operations and restart after reboot.
+
+**To decide then:** whether to publish for the remaining devices, the console DRM setting, and whether the Amazon build keeps the existing package identity (reinstall when signatures differ) or needs its own.
+
+## 7. "In French" wording left in current specs
+
+**Observation:** the app ships five languages, but some current requirements still describe the interface as French. `android9-compatibility` renames the `tv-navigation` presentation requirement to "Couch-readable localized presentation" and states once, in "Quoted labels identify string resources", that labels quoted in French identify string resources rather than the displayed language. These occurrences remain as known spec debt:
+- `local-start`: the debugging guidance requirement ("explain in French") and two of its scenarios ("manual French instructions", "a distinct French recovery instruction");
+- `boot-persistence`: the home status requirement ("using French resources") and one scenario ("understandable French");
+- `client-access`: the request-screen requirement ("explain the effect of access in French").
+
+**Follow-up:** reword them to "in the selected language" in a later change, after `consent-and-persistence-controls` is archived, since it has open deltas on `client-access` and `boot-persistence`.
