@@ -12,11 +12,11 @@ import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 
 class UpdateInstallerTest {
-    private class FakeProcess(output: String, private val finishes: Boolean = true) : Process() {
+    private open class FakeProcess(output: String, private val finishes: Boolean = true) : Process() {
         val written = ByteArrayOutputStream()
         private val input = ByteArrayInputStream(output.toByteArray())
         override fun getOutputStream() = written
-        override fun getInputStream() = input
+        override fun getInputStream(): java.io.InputStream = input
         override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
         override fun waitFor() = 0
         override fun waitFor(timeout: Long, unit: java.util.concurrent.TimeUnit) = finishes
@@ -73,6 +73,60 @@ class UpdateInstallerTest {
             .install(ByteArrayInputStream(apk), apk.size.toLong(), sha)
         assertEquals(InstallStatus.TIMEOUT, outcome.status)
         assertEquals(listOf("/system/bin/pm", "install-abandon", "11"), commands.last())
+    }
+
+    @Test fun outputReadFailureIsReportedWithoutEscapingTheReaderThread() {
+        val uncaught = java.util.concurrent.atomic.AtomicReference<Throwable>()
+        val installer = UpdateInstaller(0, { command ->
+            commands += command
+            if ("install-write" !in command) FakeProcess("Success: created install session [12]")
+            else object : FakeProcess("") {
+                override fun getInputStream() = object : java.io.InputStream() {
+                    override fun read(): Int {
+                        Thread.currentThread().uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, error -> uncaught.set(error) }
+                        throw java.io.InterruptedIOException("read interrupted")
+                    }
+                }
+            }
+        }, 1_000)
+        val outcome = installer.install(ByteArrayInputStream(apk), apk.size.toLong(), sha)
+        assertEquals(InstallOutcome(InstallStatus.INSTALLER, "InterruptedIOException"), outcome)
+        assertNull(uncaught.get())
+        assertEquals(listOf("/system/bin/pm", "install-abandon", "12"), commands.last())
+        assertTrue(commands.none { "install-commit" in it })
+    }
+
+    @Test fun timeoutInducedReadFailureDoesNotKillTheServerAndStillAbandons() {
+        val reading = java.util.concurrent.CountDownLatch(1)
+        val destroyed = java.util.concurrent.CountDownLatch(1)
+        val reader = java.util.concurrent.atomic.AtomicReference<Thread>()
+        val uncaught = java.util.concurrent.atomic.AtomicReference<Throwable>()
+        val installer = UpdateInstaller(0, { command ->
+            commands += command
+            if ("install-write" !in command) FakeProcess("Success: created install session [13]")
+            else object : FakeProcess("") {
+                override fun getInputStream() = object : java.io.InputStream() {
+                    override fun read(): Int {
+                        reader.set(Thread.currentThread())
+                        Thread.currentThread().uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, error -> uncaught.set(error) }
+                        reading.countDown()
+                        check(destroyed.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                        throw java.io.InterruptedIOException("read interrupted")
+                    }
+                }
+                override fun waitFor(timeout: Long, unit: java.util.concurrent.TimeUnit): Boolean {
+                    check(reading.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    return false
+                }
+                override fun destroy() { destroyed.countDown() }
+            }
+        }, 1_000)
+        assertEquals(InstallStatus.TIMEOUT, installer.install(ByteArrayInputStream(apk), apk.size.toLong(), sha).status)
+        reader.get().join(5_000)
+        assertFalse(reader.get().isAlive)
+        assertNull(uncaught.get())
+        assertEquals(listOf("/system/bin/pm", "install-abandon", "13"), commands.last())
+        assertTrue(commands.none { "install-commit" in it })
     }
 
     @Test fun shortFileNeverCommitsAndInputIsBounded() {

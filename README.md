@@ -19,6 +19,8 @@
 
 ## Getting started
 
+Tsuyu's installation minimum is Android 9 (API 28). A usable local legacy ADB endpoint and firmware that delivers startup events are still required; the Android version alone does not establish device compatibility. No physical Android 9 TV has been validated. Emulator checks and outstanding physical-device regressions are recorded in the Android compatibility change's verification report.
+
 1. Download Tsuyu from [Releases](https://github.com/Sygix/Tsuyu/releases).
 2. Enable developer options and USB debugging when Tsuyu guides you through setup.
 3. Start Tsuyu and approve the Android debugging prompt, selecting **Always allow**.
@@ -31,11 +33,11 @@ Home distinguishes configured automatic startup from an automatic startup that a
 
 ## Language
 
-Tsuyu follows the TV's system languages by default, using the first supported language or English if none is supported. Open **Language** on Home to choose **System language** or a specific language. Changes apply immediately to Tsuyu's screens, including app access requests, without changing the TV's language or the running service. Android remembers the choice across app restarts and updates. Selecting **System language** restores automatic language selection.
+Tsuyu follows the TV's system languages by default, using the first supported language or English if none is supported. Open **Language** on Home to choose **System language** or a specific language. Changes apply immediately to Tsuyu's screens, including app access requests, without changing the TV's language or the running service. On Android 9–12 Tsuyu saves the choice privately; on Android 13 and later it uses Android's app-language setting, migrating an older Tsuyu choice once without replacing a newer platform choice. The choice survives app restarts and updates. Selecting **System language** restores automatic language selection.
 
 ## Opening Tsuyu from another app
 
-An app can open Tsuyu to help the user set it up. Launch `fr.sygix.tsuyu.MainActivity` explicitly, without `FLAG_ACTIVITY_NEW_TASK`, and pass `ActivityOptions.makeBasic().setShareIdentityEnabled(true)`. Once the service runs and the restart preparation has a result, Tsuyu shows « Revenir à <app> » to return to it. Without a shared identity, the user returns with Back.
+An app can open Tsuyu to help the user set it up. Launch `fr.sygix.tsuyu.MainActivity` explicitly, without `FLAG_ACTIVITY_NEW_TASK`. On Android 14 and later, pass `ActivityOptions.makeBasic().setShareIdentityEnabled(true)`: once the service runs and the restart preparation has a result, Tsuyu shows « Revenir à <app> » to return to it. Without a shared identity, or on Android 9–13, the user returns with normal Back navigation; Tsuyu does not infer a caller name from extras or the referrer.
 
 ## Updates
 

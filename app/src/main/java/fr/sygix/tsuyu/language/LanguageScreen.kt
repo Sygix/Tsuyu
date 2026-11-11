@@ -47,7 +47,7 @@ fun LanguageScreen(ui: LanguageUi, onSelect: (AppLanguage?) -> Unit, onRetry: ()
                     Text(detail, fontSize = TsuyuType.supporting, color = TsuyuColors.secondary, modifier = Modifier.testTag("language-system-detail"))
                 }
                 if (ui.error) {
-                    StatusSurface(stringResource(R.string.language_error), StatusKind.ATTENTION, Modifier.testTag("language-error"))
+                    StatusSurface(stringResource(if (ui.uncertain) R.string.language_uncertain else R.string.language_error), StatusKind.ATTENTION, Modifier.testTag("language-error"))
                     TvAction(stringResource(R.string.retry), onRetry, Modifier.focusRequester(retry).testTag("language-retry"))
                 }
             }
@@ -58,7 +58,7 @@ fun LanguageScreen(ui: LanguageUi, onSelect: (AppLanguage?) -> Unit, onRetry: ()
                     TvAction(
                         language?.nativeName ?: stringResource(R.string.language_system), { onSelect(language) },
                         Modifier.fillMaxWidth().testTag("language-${language?.tag ?: "system"}")
-                            .semantics { selected = ui.language != null && ui.language.selected == language }
+                            .semantics { selected = ui.language != null && !ui.uncertain && ui.language.selected == language }
                             .focusRequester(requesters[index])
                             .focusProperties {
                                 up = requesters.getOrNull(index - 1) ?: FocusRequester.Cancel
@@ -66,17 +66,17 @@ fun LanguageScreen(ui: LanguageUi, onSelect: (AppLanguage?) -> Unit, onRetry: ()
                                 left = if (ui.error) retry else FocusRequester.Cancel
                                 right = FocusRequester.Cancel
                             },
-                        enabled = ui.language != null,
-                        selected = ui.language != null && ui.language.selected == language,
+                        enabled = ui.language != null && !ui.loading && !ui.uncertain,
+                        selected = ui.language != null && !ui.uncertain && ui.language.selected == language,
                     )
                 }
             }
         }
-        LaunchedEffect(ui.language?.selected, ui.language != null) {
-            if (ui.language != null) requesters[choices.indexOf(ui.language.selected)].requestFocus(FocusDirection.Enter)
+        LaunchedEffect(ui.language?.selected, ui.language != null, ui.loading, ui.uncertain) {
+            if (ui.language != null && !ui.loading && !ui.uncertain) requesters[choices.indexOf(ui.language.selected)].requestFocus(FocusDirection.Enter)
         }
-        LaunchedEffect(ui.error) {
-            if (ui.error && ui.language == null) retry.requestFocus(FocusDirection.Enter)
+        LaunchedEffect(ui.error, ui.uncertain) {
+            if (ui.error && (ui.language == null || ui.uncertain)) retry.requestFocus(FocusDirection.Enter)
         }
     }
 }

@@ -71,7 +71,7 @@ object ServerMain {
         }
         val failure = { event("compatibilityFailure", android.os.Bundle()) }
         val access = AccessAuthority(identities::resolve, storage)
-        identities.observe(context, access::invalidate)
+        identities.observe(userId, access::invalidate)
         val sessions = ProcessSession(args[0])
         val clients = ClientService(
             managerUid, access, identities, storage, deadline, { exitProcess(0) },

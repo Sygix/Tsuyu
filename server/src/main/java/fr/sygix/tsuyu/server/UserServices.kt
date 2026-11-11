@@ -8,6 +8,7 @@
 package fr.sygix.tsuyu.server
 
 import android.content.ComponentName
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import moe.shizuku.server.IShizukuServiceConnection
@@ -84,7 +85,12 @@ internal class UserServices(
         return if (!record.daemon && record.callbacks.isEmpty()) remove(record) else null
     }
     private fun component(uid: Int, group: AccessGroup, args: Bundle): ComponentName {
-        val component = requireNotNull(args.getParcelable(USER_SERVICE_ARG_COMPONENT, ComponentName::class.java))
+        val component = requireNotNull(if (Build.VERSION.SDK_INT >= 33) {
+            args.getParcelable(USER_SERVICE_ARG_COMPONENT, ComponentName::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            (args.getParcelable<android.os.Parcelable>(USER_SERVICE_ARG_COMPONENT) as? ComponentName)
+        })
         require(group.uid == uid && component.packageName in group.members)
         require(component.className.matches(Regex("[A-Za-z_$][A-Za-z0-9_.$]*")))
         return component

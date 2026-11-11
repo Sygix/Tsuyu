@@ -6,16 +6,15 @@
 package fr.sygix.tsuyu.access
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import fr.sygix.tsuyu.language.LocalizedActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.sygix.tsuyu.TsuyuGraph
 
-class AccessActivity : ComponentActivity() {
+class AccessActivity : LocalizedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = intent.getStringExtra("request")
@@ -26,7 +25,7 @@ class AccessActivity : ComponentActivity() {
                 return AccessViewModel(applicationContext, { graph.broker.server.value }, token, ended = graph.requestEnded) as T
             }
         })[AccessViewModel::class.java]
-        setContent {
+        setLocalizedContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             val back = model::back
             BackHandler { back() }

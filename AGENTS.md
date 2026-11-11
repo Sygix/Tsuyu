@@ -134,7 +134,7 @@ Any other assumption about the device must be checked on the TV before it is spe
 - **Branches:** `feat/`, `fix/`, `chore/`. No direct commit on main.
 - **Signing:** signed commits, with an author consistent with the GitHub account.
 - **Package:** `fr.sygix.tsuyu`.
-- **Target:** Android TV 14+ (minSdk 34, compileSdk 37).
+- **Target:** Android TV 9+ installation baseline (minSdk 28, compileSdk 37). A usable local ADB endpoint and boot delivery remain firmware-dependent; an SDK minimum is not physical-device validation.
 
 ## CI and release
 - **`test`:** runs `./gradlew test` on every PR and on main. It is the required check for merging.

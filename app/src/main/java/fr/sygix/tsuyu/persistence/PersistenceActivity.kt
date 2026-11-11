@@ -8,16 +8,15 @@ package fr.sygix.tsuyu.persistence
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
-import androidx.activity.ComponentActivity
+import fr.sygix.tsuyu.language.LocalizedActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.sygix.tsuyu.TsuyuGraph
 import fr.sygix.tsuyu.ui.*
 
-class PersistenceActivity : ComponentActivity() {
+class PersistenceActivity : LocalizedActivity() {
     private lateinit var model: PersistenceViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,7 +27,7 @@ class PersistenceActivity : ComponentActivity() {
                 return PersistenceViewModel(graph.persistenceController) as T
             }
         })[PersistenceViewModel::class.java]
-        setContent {
+        setLocalizedContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { back() }
             PersistenceScreen(ui) { action ->

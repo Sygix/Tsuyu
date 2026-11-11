@@ -8,9 +8,8 @@ package fr.sygix.tsuyu
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
-import androidx.activity.ComponentActivity
+import fr.sygix.tsuyu.language.LocalizedActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,7 +18,7 @@ import fr.sygix.tsuyu.ui.*
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+class MainActivity : LocalizedActivity() {
     private lateinit var model: HomeViewModel
     private var observer: AutoCloseable? = null
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,7 +36,7 @@ class MainActivity : ComponentActivity() {
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
         lifecycleScope.launch { graph.persistence.state.collect { graph.persistenceController.refresh() } }
-        setContent {
+        setLocalizedContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { handleBack(ui.screen) }
             HomeScreen(ui) { action ->
@@ -101,6 +100,7 @@ class MainActivity : ComponentActivity() {
         catch (unavailable: Exception) { model.settingsFailed() }
     }
     private fun resolveCaller(): String? {
+        if (android.os.Build.VERSION.SDK_INT < 34) return null
         val name = launchedFromPackage?.takeIf { it != packageName } ?: return null
         return try { packageManager.getApplicationInfo(name, 0).loadLabel(packageManager).toString() }
         catch (missing: android.content.pm.PackageManager.NameNotFoundException) { null }
