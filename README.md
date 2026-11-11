@@ -19,7 +19,7 @@
 
 ## Getting started
 
-Tsuyu's installation minimum is Android 9 (API 28). A usable local legacy ADB endpoint and firmware that delivers startup events are still required; the Android version alone does not establish device compatibility. No physical Android 9 TV has been validated. Emulator checks and outstanding physical-device regressions are recorded in the Android compatibility change's verification report.
+Tsuyu's installation minimum is Android 9 (API 28). A usable local legacy ADB endpoint and firmware that delivers startup events are still required; the Android version alone does not establish device compatibility. Only an Android 14 TV has been used in practice. Below Android 14, the on-device debugging authorization prompt has not been exercised even on an emulator, and boot restart only on an Android 9 emulator through a proxied ADB endpoint; the service and client contracts were verified on Android 9 to 12 emulators (see `openspec/changes/android9-compatibility/verification.md`, later archived under `openspec/changes/archive/`).
 
 1. Download Tsuyu from [Releases](https://github.com/Sygix/Tsuyu/releases).
 2. Enable developer options and USB debugging when Tsuyu guides you through setup.
