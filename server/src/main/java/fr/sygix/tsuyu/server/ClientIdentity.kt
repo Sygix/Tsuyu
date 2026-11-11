@@ -11,13 +11,22 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import rikka.hidden.compat.PackageManagerApis
+import rikka.hidden.compat.ActivityManagerApis
 import java.security.MessageDigest
 
 internal class ClientIdentity(private val deadline: Deadline, private val lookup: ((Int) -> AccessGroup)? = null) {
     private val verified = mutableMapOf<Int, AccessGroup>()
     private var observing = false
     @Synchronized fun invalidate() { verified.clear() }
-    fun observe(context: Context, changed: () -> Unit) {
+    fun observe(
+        userId: Int,
+        changed: () -> Unit,
+        failed: (Exception) -> Unit = {},
+        register: (BroadcastReceiver, IntentFilter, Int) -> Unit = { receiver, filter, user ->
+            ActivityManagerApis.registerReceiver("com.android.shell", null, null, receiver, filter, null, user, 0)
+            Unit
+        },
+    ) {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
@@ -25,9 +34,15 @@ internal class ClientIdentity(private val deadline: Deadline, private val lookup
             addAction(Intent.ACTION_PACKAGE_REPLACED)
             addDataScheme("package")
         }
-        context.registerReceiver(object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) { invalidate(); changed() }
-        }, filter)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent) { invalidate(); changed() }
+        }
+        try { deadline.call(Deadline.Use.IDENTITY) { register(receiver, filter, userId) } }
+        catch (failure: Exception) {
+            android.util.Log.e("TsuyuServer", "Package watch unavailable; identities are resolved on every call", failure)
+            failed(failure)
+            return
+        }
         synchronized(this) { observing = true }
     }
     @Synchronized fun resolve(uid: Int): AccessGroup {

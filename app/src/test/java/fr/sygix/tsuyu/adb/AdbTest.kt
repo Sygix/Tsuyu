@@ -20,6 +20,39 @@ import java.security.interfaces.RSAPublicKey
 import java.util.Base64
 
 class AdbTest {
+    @Test fun incompatibleStoredExponentIsRejectedWithoutReplacingTheKey() {
+        val pair = KeyPairGenerator.getInstance("RSA").apply {
+            initialize(java.security.spec.RSAKeyGenParameterSpec(2048, BigInteger.valueOf(3)))
+        }.generateKeyPair()
+        val folder = Files.createTempDirectory("adb-exponent").toFile()
+        val file = java.io.File(folder, "key")
+        try {
+            file.writeBytes(pair.private.encoded)
+            val before = file.readBytes()
+            assertThrows(IllegalStateException::class.java) { AdbKeyStore(file).load() }
+            assertArrayEquals(before, file.readBytes())
+        } finally { file.delete(); folder.delete() }
+    }
+
+    @Test fun storedNonCrtPrivateKeysRetainTheirPublicIdentityAndSignatures() {
+        val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+        val private = pair.private as java.security.interfaces.RSAPrivateKey
+        val minimal = java.security.KeyFactory.getInstance("RSA", "SunRsaSign").generatePrivate(
+            java.security.spec.RSAPrivateKeySpec(private.modulus, private.privateExponent),
+        )
+        val folder = Files.createTempDirectory("adb-non-crt").toFile()
+        val file = java.io.File(folder, "key")
+        try {
+            file.writeBytes(minimal.encoded)
+            val before = file.readBytes()
+            val restored = AdbKeyStore(file).load()
+            assertArrayEquals(AdbKey(pair).publicKey(), restored.publicKey())
+            val token = ByteArray(20) { it.toByte() }
+            assertArrayEquals(AdbKey(pair).sign(token), restored.sign(token))
+            assertArrayEquals(before, file.readBytes())
+        } finally { file.delete(); folder.delete() }
+    }
+
     @Test fun nonInteractiveAuthenticationNeverSendsAnUnknownPublicKey() {
         val key = AdbKey(KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair())
         val challenge = AdbPacket(AdbPacket.AUTH, 1, 0, ByteArray(20) { 7 }).encode(false)

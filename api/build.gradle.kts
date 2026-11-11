@@ -7,7 +7,7 @@ plugins { alias(libs.plugins.android.library) }
 android {
     namespace = "fr.sygix.tsuyu.api"
     compileSdk = 37
-    defaultConfig { minSdk = 34 }
+    defaultConfig { minSdk = 28 }
     buildFeatures { aidl = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

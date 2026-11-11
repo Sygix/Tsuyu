@@ -27,7 +27,7 @@ android {
 
     defaultConfig {
         applicationId = "fr.sygix.tsuyu"
-        minSdk = 34
+        minSdk = 28
         targetSdk = 37
         val ciVersion = System.getenv("TSUYU_VERSION")?.removePrefix("v")
         versionCode = ciVersion?.let(::versionCodeOf) ?: 1

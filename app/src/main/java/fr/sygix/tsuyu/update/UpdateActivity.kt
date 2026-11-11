@@ -7,9 +7,8 @@ package fr.sygix.tsuyu.update
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import fr.sygix.tsuyu.language.LocalizedActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
@@ -35,7 +34,7 @@ import fr.sygix.tsuyu.ui.theme.*
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-class UpdateActivity : ComponentActivity() {
+class UpdateActivity : LocalizedActivity() {
     private lateinit var model: UpdateViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,7 +47,7 @@ class UpdateActivity : ComponentActivity() {
         })[UpdateViewModel::class.java]
         lifecycleScope.launch { graph.updates.load() }
         lifecycleScope.launch { model.preparation.collect { startActivity(Intent(this@UpdateActivity, fr.sygix.tsuyu.persistence.PersistenceActivity::class.java)) } }
-        setContent {
+        setLocalizedContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { finish() }
             UpdateScreen(ui) { action -> if (action == Action.BACK) finish() else model.act(action) }

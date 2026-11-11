@@ -12,7 +12,9 @@ import java.nio.file.StandardCopyOption
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
-import java.security.interfaces.RSAPrivateCrtKey
+import java.security.Signature
+import java.security.interfaces.RSAPrivateKey
+import java.math.BigInteger
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.RSAPublicKeySpec
 
@@ -21,8 +23,19 @@ class AdbKeyStore(private val file: File) {
         if (file.exists()) {
             require(file.length() in 1..4096) { "Invalid private key storage" }
             val factory = KeyFactory.getInstance("RSA")
-            val private = factory.generatePrivate(PKCS8EncodedKeySpec(file.readBytes())) as RSAPrivateCrtKey
-            return AdbKey(KeyPair(factory.generatePublic(RSAPublicKeySpec(private.modulus, private.publicExponent)), private))
+            val private = factory.generatePrivate(PKCS8EncodedKeySpec(file.readBytes())) as RSAPrivateKey
+            val public = factory.generatePublic(RSAPublicKeySpec(private.modulus, BigInteger.valueOf(65537)))
+            val challenge = "Tsuyu ADB key verification".toByteArray(Charsets.UTF_8)
+            val signed = Signature.getInstance("SHA256withRSA").apply {
+                initSign(private)
+                update(challenge)
+            }.sign()
+            check(Signature.getInstance("SHA256withRSA").run {
+                initVerify(public)
+                update(challenge)
+                verify(signed)
+            }) { "Stored key does not match the ADB public exponent" }
+            return AdbKey(KeyPair(public, private))
         }
         val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
         val temporary = File(file.parentFile, file.name + ".new")

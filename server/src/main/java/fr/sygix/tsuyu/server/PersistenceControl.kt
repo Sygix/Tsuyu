@@ -32,9 +32,15 @@ class AndroidPersistenceCommands : PersistenceCommands {
         }
     }
 }
-class PersistenceControl(private val commands: PersistenceCommands, private val userId: Int = 0) {
+class PersistenceControl(
+    private val commands: PersistenceCommands,
+    private val userId: Int = 0,
+    private val appUid: Int = -1,
+    private val sdk: Int = UID_OPTION_SDK,
+) {
     init {
         require(userId in 0..21474)
+        require(sdk >= UID_OPTION_SDK || appUid >= 0)
     }
     private val pkg = "fr.sygix.tsuyu"
     fun status(): PersistenceSnapshot = PersistenceSnapshot(mode(true), mode(false), expiry())
@@ -61,7 +67,13 @@ class PersistenceControl(private val commands: PersistenceCommands, private val 
                 Preparation.DENIED
             } else Preparation.FAILED
         }
-        val lines = result.output.lineSequence().filter { if (uid) it.contains("Uid mode:", true) else !it.contains("Uid mode:", true) }
+        val lines = result.output.lineSequence().filter {
+            when {
+                uid && sdk < UID_OPTION_SDK -> true
+                uid -> it.contains("Uid mode:", true)
+                else -> !it.contains("Uid mode:", true)
+            }
+        }
         val modes = lines.mapNotNull { MODE.find(it)?.groupValues?.get(1)?.lowercase() }.toList()
         return when {
             modes.size == 1 && modes.single() == "allow" -> Preparation.READY
@@ -70,8 +82,11 @@ class PersistenceControl(private val commands: PersistenceCommands, private val 
         }
     }
     private fun appops(action: String, uid: Boolean): List<String> =
-        listOf("/system/bin/appops", action, "--user", "$userId") +
-            (if (uid) listOf("--uid") else emptyList()) + listOf(pkg, "AUTO_START")
+        listOf("/system/bin/appops", action, "--user", "$userId") + when {
+            uid && sdk < UID_OPTION_SDK -> listOf("$appUid")
+            uid -> listOf("--uid", pkg)
+            else -> listOf(pkg)
+        } + "AUTO_START"
     private fun expiry(): Long? {
         val result = try { commands.execute(listOf("/system/bin/settings", "get", "global", "adb_allowed_connection_time")) }
         catch (failure: Exception) { return null }
@@ -84,5 +99,6 @@ class PersistenceControl(private val commands: PersistenceCommands, private val 
     }
     companion object {
         private val MODE = Regex("AUTO_START:\\s*(allow|ignore|deny|default|foreground)", RegexOption.IGNORE_CASE)
+        private const val UID_OPTION_SDK = 29
     }
 }

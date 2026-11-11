@@ -7,17 +7,19 @@ package fr.sygix.tsuyu.access
 
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import fr.sygix.tsuyu.language.LocalizedActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
-import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.sygix.tsuyu.TsuyuGraph
 
-class AccessActivity : ComponentActivity() {
+class AccessActivity : LocalizedActivity() {
     private lateinit var model: AccessViewModel
+    override fun onLanguageGateBack() { model.back() }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -32,12 +34,12 @@ class AccessActivity : ComponentActivity() {
                 return AccessViewModel(applicationContext, { graph.broker.server.value }, token, ended = graph.requestEnded) as T
             }
         })[AccessViewModel::class.java]
-        setContent {
+        lifecycleScope.launch { model.ui.first { it.finished }; finish() }
+        setLocalizedContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             val back = model::back
             BackHandler { back() }
             AccessScreen(ui, model::confirm, model::revoke, model::refresh, back, model::reset, model::focused)
-            LaunchedEffect(ui.finished) { if (ui.finished) finish() }
         }
     }
     override fun onResume() {

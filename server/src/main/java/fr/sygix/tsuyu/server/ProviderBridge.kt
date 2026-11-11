@@ -5,30 +5,56 @@
 
 package fr.sygix.tsuyu.server
 
-import android.content.AttributionSource
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import rikka.hidden.compat.ActivityManagerApis
 
-internal class ProviderBridge(private val userId: Int) {
+internal class ProviderBridge(
+    private val userId: Int,
+    private val acquire: (String, Int) -> Any? = { authority, user ->
+        ActivityManagerApis.getContentProviderExternal(authority, user, null, "tsuyu")
+    },
+    private val release: (String) -> Unit = { ActivityManagerApis.removeContentProviderExternal(it, null) },
+    private val invoke: (Any, String, String, Bundle) -> Bundle? = ProviderCall::call,
+) {
     fun publish(server: IBinder, token: String, generation: String): IBinder {
         return call("fr.sygix.tsuyu.manager", "sendServer", Bundle().apply {
             putBinder("server", server); putString("token", token); putString("generation", generation)
         })?.getBinder("client") ?: error("Manager rejected handshake")
     }
     fun call(authority: String, method: String, extra: Bundle): Bundle? {
-        val manager = Class.forName("android.app.ActivityManager").getDeclaredMethod("getService").invoke(null)
-        val type = Class.forName("android.app.IActivityManager")
-        val acquire = type.getMethod("getContentProviderExternal", String::class.java, Int::class.javaPrimitiveType, IBinder::class.java, String::class.java)
-        val holder = acquire.invoke(manager, authority, userId, null, "tsuyu") ?: throw ProviderUnavailable(authority)
+        val provider = acquire(authority, userId) ?: throw ProviderUnavailable(authority)
         try {
-            val provider = holder.javaClass.getField("provider").get(holder) ?: throw ProviderUnavailable(authority)
-            val source = AttributionSource.Builder(2000).setPackageName("com.android.shell").build()
-            val call = Class.forName("android.content.IContentProvider").getMethod("call", AttributionSource::class.java, String::class.java, String::class.java, String::class.java, Bundle::class.java)
-            return call.invoke(provider, source, authority, method, null, extra) as? Bundle
+            return invoke(provider, authority, method, extra)
         } finally {
-            type.getMethod("removeContentProviderExternal", String::class.java, IBinder::class.java).invoke(manager, authority, null)
+            release(authority)
         }
     }
 }
 
 internal class ProviderUnavailable(authority: String) : IllegalStateException("Provider unavailable: $authority")
+
+internal object ProviderCall {
+    fun call(provider: Any, authority: String, method: String, extra: Bundle): Bundle? {
+        val type = Class.forName("android.content.IContentProvider")
+        if (Build.VERSION.SDK_INT >= 31) return AttributionProviderCall.call(type, provider, authority, method, extra)
+        val identity = when {
+            Build.VERSION.SDK_INT >= 30 -> arrayOf("com.android.shell", null, authority)
+            Build.VERSION.SDK_INT >= 29 -> arrayOf("com.android.shell", authority)
+            else -> arrayOf("com.android.shell")
+        }
+        val types = Array<Class<*>>(identity.size + 2) { String::class.java } + Bundle::class.java
+        return type.getMethod("call", *types).invoke(provider, *identity, method, null, extra) as? Bundle
+    }
+}
+
+private object AttributionProviderCall {
+    @android.annotation.TargetApi(31)
+    fun call(type: Class<*>, provider: Any, authority: String, method: String, extra: Bundle): Bundle? {
+        val source = android.content.AttributionSource.Builder(2000).setPackageName("com.android.shell").build()
+        return type.getMethod("call", android.content.AttributionSource::class.java, String::class.java,
+            String::class.java, String::class.java, Bundle::class.java)
+            .invoke(provider, source, authority, method, null, extra) as? Bundle
+    }
+}

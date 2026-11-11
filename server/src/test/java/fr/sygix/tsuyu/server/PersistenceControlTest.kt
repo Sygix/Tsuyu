@@ -38,6 +38,28 @@ class PersistenceControlTest {
             return CommandResult(0, if (isUid) "Uid mode: AUTO_START: $uid" else "Uid mode: AUTO_START: $uid\nAUTO_START: $pkg")
         }
     }
+    @Test fun androidNineAddressesTheUidModeByNumericUidAndReadsItsUnprefixedMode() {
+        val calls = mutableListOf<List<String>>()
+        var uid = "ignore"
+        var pkg = "ignore"
+        val control = PersistenceControl({ args ->
+            calls += args
+            val numeric = "10123" in args
+            when {
+                args[0].endsWith("settings") -> CommandResult(0, "604800000")
+                "--uid" in args -> CommandResult(255, "Error: Unknown operation string: fr.sygix.tsuyu")
+                args[1] == "set" -> { if (numeric) uid = "allow" else pkg = "allow"; CommandResult(0, "") }
+                else -> CommandResult(0, "AUTO_START: " + if (numeric) uid else pkg)
+            }
+        }, userId = 0, appUid = 10123, sdk = 28)
+        val before = control.status()
+        assertEquals(Preparation.DENIED, before.uid)
+        assertEquals(Preparation.DENIED, before.pkg)
+        val prepared = control.prepare()
+        assertTrue(prepared.ready)
+        assertTrue(calls.none { "--uid" in it })
+        assertTrue(calls.any { it.take(5) == listOf("/system/bin/appops", "set", "--user", "0", "10123") })
+    }
     @Test fun readinessRequiresIndependentUidAndPackageReadbacks() {
         val commands = Commands()
         commands.uid = "allow"

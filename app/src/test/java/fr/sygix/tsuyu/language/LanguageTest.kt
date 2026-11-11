@@ -16,9 +16,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.*
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LanguageTest {
     @Test fun resolvesTheFirstSupportedSystemLocaleAndFallsBackToEnglish() {
         assertEquals(AppLanguage.FRENCH, AppLanguage.resolve(listOf(Locale.JAPAN, Locale.CANADA_FRENCH, Locale.GERMANY)))
@@ -28,7 +32,7 @@ class LanguageTest {
         assertEquals(AppLanguage.SPANISH, AppLanguage.of(Locale.forLanguageTag("es-MX")))
     }
 
-    @Test fun nativePreferencePersistsAcrossGatewayInstancesAndCanReturnToSystem() {
+    @Test fun nativePreferencePersistsAcrossGatewayInstancesAndCanReturnToSystem() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val manager = context.getSystemService(LocaleManager::class.java)
         val system = manager.systemLocales.toLanguageTags()
@@ -56,26 +60,35 @@ class LanguageTest {
         }
     }
 
-    @Test fun failedWritesDoNotPretendToChangeThePreferenceAndRetryReconciles() {
+    @Test fun failedWritesDoNotPretendToChangeThePreferenceAndRetryReconciles() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
         var saved = LanguageState(system = AppLanguage.FRENCH)
         var fail = false
         val model = LanguageViewModel(object : AppLanguageGateway {
-            override fun current() = saved
-            override fun select(language: AppLanguage?) {
+            override suspend fun current() = saved
+            override suspend fun select(language: AppLanguage?) {
                 if (fail) throw SecurityException("Denied")
                 saved = saved.copy(selected = language)
             }
         })
         model.refresh()
+        advanceUntilIdle()
         fail = true
         model.select(AppLanguage.GERMAN)
+        advanceUntilIdle()
         assertTrue(model.ui.value.error)
         assertNull(model.ui.value.language?.selected)
         fail = false
+        model.refresh()
+        advanceUntilIdle()
         model.select(AppLanguage.GERMAN)
+        advanceUntilIdle()
         assertFalse(model.ui.value.error)
         assertEquals(AppLanguage.GERMAN, model.ui.value.language?.selected)
         model.select(null)
+        advanceUntilIdle()
         assertEquals(AppLanguage.FRENCH, model.ui.value.language?.effective)
+        } finally { Dispatchers.resetMain() }
     }
 }

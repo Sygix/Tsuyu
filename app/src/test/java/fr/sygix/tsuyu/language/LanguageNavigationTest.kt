@@ -17,10 +17,25 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w960dp-h540dp-xhdpi")
+@Config(sdk = [28, 33, 34], qualifiers = "w960dp-h540dp-xhdpi")
 class LanguageNavigationTest {
     @get:Rule val compose = createComposeRule()
     private fun press(tag: String, key: Key) = compose.onNodeWithTag(tag).performKeyInput { keyDown(key); keyUp(key) }
+
+    @Test fun uncertainWriteRemovesConfirmationAndFocusesReconciliationUntilRefresh() {
+        val state = mutableStateOf(LanguageUi(LanguageState(AppLanguage.FRENCH), error = true, uncertain = true))
+        compose.setContent {
+            LanguageScreen(state.value, { fail("Uncertain selection must stay disabled") }, {
+                state.value = LanguageUi(LanguageState(AppLanguage.GERMAN))
+            })
+        }
+        compose.onNodeWithTag("language-fr").assertIsNotSelected().assertIsNotEnabled()
+        compose.onAllNodesWithTag("language-check", useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithTag("language-retry").assertIsFocused()
+        press("language-retry", Key.DirectionCenter)
+        compose.onNodeWithTag("language-de").assertIsSelected().assertIsFocused()
+        compose.onNodeWithTag("language-error").assertDoesNotExist()
+    }
 
     @Test fun selectionAndFocusAreIndependentAndCenterAppliesTheFocusedChoice() {
         val state = mutableStateOf(LanguageUi(LanguageState(AppLanguage.FRENCH, AppLanguage.GERMAN)))
@@ -66,5 +81,19 @@ class LanguageNavigationTest {
         press("language-retry", Key.DirectionCenter)
         compose.onNodeWithTag("language-error").assertDoesNotExist()
         compose.onNodeWithTag("language-it").assertIsFocused().assertIsSelected()
+    }
+
+    @Test fun pendingWriteDisablesChoicesAndFailureRestoresConfirmedFocus() {
+        val state = mutableStateOf(LanguageUi(LanguageState(AppLanguage.FRENCH)))
+        compose.setContent { LanguageScreen(state.value, {}, {}) }
+        compose.onNodeWithTag("language-fr").assertIsFocused()
+        compose.runOnIdle { state.value = state.value.copy(loading = true) }
+        compose.onNodeWithTag("language-fr").assertIsNotEnabled().assertIsSelected()
+        compose.onNodeWithTag("language-de").assertIsNotEnabled()
+        compose.runOnIdle { state.value = state.value.copy(loading = false, error = true) }
+        compose.onNodeWithTag("language-fr").assertIsFocused().assertIsSelected()
+        compose.onNodeWithTag("language-error").assertExists()
+        press("language-fr", Key.DirectionLeft)
+        compose.onNodeWithTag("language-retry").assertIsFocused()
     }
 }

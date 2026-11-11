@@ -71,7 +71,7 @@ class AndroidUpdateFiles(private val context: Context) : UpdateFiles {
         }
         if (digest.digest().joinToString("") { "%02x".format(it) } != release.sha256) return UpdateCause.DIGEST
         val manager = context.packageManager
-        val archive = manager.getPackageArchiveInfo(file.path, PackageManager.GET_SIGNING_CERTIFICATES) ?: return UpdateCause.PACKAGE
+        val archive = manager.getPackageArchiveInfo(file.path, ARCHIVE_FLAGS) ?: return UpdateCause.PACKAGE
         if (archive.packageName != context.packageName) return UpdateCause.PACKAGE
         if (archive.longVersionCode != release.code || archive.longVersionCode <= installed) return UpdateCause.VERSION
         val expected = manager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo?.apkContentsSigners?.toSet()
@@ -84,6 +84,9 @@ class AndroidUpdateFiles(private val context: Context) : UpdateFiles {
     }
 
     companion object {
+        @Suppress("DEPRECATION")
+        private val ARCHIVE_FLAGS = if (android.os.Build.VERSION.SDK_INT < 29) PackageManager.GET_SIGNING_CERTIFICATES or PackageManager.GET_SIGNATURES
+            else PackageManager.GET_SIGNING_CERTIFICATES
         private const val MAX_REDIRECTS = 5
     }
 }

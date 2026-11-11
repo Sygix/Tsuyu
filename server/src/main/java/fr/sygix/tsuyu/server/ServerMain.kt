@@ -75,7 +75,7 @@ object ServerMain {
         }
         val failure = { event("compatibilityFailure", android.os.Bundle()) }
         val access = AccessAuthority(identities::resolve, storage)
-        identities.observe(context, access::invalidate)
+        identities.observe(userId, access::invalidate)
         val sessions = ProcessSession(args[0])
         val clients = ClientService(
             managerUid, access, identities, storage, deadline, { exitProcess(0) },
@@ -87,7 +87,7 @@ object ServerMain {
             launchProcess = { command, environment, directory -> sessions.launch(command, environment, directory) },
         )
         Runtime.getRuntime().addShutdownHook(Thread { clients.shutdown() })
-        val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients, persistence = PersistenceControl(AndroidPersistenceCommands(), userId), updates = UpdateInstaller(userId))
+        val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients, persistence = PersistenceControl(AndroidPersistenceCommands(), userId, managerUid, android.os.Build.VERSION.SDK_INT), updates = UpdateInstaller(userId))
         fun snapshot(): PackageStamp? = try {
             rikka.hidden.compat.PackageManagerApis.getPackageInfo(PACKAGE, 0, userId)?.let { installed ->
                 PackageStamp(requireNotNull(installed.applicationInfo).sourceDir, installed.lastUpdateTime, requireNotNull(installed.applicationInfo).uid)

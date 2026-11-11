@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
 import rikka.shizuku.ShizukuApiConstants.*
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [28, 34])
 class UserServicesTest {
     private val group = AccessGroup(10001, mapOf("client" to "signer"))
     private class Child : Process() {
@@ -50,6 +50,21 @@ class UserServicesTest {
         putBoolean(USER_SERVICE_ARG_DAEMON, daemon)
         putBoolean(USER_SERVICE_ARG_NO_CREATE, peek)
         putBoolean(USER_SERVICE_ARG_REMOVE, remove)
+    }
+    @Test fun invalidComponentsNeverLaunchAProcess() {
+        var launches = 0
+        val services = UserServices("apk", 0, { true }, { launches++; Child() }, { it.destroy() })
+        try {
+            val invalid = listOf(
+                Bundle().apply { putString(USER_SERVICE_ARG_COMPONENT, "client.Service") },
+                Bundle().apply { putParcelable(USER_SERVICE_ARG_COMPONENT, ComponentName("other", "other.Service")) },
+                Bundle().apply { putParcelable(USER_SERVICE_ARG_COMPONENT, ComponentName("client", "invalid;command")) },
+            )
+            invalid.forEach { args ->
+                assertThrows(RuntimeException::class.java) { services.add(group.uid, group, 13, Connection(), args) }
+            }
+            assertEquals(0, launches)
+        } finally { services.close() }
     }
     @Test fun versionsPeekDaemonAndExplicitRemovalFollowTheUpstreamContract() {
         val children = mutableListOf<Child>()
