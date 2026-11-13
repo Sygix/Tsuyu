@@ -133,4 +133,5 @@
     <string name="language_system_value">Lingua del sistema: %1$s</string>
     <string name="language_system_unsupported">Lingua del sistema non supportata. La modalità sistema usa %1$s.</string>
     <string name="language_error">Impossibile verificare o cambiare la lingua. Riprova o torna alla schermata iniziale e riapri questa schermata.</string>
+    <string name="language_uncertain">Il cambio di lingua non è ancora confermato. Riprova per verificarne l’esito prima di scegliere di nuovo.</string>
 </resources>

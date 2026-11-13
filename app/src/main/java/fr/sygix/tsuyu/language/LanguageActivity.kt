@@ -6,32 +6,17 @@
 package fr.sygix.tsuyu.language
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-class LanguageActivity : ComponentActivity() {
-    private lateinit var model: LanguageViewModel
+class LanguageActivity : LocalizedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        model = ViewModelProvider(this, object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                @Suppress("UNCHECKED_CAST")
-                return LanguageViewModel(AndroidAppLanguageGateway(applicationContext)) as T
-            }
-        })[LanguageViewModel::class.java]
-        setContent {
+        setLocalizedContent {
             BackHandler { finish() }
-            LanguageScreen(model.ui.collectAsStateWithLifecycle().value, model::select, model::refresh)
+            LanguageScreen(languageModel.ui.collectAsStateWithLifecycle().value, languageModel::select, languageModel::refresh)
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        model.refresh()
-    }
 }

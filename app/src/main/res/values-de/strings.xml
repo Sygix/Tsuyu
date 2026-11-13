@@ -133,4 +133,5 @@
     <string name="language_system_value">Systemsprache: %1$s</string>
     <string name="language_system_unsupported">Systemsprache nicht unterstützt. Im Systemmodus wird %1$s verwendet.</string>
     <string name="language_error">Die Sprache konnte nicht geprüft oder geändert werden. Versuche es erneut oder kehre zur Startseite zurück und öffne diesen Bildschirm erneut.</string>
+    <string name="language_uncertain">Der Sprachwechsel ist noch nicht bestätigt. Versuche es erneut, um das Ergebnis vor einer neuen Auswahl zu prüfen.</string>
 </resources>

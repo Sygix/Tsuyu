@@ -2,6 +2,7 @@
 -keep class fr.sygix.tsuyu.ipc.** { *; }
 -keep class moe.shizuku.** { *; }
 -dontwarn android.app.IActivityManager
+-dontwarn android.app.ContentProviderHolder
 -dontwarn android.app.IActivityManager$Stub
 -dontwarn android.app.IApplicationThread
 -dontwarn android.app.IProcessObserver
@@ -10,6 +11,9 @@
 -dontwarn android.app.IUidObserver$Stub
 -dontwarn android.app.ProfilerInfo
 -dontwarn android.content.pm.ILauncherApps
+-dontwarn android.content.IContentProvider
+-dontwarn android.content.IIntentReceiver
+-dontwarn android.content.IIntentReceiver$Stub
 -dontwarn android.content.pm.IPackageManager
 -dontwarn android.content.pm.ParceledListSlice
 -dontwarn android.hardware.display.IDisplayManager

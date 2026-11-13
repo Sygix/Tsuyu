@@ -7,7 +7,10 @@ package fr.sygix.tsuyu.server
 
 import java.io.InputStream
 import java.security.MessageDigest
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 enum class InstallStatus { SUCCESS, DIGEST, INSTALLER, TIMEOUT }
 data class InstallOutcome(val status: InstallStatus, val detail: String = "")
@@ -49,12 +52,13 @@ class UpdateInstaller(
             val writer = input?.let { feed ->
                 Thread { try { process.outputStream.use(feed) } catch (failure: Exception) { process.destroyForcibly() } }.apply { start() }
             } ?: run { process.outputStream.close(); null }
-            val output = StringBuilder()
-            val reader = Thread { output.append(process.inputStream.bufferedReader().readText()) }.apply { start() }
+            val output = FutureTask { process.inputStream.bufferedReader().readText() }
+            Thread(output).start()
             if (!process.waitFor(stepTimeoutMs, TimeUnit.MILLISECONDS)) return null
             writer?.join(5_000)
-            reader.join(5_000)
-            return output.toString().trim()
+            return try { output.get(5_000, TimeUnit.MILLISECONDS).trim() }
+            catch (timeout: TimeoutException) { null }
+            catch (failure: ExecutionException) { throw failure.cause ?: failure }
         } finally {
             process.destroyForcibly()
             Cleanup.run(listOf({ process.inputStream.close() }, { process.outputStream.close() }))
