@@ -34,12 +34,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
       - if: matrix.build-mode == 'manual'
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78
         with:
           distribution: temurin
           java-version: 21
@@ -48,9 +48,9 @@ jobs:
         with:
           packages: 'platforms;android-37.0 build-tools;37.0.0'
       - if: matrix.build-mode == 'manual'
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
       - if: matrix.build-mode == 'manual'
         run: ./gradlew compileDebugUnitTestKotlin --no-daemon
-      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           category: /language:${{ matrix.language }}
