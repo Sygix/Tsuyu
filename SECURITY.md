@@ -16,6 +16,12 @@ Once a fix is released, the advisory is published and you are credited unless yo
 
 Release APKs are built and signed by GitHub Actions from signed `v*` tags. Only install APKs downloaded from the [Releases](https://github.com/Sygix/Tsuyu/releases) page of this repository.
 
+## ADB exposure
+
+Tsuyu needs USB debugging. While it is on, the TV's ADB daemon accepts connection attempts from the local network, and any device or app on that network can make the « Allow debugging? » prompt appear. Only keys you approved can open a shell. Approve the prompt only right after starting Tsuyu or renewing its authorization, and refuse any other. Tsuyu's own key stays in the app's private storage, excluded from backups and device transfers.
+
+If ADB is not listening when Tsuyu starts, another app on the TV can listen on the expected port and impersonate it. Such an impostor can block startup and observe the launch command, whose tokens are useless without the shell identity; it cannot obtain shell access through Tsuyu.
+
 ## Shell trust boundary
 
 Grant access only to applications you trust with Android's shell identity. A remote process or UserService runs as UID 2000, the same OS identity as the server; this is not a sandbox between mutually hostile shell applications.

@@ -15,16 +15,17 @@ Tsuyu is a clean rewrite for TV, not a fork. Shizuku and Shevery are references 
   - Minimal Gradle project: `app` module with an empty screen.
   - CI: `test`, `release` and `codeql`, plus Dependabot.
   - The module layout (server, AIDL) is decided in the P1 change.
-- **P1 — Local start:** adb connection to the TV itself with the app's own key, a one-time "Always allow", server launch, and the state shown in the app.
-- **P2 — Shizuku API compatibility:**
+- **P1 — Local start (delivered):** adb connection to the TV itself with the app's own key, a one-time "Always allow", server launch, and the state shown in the app.
+- **P2 — Shizuku API compatibility (delivered):**
   - binder, and its delivery to client apps;
   - D-pad permission screen;
   - authorized apps, with revocation.
   - Validated with the Shizuku-API demo app and with SygixOs.
-- **P3 — Persistence:** the access Tsuyu grants itself once started, and the restart when the TV boots.
-- **P4 — Distribution:** APK signed by CI from a tag, published as a GitHub release.
+- **P3 — Persistence (delivered):** the access Tsuyu grants itself once started, and the restart when the TV boots.
+- **P4 — Distribution (delivered):** APK signed by CI from a tag, published as a GitHub release, with verified self-update.
+- **Next:** Android 9 support, then store distribution (Google Play, F-Droid), each as an OpenSpec change.
 
-Nothing is specified yet. Each phase becomes an OpenSpec change. Undecided topics live in `openspec/backlog.md`.
+Delivered changes are archived in `openspec/changes/archive/`; current requirements live in `openspec/specs/`. Each new phase or behavior change becomes an OpenSpec change. Undecided topics live in `openspec/backlog.md`.
 
 ## Verified facts on the reference TV (TCL Google TV, Android 14)
 - **Pairing is impossible from the TV:**

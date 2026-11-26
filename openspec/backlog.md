@@ -14,9 +14,9 @@ None of these topics is specified or decided. Each one will become an OpenSpec c
 
 ## 2. Enabling USB debugging
 
-**Observation:** USB debugging survives a reboot, unlike wireless debugging. While it is on, adbd's TCP port stays open on the local network; only authorized keys get in.
+**Observation:** USB debugging survives a reboot, unlike wireless debugging. While it is on, adbd's TCP port stays open on the local network; only authorized keys get in. The setup steps and the README/SECURITY explanation of this exposure are decided.
 
-**To decide:** what Tsuyu asks the user to enable, what it explains about this exposure, and whether it offers to close it once the server is running.
+**To decide:** whether Tsuyu offers to close the port once the server is running.
 
 ## 3. API version reported to clients
 
@@ -31,3 +31,9 @@ None of these topics is specified or decided. Each one will become an OpenSpec c
 **Expected current behavior:** Binder death first invalidates Running to Stopped; a subsequent refresh reading debugging disabled selects Setup and offers debugging guidance.
 
 **Follow-up:** if reproduced, record the exact home text/action after returning from settings and the contemporaneous `adb_enabled` value, then compare it with the lifecycle refresh. Do not revoke authorizations or uninstall merely to investigate this observation.
+
+## 5. ADB key in the Android Keystore
+
+**Observation:** the adb private key is a PKCS#8 file in app-private, no-backup storage. A key held by the Android Keystore could not be extracted even by code running as the app.
+
+**To decide:** whether to import the existing key into the Keystore (with file fallback where TV firmware lacks suitable RSA support) or use it for new installations only, and how to keep the TV's « Always allow » approval across the migration.

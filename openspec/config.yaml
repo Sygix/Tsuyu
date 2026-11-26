@@ -14,7 +14,7 @@ context: |
   Architecture: SOLID/KISS/DRY, interfaces at the boundaries (adb connection, server, system settings), no logic in composables. Uniflow ViewModel -> StateFlow -> Compose.
 
   Verified device facts and the Shizuku compatibility contract: AGENTS.md ("Verified facts" and "Shizuku API compatibility"). Licenses and Shizuku restrictions: AGENTS.md, Licenses.
-  Roadmap: P0 foundation (delivered), P1 local start, P2 Shizuku API compatibility, P3 persistence, P4 distribution. Undecided topics: openspec/backlog.md.
+  Roadmap: P0-P4 delivered (local start, Shizuku API compatibility, persistence, signed GitHub releases with self-update); next Android 9 support, then store distribution. Undecided topics: openspec/backlog.md.
 
   Treat the repository as public: no secret and no local environment detail (absolute paths, IPs, device ports, user, machine or VM names, exact device model) in documents, commits and PRs.
 
@@ -40,7 +40,7 @@ rules:
   tasks:
     - "If a device behavior is not verified, the first task is a test on the TV, before any code."
     - "Include tests: JUnit for pure logic (adb protocol, states, permissions), Compose D-pad navigation tests with @Config(qualifiers = \"w960dp-h540dp-xhdpi\"), and for P2 a test with the Shizuku-API demo app on the TV."
-    - "Include: French strings in resources, testTags, license headers and NOTICE when code is taken, README update if visible behavior changes, validation on the real TV with assembleRelease, openspec archive."
+    - "Include: strings in the five supported languages in resources, testTags, license headers and NOTICE when code is taken, README update if visible behavior changes, validation on the real TV with assembleRelease, openspec archive."
     - "No machine-specific path, variable or configuration: only ./gradlew <task>."
     - "Every task has a verifiable done criterion; no \"study\" or \"consider\" task: decide it in design or put it in Open questions."
 
