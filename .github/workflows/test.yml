@@ -30,12 +30,34 @@ jobs:
         with:
           packages: 'platforms;android-37.0 build-tools;37.0.0'
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
-      - run: ./gradlew test --no-daemon
+      - run: ./gradlew test assembleRelease bundleStoreRelease --no-daemon
+      - name: Check distribution artifacts
+        run: |
+          V=$(sed -n 's/^versionName=//p' version.properties)
+          S=app/build/outputs/apk/standalone/release/tsuyu-$V-standalone-release-unsigned.apk
+          T=app/build/outputs/apk/store/release/tsuyu-$V-store-release-unsigned.apk
+          B=app/build/outputs/bundle/storeRelease/tsuyu-$V-store-release.aab
+          scripts/check-artifacts.sh "$S" "$T" "$B"
+          if scripts/check-artifacts.sh "$T" "$S"; then echo "::error::Swapped artifacts were accepted"; exit 1; fi
+          if scripts/check-artifacts.sh "$S" "$S"; then echo "::error::A standalone build was accepted as store"; exit 1; fi
+          H="$RUNNER_TEMP/hybrid.apk"
+          D=$(mktemp -d)
+          cp "$T" "$H"
+          unzip -q -d "$D" "$S" 'classes*.dex'
+          zip -q -d "$H" 'classes*.dex'
+          (cd "$D" && zip -q "$H" classes*.dex)
+          if scripts/check-artifacts.sh "$S" "$H"; then echo "::error::A store manifest with updater code was accepted"; exit 1; fi
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          [ -n "$APKSIGNER" ] || { echo "::error::apksigner not found"; exit 1; }
+          for apk in "$S" "$T"; do
+            if "$APKSIGNER" verify "$apk" 2>/dev/null; then echo "::error::Keyless release build $apk is signed"; exit 1; fi
+          done
+          if unzip -l "$B" | grep -qE 'META-INF/[^/]+\.(RSA|EC|DSA)$'; then echo "::error::Keyless store bundle is signed"; exit 1; fi
       - name: Test results in PR
         if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: mikepenz/action-junit-report@a16be3a69023e9bd7e748ede768b3282ea7b30ce
         with:
-          report_paths: 'app/build/test-results/testDebugUnitTest/TEST-*.xml'
+          report_paths: '*/build/test-results/test*UnitTest/TEST-*.xml'
           require_tests: true
           annotate_notice: false

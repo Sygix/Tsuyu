@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build signed APK
+    name: Build signed artifacts
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -21,6 +21,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+
+      - name: Check version file against tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          name=$(sed -n 's/^versionName=//p' version.properties)
+          [ "v$name" = "$TAG" ] || { echo "::error::version.properties has versionName $name but the tag is $TAG"; exit 1; }
+          echo "VERSION=$name" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78
         with:
@@ -35,40 +43,75 @@ jobs:
         with:
           cache-disabled: true
 
-      - name: Decode keystore
+      - name: Decode signing keys
         env:
           TSUYU_KEYSTORE_BASE64: ${{ secrets.TSUYU_KEYSTORE_BASE64 }}
           TSUYU_STORE_PASSWORD: ${{ secrets.TSUYU_STORE_PASSWORD }}
           TSUYU_KEY_ALIAS: ${{ secrets.TSUYU_KEY_ALIAS }}
           TSUYU_KEY_PASSWORD: ${{ secrets.TSUYU_KEY_PASSWORD }}
+          TSUYU_UPLOAD_KEYSTORE_BASE64: ${{ secrets.TSUYU_UPLOAD_KEYSTORE_BASE64 }}
+          TSUYU_UPLOAD_STORE_PASSWORD: ${{ secrets.TSUYU_UPLOAD_STORE_PASSWORD }}
+          TSUYU_UPLOAD_KEY_ALIAS: ${{ secrets.TSUYU_UPLOAD_KEY_ALIAS }}
+          TSUYU_UPLOAD_KEY_PASSWORD: ${{ secrets.TSUYU_UPLOAD_KEY_PASSWORD }}
+          TSUYU_UPLOAD_CERT_SHA256: ${{ vars.TSUYU_UPLOAD_CERT_SHA256 }}
         run: |
-          for name in TSUYU_KEYSTORE_BASE64 TSUYU_STORE_PASSWORD TSUYU_KEY_ALIAS TSUYU_KEY_PASSWORD; do
-            [ -n "${!name}" ] || { echo "::error::Secret $name manquant"; exit 1; }
+          for name in TSUYU_KEYSTORE_BASE64 TSUYU_STORE_PASSWORD TSUYU_KEY_ALIAS TSUYU_KEY_PASSWORD TSUYU_UPLOAD_KEYSTORE_BASE64 TSUYU_UPLOAD_STORE_PASSWORD TSUYU_UPLOAD_KEY_ALIAS TSUYU_UPLOAD_KEY_PASSWORD; do
+            [ -n "${!name}" ] || { echo "::error::Secret $name is missing"; exit 1; }
           done
+          RELEASE_CERT=$(tr -d '[:space:]' < .github/signing/release-certificate.sha256)
+          UPLOAD_CERT=$(echo "$TSUYU_UPLOAD_CERT_SHA256" | tr -d ':[:space:]' | tr 'A-F' 'a-f')
+          [ -n "$RELEASE_CERT" ] && [ -n "$UPLOAD_CERT" ] || { echo "::error::Expected certificate fingerprints are missing"; exit 1; }
+          [ "$RELEASE_CERT" != "$UPLOAD_CERT" ] || { echo "::error::The upload certificate must differ from the release certificate"; exit 1; }
           echo "$TSUYU_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "$TSUYU_UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.keystore"
+          fingerprint() { keytool -list -v -keystore "$1" -storepass:env "$2" -alias "$3" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr 'A-F' 'a-f'; }
+          [ "$(fingerprint "$RUNNER_TEMP/release.keystore" TSUYU_STORE_PASSWORD "$TSUYU_KEY_ALIAS")" = "$RELEASE_CERT" ] || { echo "::error::The release keystore does not hold the expected release certificate"; exit 1; }
+          [ "$(fingerprint "$RUNNER_TEMP/upload.keystore" TSUYU_UPLOAD_STORE_PASSWORD "$TSUYU_UPLOAD_KEY_ALIAS")" = "$UPLOAD_CERT" ] || { echo "::error::The upload keystore does not hold the expected upload certificate"; exit 1; }
+          echo "RELEASE_CERT=$RELEASE_CERT" >> "$GITHUB_ENV"
+          echo "UPLOAD_CERT=$UPLOAD_CERT" >> "$GITHUB_ENV"
 
-      - name: Build release APK
+      - name: Build release APKs
         env:
-          TSUYU_VERSION: ${{ github.ref_name }}
           TSUYU_STORE_FILE: ${{ runner.temp }}/release.keystore
           TSUYU_STORE_PASSWORD: ${{ secrets.TSUYU_STORE_PASSWORD }}
           TSUYU_KEY_ALIAS: ${{ secrets.TSUYU_KEY_ALIAS }}
           TSUYU_KEY_PASSWORD: ${{ secrets.TSUYU_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease test --no-daemon
+        run: ./gradlew assembleStandaloneRelease assembleStoreRelease test --no-daemon
 
-      - name: Remove keystore
+      - name: Build store bundle
+        env:
+          TSUYU_STORE_FILE: ${{ runner.temp }}/upload.keystore
+          TSUYU_STORE_PASSWORD: ${{ secrets.TSUYU_UPLOAD_STORE_PASSWORD }}
+          TSUYU_KEY_ALIAS: ${{ secrets.TSUYU_UPLOAD_KEY_ALIAS }}
+          TSUYU_KEY_PASSWORD: ${{ secrets.TSUYU_UPLOAD_KEY_PASSWORD }}
+        run: ./gradlew bundleStoreRelease --no-daemon
+
+      - name: Remove signing keys
         if: always()
-        run: rm -f "$RUNNER_TEMP/release.keystore"
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/upload.keystore"
 
-      - name: Verify APK signature
+      - name: Verify signers and artifacts
         run: |
+          S=app/build/outputs/apk/standalone/release/tsuyu-$VERSION-standalone-release.apk
+          T=app/build/outputs/apk/store/release/tsuyu-$VERSION-store-release.apk
+          B=app/build/outputs/bundle/storeRelease/tsuyu-$VERSION-store-release.aab
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
+          apk_cert() { "$APKSIGNER" verify --print-certs "$1" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'; }
+          for apk in "$S" "$T"; do
+            [ "$(apk_cert "$apk")" = "$RELEASE_CERT" ] || { echo "::error::$apk is not signed with the release key"; exit 1; }
+          done
+          bundle_cert=$(keytool -printcert -jarfile "$B" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')
+          [ "$bundle_cert" = "$UPLOAD_CERT" ] || { echo "::error::The store bundle is not signed with the upload key"; exit 1; }
+          scripts/check-artifacts.sh "$S" "$T" "$B"
 
       - name: Stage release files
         run: |
           mkdir -p "$RUNNER_TEMP/dist"
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/dist/tsuyu.apk"
+          cp "app/build/outputs/apk/standalone/release/tsuyu-$VERSION-standalone-release.apk" "$RUNNER_TEMP/dist/tsuyu-$VERSION-standalone.apk"
+          cp "app/build/outputs/apk/standalone/release/tsuyu-$VERSION-standalone-release.apk" "$RUNNER_TEMP/dist/tsuyu.apk"
+          cp "app/build/outputs/apk/store/release/tsuyu-$VERSION-store-release.apk" "$RUNNER_TEMP/dist/tsuyu-$VERSION-store.apk"
+          cp "app/build/outputs/bundle/storeRelease/tsuyu-$VERSION-store-release.aab" "$RUNNER_TEMP/dist/tsuyu-$VERSION-store.aab"
+          (cd "$RUNNER_TEMP/dist" && sha256sum "tsuyu-$VERSION-standalone.apk" tsuyu.apk "tsuyu-$VERSION-store.apk" "tsuyu-$VERSION-store.aab" > SHA256SUMS)
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -95,11 +138,17 @@ jobs:
           TAG: ${{ github.ref_name }}
           PRERELEASE: ${{ contains(github.ref_name, '-') }}
         run: |
+          VERSION=${TAG#v}
+          FILES="tsuyu-$VERSION-standalone.apk tsuyu.apk tsuyu-$VERSION-store.apk tsuyu-$VERSION-store.aab SHA256SUMS"
+          for file in $FILES; do
+            [ -s "$file" ] || { echo "::error::$file is missing"; exit 1; }
+          done
+          sha256sum -c SHA256SUMS
           state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo missing)
           case "$state" in
             missing) gh release create "$TAG" --draft --verify-tag --generate-notes --title "$TAG" --prerelease="$PRERELEASE" ;;
             true) ;;
             *) echo "::error::Release $TAG is already published"; exit 1 ;;
           esac
-          gh release upload "$TAG" tsuyu.apk --clobber
+          gh release upload "$TAG" $FILES --clobber
           gh release edit "$TAG" --draft=false
