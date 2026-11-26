@@ -16,6 +16,7 @@ import fr.sygix.tsuyu.ipc.ITsuyuServer
 import fr.sygix.tsuyu.start.BoundedIo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +48,29 @@ class AccessViewModel(
 ) : ViewModel() {
     private val mutable = MutableStateFlow(AccessUi(permission = token != null))
     private var revocation: Job? = null
+    private var confirmation: Job? = null
+    private var shown = false
+    private var reloading: Job? = null
     val ui = mutable.asStateFlow()
+    fun resumed() {
+        val current = mutable.value
+        if (token == null && shown && !current.loading && !current.error) reload()
+        shown = true
+    }
+    fun focused(uid: Int) {
+        if (mutable.value.focus != uid) mutable.value = mutable.value.copy(focus = uid)
+    }
+    private fun reload() {
+        reloading = viewModelScope.launch {
+            bounded(LOOKUP_TIMEOUT_MS, "Access lookup failed") { load() }.onSuccess { (rows, failures) ->
+                if (!mutable.value.finished && !mutable.value.loading) {
+                    mutable.value = mutable.value.copy(rows = rows, deliveryFailures = failures, focus = fallback(mutable.value.focus, rows.map { it.uid }))
+                }
+            }.onFailure {
+                if (!mutable.value.finished && !mutable.value.loading) mutable.value = mutable.value.copy(error = true)
+            }
+        }
+    }
     fun back() {
         if (token == null || mutable.value.error) mutable.value = mutable.value.copy(finished = true)
         else confirm(false)
@@ -62,17 +85,14 @@ class AccessViewModel(
         viewModelScope.launch {
             mutable.value.retryRevoke?.let { revoke(it); return@launch }
             mutable.value = mutable.value.copy(loading = true, error = false, resetFailed = null)
-            try {
-                val (rows, failures) = io.call(LOOKUP_TIMEOUT_MS) { load() }
+            bounded(LOOKUP_TIMEOUT_MS, "Access lookup failed") { load() }.onSuccess { (rows, failures) ->
                 if (!mutable.value.finished) {
                     mutable.value = mutable.value.copy(
                         loading = false, error = false, rows = rows, deliveryFailures = failures,
                         focus = fallback(mutable.value.focus, rows.map { it.uid }),
                     )
                 }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) {
-                Log.e("Tsuyu", "Access lookup failed", failure)
+            }.onFailure {
                 if (!mutable.value.finished) mutable.value = mutable.value.copy(loading = false, error = true)
             }
         }
@@ -103,62 +123,60 @@ class AccessViewModel(
     }
 
     fun confirm(allowed: Boolean) {
-        viewModelScope.launch {
-            try {
-                io.call(CONFIRM_TIMEOUT_MS) { requireNotNull(server()).confirm(requireNotNull(token), allowed) }
-                mutable.value = mutable.value.copy(finished = true)
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) {
-                Log.e("Tsuyu", "Confirmation failed", failure)
-                mutable.value = mutable.value.copy(loading = false, error = true)
-            }
+        if (confirmation?.isActive == true) return
+        confirmation = viewModelScope.launch {
+            bounded(CONFIRM_TIMEOUT_MS, "Confirmation failed") { requireNotNull(server()).confirm(requireNotNull(token), allowed) }
+                .onSuccess { mutable.value = mutable.value.copy(finished = true) }
+                .onFailure { mutable.value = mutable.value.copy(loading = false, error = true) }
         }
     }
 
     fun revoke(uid: Int) {
         if (revocation?.isActive == true) return
+        reloading?.cancel()
         revocation = viewModelScope.launch {
             val old = mutable.value.rows.map { it.uid }
             mutable.value = mutable.value.copy(loading = true, error = false, retryRevoke = uid, resetFailed = null)
-            try {
-                io.call(REVOKE_TIMEOUT_MS) { requireNotNull(server()).revoke(uid) }
+            bounded(REVOKE_TIMEOUT_MS, "Revocation incomplete") { requireNotNull(server()).revoke(uid) }.onSuccess {
                 val rows = mutable.value.rows.filterNot { it.uid == uid }
                 val index = old.indexOf(uid)
                 mutable.value = mutable.value.copy(
                     loading = false, error = false, retryRevoke = null, rows = rows,
                     focus = rows.getOrNull(index)?.uid ?: rows.lastOrNull()?.uid,
                 )
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) {
-                Log.e("Tsuyu", "Revocation incomplete", failure)
-                mutable.value = mutable.value.copy(loading = false, error = true)
-            }
+            }.onFailure { mutable.value = mutable.value.copy(loading = false, error = true) }
         }
     }
 
     fun reset(uid: Int) {
         if (revocation?.isActive == true) return
+        reloading?.cancel()
         revocation = viewModelScope.launch {
             val old = mutable.value.rows.map { it.uid }
             mutable.value = mutable.value.copy(loading = true, error = false, resetFailed = null)
-            try {
-                if (!io.call(RESET_TIMEOUT_MS) { requireNotNull(server()).resetRefusal(uid) }) {
+            bounded(RESET_TIMEOUT_MS, "Refusal reset failed") { requireNotNull(server()).resetRefusal(uid) }.onSuccess { reset ->
+                if (!reset) {
                     mutable.value = mutable.value.copy(loading = false)
                     revocation = null
                     refresh()
-                    return@launch
+                    return@onSuccess
                 }
                 val rows = mutable.value.rows.filterNot { it.uid == uid }
                 val index = old.indexOf(uid)
                 mutable.value = mutable.value.copy(loading = false, rows = rows, focus = rows.getOrNull(index)?.uid ?: rows.lastOrNull()?.uid)
-            } catch (cancelled: CancellationException) {
-                if (cancelled !is kotlinx.coroutines.TimeoutCancellationException) throw cancelled
-                mutable.value = mutable.value.copy(loading = false, resetFailed = uid, focus = uid)
-            } catch (failure: Exception) {
-                Log.e("Tsuyu", "Refusal reset failed", failure)
-                mutable.value = mutable.value.copy(loading = false, resetFailed = uid, focus = uid)
-            }
+            }.onFailure { mutable.value = mutable.value.copy(loading = false, resetFailed = uid, focus = uid) }
         }
+    }
+
+    private suspend fun <T> bounded(timeout: Long, failureMessage: String, block: () -> T): Result<T> = try {
+        Result.success(io.call(timeout, block = block))
+    } catch (expired: TimeoutCancellationException) {
+        Log.e("Tsuyu", failureMessage, expired)
+        Result.failure(expired)
+    } catch (cancelled: CancellationException) { throw cancelled }
+    catch (failure: Exception) {
+        Log.e("Tsuyu", failureMessage, failure)
+        Result.failure(failure)
     }
 
     companion object {

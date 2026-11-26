@@ -46,7 +46,11 @@ class KeyRefreshWorker(context: Context, parameters: WorkerParameters) : Corouti
             val work = PeriodicWorkRequestBuilder<KeyRefreshWorker>(12, TimeUnit.HOURS)
                 .setInitialDelay(12, TimeUnit.HOURS)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES).build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork("tsuyu-key-refresh", ExistingPeriodicWorkPolicy.KEEP, work)
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, work)
         }
+        fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        }
+        private const val WORK_NAME = "tsuyu-key-refresh"
     }
 }

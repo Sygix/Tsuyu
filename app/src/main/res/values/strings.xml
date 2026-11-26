@@ -64,8 +64,11 @@
     <string name="persistence_home_ready">Automatic startup configured</string>
     <string name="persistence_home_started">Automatic startup succeeded</string>
     <string name="persistence_started">Tsuyu restarted automatically. The service is running. Keep USB debugging enabled.</string>
-    <string name="persistence_key_required">Debugging authorization required: retry startup and accept the system prompt.</string>
-    <string name="persistence_key_refresh_failed">Tsuyu could not refresh its authorization. Check USB debugging, then retry startup.</string>
+    <string name="persistence_key_required">Debugging authorization required: choose “Renew authorization” and accept the system prompt.</string>
+    <string name="persistence_restart_auth">Debugging authorization required: retry startup and accept the system prompt.</string>
+    <string name="persistence_key_refresh_failed">Tsuyu could not refresh its authorization. Check USB debugging, then choose “Renew authorization”.</string>
+    <string name="persistence_renew">Renew authorization</string>
+    <string name="persistence_disable">Disable automatic startup</string>
     <string name="persistence_home_standard">Restart: Android scheduled, manufacturer unverified</string>
     <string name="persistence_home_unverified">Restart: setup unverified</string>
     <string name="persistence_boot_failed">Restart failed: open “Start after reboot” to repair it.</string>

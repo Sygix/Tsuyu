@@ -24,6 +24,7 @@ interface PersistenceStorage {
     suspend fun reserve(id: String, now: Long): RestartRecord?
     suspend fun complete(record: RestartRecord, result: RestartOutcome)
     suspend fun recovered()
+    suspend fun disable()
     suspend fun keyRefreshed(outcome: KeyRefreshOutcome)
 }
 
@@ -89,7 +90,12 @@ class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceSt
     override suspend fun recovered() {
         data.edit { value ->
             save(value, records(value) + (MANUAL to RestartRecord(MANUAL, outcome = RestartOutcome.RECOVERED)), MANUAL)
-            value[keyRefresh] = KeyRefreshOutcome.CURRENT.name
+        }
+    }
+    override suspend fun disable() {
+        data.edit { value ->
+            value[enabled] = false
+            value.remove(keyRefresh)
         }
     }
     override suspend fun keyRefreshed(outcome: KeyRefreshOutcome) {
@@ -111,7 +117,6 @@ class PersistenceStore(private val data: DataStore<Preferences>) : PersistenceSt
             val all = records(value)
             if (all[record.event]?.attempts == record.attempts) {
                 save(value, all + (record.event to record.copy(outcome = result)), currentEvent(value))
-                if (result == RestartOutcome.RUNNING) value[keyRefresh] = KeyRefreshOutcome.CURRENT.name
             }
         }
     }

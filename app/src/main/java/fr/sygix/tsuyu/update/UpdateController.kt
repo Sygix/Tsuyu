@@ -144,10 +144,19 @@ class UpdateController(
         publish(storage.update { it.copy(pending = null) }, UpdatePhase.IDLE)
     }
 
-    private suspend fun preconditions(): UpdateCause? = when {
-        !host.running() -> UpdateCause.SERVICE
-        !host.prepared() -> UpdateCause.PREPARATION
-        else -> null
+    private suspend fun preconditions(): UpdateCause? = try {
+        when {
+            !host.running() -> UpdateCause.SERVICE
+            !host.prepared() -> UpdateCause.PREPARATION
+            else -> null
+        }
+    } catch (expired: kotlinx.coroutines.TimeoutCancellationException) {
+        android.util.Log.e("Tsuyu", "Update preconditions timed out", expired)
+        UpdateCause.SERVICE
+    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+    catch (failure: Exception) {
+        android.util.Log.e("Tsuyu", "Update preconditions failed", failure)
+        UpdateCause.SERVICE
     }
 
     private sealed interface Prepared {

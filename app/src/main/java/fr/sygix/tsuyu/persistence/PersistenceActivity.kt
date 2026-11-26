@@ -5,9 +5,7 @@
 
 package fr.sygix.tsuyu.persistence
 
-import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,7 +34,7 @@ class PersistenceActivity : ComponentActivity() {
                     Action.BACK -> back()
                     Action.SETTINGS -> {
                         SettingsNavigation.open(
-                            { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) },
+                            { startActivity(SettingsNavigation.intent(graph.coordinator.state.value.developer)) },
                             model::settingsFailed,
                         )
                     }

@@ -19,16 +19,25 @@ class TsuyuGraph private constructor(context: Context) {
     private val io = BoundedIo()
     val coordinator = StartCoordinator(settings, ServerReadiness(io) {
         val server = broker.server.value
-        when {
-            server == null || !server.asBinder().isBinderAlive -> ServerStatus.ABSENT
-            server.uid != 2000 -> throw StartException(Failure.LAUNCH)
-            server.isReady -> ServerStatus.READY
-            else -> ServerStatus.PENDING
+        try {
+            when {
+                server == null || !server.asBinder().isBinderAlive -> ServerStatus.ABSENT
+                server.uid != 2000 -> throw StartException(Failure.LAUNCH)
+                server.isReady -> ServerStatus.READY
+                else -> ServerStatus.PENDING
+            }
+        } catch (gone: android.os.DeadObjectException) {
+            android.util.Log.w("Tsuyu", "Server died during status check", gone)
+            ServerStatus.ABSENT
         }
-    }, LocalAdbLauncher(context, broker, io), io) { failure -> android.util.Log.e("Tsuyu", "Startup operation failed", failure) }
+    }, AuthorizationRecordingLauncher(LocalAdbLauncher(context, broker, io)) {
+        persistence.keyRefreshed(fr.sygix.tsuyu.persistence.KeyRefreshOutcome.CURRENT)
+    }, io) { failure -> android.util.Log.e("Tsuyu", "Startup operation failed", failure) }
     suspend fun stopReplacedServer() = ServerShutdown(io) { broker.server.value }.stop()
     val persistenceController = fr.sygix.tsuyu.persistence.PersistenceController(persistence, coordinator, { broker.server.value }, io,
         scheduleKeyRefresh = { fr.sygix.tsuyu.persistence.KeyRefreshWorker.schedule(context) },
+        renewKey = { awaiting -> LocalAdbClient(context, io).renewKey(awaiting) },
+        cancelKeyRefresh = { fr.sygix.tsuyu.persistence.KeyRefreshWorker.cancel(context) },
         currentEvent = { event ->
             fr.sygix.tsuyu.persistence.RestartEvents.current(event,
                 android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.BOOT_COUNT),
@@ -36,7 +45,8 @@ class TsuyuGraph private constructor(context: Context) {
         },
     )
     private val tracker = fr.sygix.tsuyu.update.ForegroundTracker().also { (context.applicationContext as android.app.Application).registerActivityLifecycleCallbacks(it) }
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default +
+        kotlinx.coroutines.CoroutineExceptionHandler { _, failure -> android.util.Log.e("Tsuyu", "Background operation failed", failure) })
     init {
         scope.launch {
             try {

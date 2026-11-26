@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class PersistenceStoreTest {
     @get:Rule val temporary = TemporaryFolder()
-    @Test fun refreshStatusSurvivesReloadAndASuccessfulStartClearsItsWarning() = runTest {
+    @Test fun refreshWarningSurvivesReloadAndOnlyAnExplicitAuthenticationClearsIt() = runTest {
         val data = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { temporary.newFile("key.preferences_pb") })
         val store = PersistenceStore(data)
         store.enable()
@@ -28,10 +28,21 @@ class PersistenceStoreTest {
         assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, PersistenceStore(data).read().keyRefresh)
         val boot = requireNotNull(store.reserve("boot:1", 1000))
         store.complete(boot, RestartOutcome.RUNNING)
-        assertEquals(KeyRefreshOutcome.CURRENT, store.read().keyRefresh)
-        store.keyRefreshed(KeyRefreshOutcome.FAILED)
         store.recovered()
+        assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, store.read().keyRefresh)
+        store.keyRefreshed(KeyRefreshOutcome.CURRENT)
         assertEquals(KeyRefreshOutcome.CURRENT, store.read().keyRefresh)
+    }
+    @Test fun disablingStopsFutureRestartsAndClearsTheKeyWarningAcrossReload() = runTest {
+        val data = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { temporary.newFile("disable.preferences_pb") })
+        val store = PersistenceStore(data)
+        store.enable()
+        store.keyRefreshed(KeyRefreshOutcome.FAILED)
+        store.disable()
+        val reloaded = PersistenceStore(data)
+        assertFalse(reloaded.read().enabled)
+        assertEquals(KeyRefreshOutcome.NONE, reloaded.read().keyRefresh)
+        assertNull(reloaded.reserve("boot:3", 1000))
     }
 
     @Test fun realStorageAndFakePreserveIndependentBudgetsAcrossManualRecovery() = runTest {

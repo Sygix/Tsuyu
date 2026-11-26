@@ -32,11 +32,10 @@ open class FakePersistenceStorage(enabled: Boolean = false) : PersistenceStorage
     override suspend fun complete(record: RestartRecord, result: RestartOutcome) {
         if (records[record.event]?.attempts == record.attempts) {
             records += record.event to record.copy(outcome = result)
-            if (result == RestartOutcome.RUNNING) keyRefresh = KeyRefreshOutcome.CURRENT
         }
     }
+    override suspend fun disable() { enabled = false; keyRefresh = KeyRefreshOutcome.NONE }
     override suspend fun recovered() {
-        keyRefresh = KeyRefreshOutcome.CURRENT
         selected = PersistenceStore.MANUAL
         records += selected to RestartRecord(selected, outcome = RestartOutcome.RECOVERED)
     }

@@ -200,6 +200,51 @@ class HomeViewModelTest {
             assertEquals("action-help", model.ui.value.focus)
         } finally { store.clear(); Dispatchers.resetMain() }
     }
+    @Test fun disabledStartupShowsNoFailureAndAnExpiredBootKeyAsksToStartAgain() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = false }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+            val failedBoot = fr.sygix.tsuyu.persistence.PersistenceUi(enabled = true, enabledKnown = true, loading = false, outcome = fr.sygix.tsuyu.persistence.RestartOutcome.AUTHENTICATION)
+            val persistence = kotlinx.coroutines.flow.MutableStateFlow(failedBoot)
+            val model = HomeViewModel(coordinator, persistence = persistence)
+            store.put("home", model)
+            model.resume(); advanceUntilIdle()
+            assertTrue(model.ui.value.persistenceAttention)
+            assertEquals(fr.sygix.tsuyu.R.string.persistence_restart_auth, model.ui.value.persistenceStatus)
+            persistence.value = failedBoot.copy(enabled = false); advanceUntilIdle()
+            assertFalse(model.ui.value.persistenceAttention)
+            assertNotEquals(fr.sygix.tsuyu.R.string.persistence_restart_auth, model.ui.value.persistenceStatus)
+            assertNotEquals("action-persistence", model.ui.value.focus)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+    @Test fun leavingHomeNeverCancelsAnAttemptItDidNotStartButExplicitCancelDoes() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            var running = false
+            val gate = CompletableDeferred<Unit>()
+            val coordinator = StartCoordinator(object : SystemSettings {
+                override fun read() = true to Debugging.ENABLED
+            }, object : ServerAccess {
+                override suspend fun alive() = running
+            }, object : ServerLauncher {
+                override suspend fun launch(progress: (Phase) -> Unit) { gate.await(); running = true }
+            }, direct)
+            val model = HomeViewModel(coordinator)
+            store.put("home", model)
+            val automatic = launch { coordinator.start() }
+            runCurrent()
+            model.act(Action.HELP); runCurrent()
+            model.back(); runCurrent()
+            model.cancelPending(); runCurrent()
+            assertTrue(automatic.isActive)
+            assertEquals(Phase.CONNECTING, coordinator.state.value.phase)
+            model.act(Action.CANCEL); advanceUntilIdle()
+            assertFalse(automatic.isActive)
+            assertEquals(Phase.STOPPED, coordinator.state.value.phase)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
     @Test fun cancelAutomaticallyReconcilesLateLiveServerWithoutAnotherResume() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val store = ViewModelStore()

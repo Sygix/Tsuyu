@@ -25,7 +25,7 @@ import fr.sygix.tsuyu.R
 import fr.sygix.tsuyu.ui.theme.*
 
 @Composable
-fun AccessScreen(ui: AccessUi, confirm: (Boolean) -> Unit, revoke: (Int) -> Unit, retry: () -> Unit, back: () -> Unit, reset: (Int) -> Unit = {}) {
+fun AccessScreen(ui: AccessUi, confirm: (Boolean) -> Unit, revoke: (Int) -> Unit, retry: () -> Unit, back: () -> Unit, reset: (Int) -> Unit = {}, focused: (Int) -> Unit = {}) {
     val presentation = ui.presentation
     val ids = presentation.controls.map { it.id }
     val requesters = remember(ids) { ids.associateWith { FocusRequester() } }
@@ -40,7 +40,8 @@ fun AccessScreen(ui: AccessUi, confirm: (Boolean) -> Unit, revoke: (Int) -> Unit
                 AccessAction.REVOKE -> revoke(requireNotNull(row).uid)
                 AccessAction.RESET -> reset(requireNotNull(row).uid)
             }
-        }, modifier.testTag(control.id).focusRequester(requesters.getValue(control.id)).focusProperties {
+        }, modifier.testTag(control.id).onFocusChanged { if (it.isFocused) row?.let { focusedRow -> focused(focusedRow.uid) } }
+            .focusRequester(requesters.getValue(control.id)).focusProperties {
             up = requesters[control.up] ?: FocusRequester.Cancel
             down = requesters[control.down] ?: FocusRequester.Cancel
             left = requesters[control.left] ?: FocusRequester.Cancel

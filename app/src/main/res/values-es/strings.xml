@@ -63,8 +63,11 @@
     <string name="persistence_home_ready">Inicio automático configurado</string>
     <string name="persistence_home_started">Inicio automático completado</string>
     <string name="persistence_started">Tsuyu se ha reiniciado automáticamente. El servicio está activo. Mantén la depuración USB activada.</string>
-    <string name="persistence_key_required">Se requiere autorización de depuración: vuelve a iniciar y acepta la solicitud del sistema.</string>
-    <string name="persistence_key_refresh_failed">Tsuyu no ha podido renovar su autorización. Comprueba la depuración USB y vuelve a iniciar.</string>
+    <string name="persistence_key_required">Se requiere autorización de depuración: elige «Renovar autorización» y acepta la solicitud del sistema.</string>
+    <string name="persistence_restart_auth">Se requiere autorización de depuración: vuelve a iniciar y acepta la solicitud del sistema.</string>
+    <string name="persistence_key_refresh_failed">Tsuyu no ha podido renovar su autorización. Comprueba la depuración USB y elige «Renovar autorización».</string>
+    <string name="persistence_renew">Renovar autorización</string>
+    <string name="persistence_disable">Desactivar el inicio automático</string>
     <string name="persistence_home_standard">Reinicio: Android programado, fabricante sin verificar</string>
     <string name="persistence_home_unverified">Reinicio: preparación sin verificar</string>
     <string name="persistence_boot_failed">El reinicio ha fallado: abre «Iniciar tras reiniciar» para repararlo.</string>

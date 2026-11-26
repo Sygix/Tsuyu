@@ -35,7 +35,7 @@ class GitHubReleases(private val agent: String, private val clock: () -> Long = 
             connection.setRequestProperty("User-Agent", agent)
             when (val status = connection.responseCode) {
                 HttpURLConnection.HTTP_OK -> {
-                    val body = connection.inputStream.bufferedReader().use { it.readText() }
+                    val body = connection.inputStream.use { readBounded(it, MAX_BODY_BYTES) } ?: return Fetch.Failed(UpdateCause.UNREADABLE)
                     try { Fetch.Found(Releases.parse(body)) } catch (unreadable: org.json.JSONException) { Fetch.Failed(UpdateCause.UNREADABLE) }
                 }
                 403, 429 -> if (status == 429 || connection.getHeaderField("x-ratelimit-remaining") == "0") Fetch.Limited(retryAt(connection)) else Fetch.Failed(UpdateCause.NETWORK)
@@ -53,6 +53,18 @@ class GitHubReleases(private val agent: String, private val clock: () -> Long = 
     }
 
     companion object {
+        private const val MAX_BODY_BYTES = 2 * 1024 * 1024
         const val URL_RELEASES = "https://api.github.com/repos/Sygix/Tsuyu/releases?per_page=30"
+    }
+}
+
+internal fun readBounded(input: java.io.InputStream, limit: Int): String? {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) return output.toString(Charsets.UTF_8.name())
+        if (output.size() + count > limit) return null
+        output.write(buffer, 0, count)
     }
 }

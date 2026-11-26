@@ -66,4 +66,9 @@ class ReleasesTest {
         assertEquals(releases, Releases.parse(Releases.encode(releases)))
         assertThrows(org.json.JSONException::class.java) { Releases.parse("{oops") }
     }
+    @Test fun releaseListReadIsBoundedAtItsLimit() {
+        val limit = 20_000
+        assertEquals(limit, readBounded(java.io.ByteArrayInputStream(ByteArray(limit) { 'a'.code.toByte() }), limit)?.length)
+        assertNull(readBounded(java.io.ByteArrayInputStream(ByteArray(limit + 1)), limit))
+    }
 }

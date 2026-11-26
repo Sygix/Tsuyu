@@ -63,8 +63,11 @@
     <string name="persistence_home_ready">Démarrage automatique configuré</string>
     <string name="persistence_home_started">Démarrage automatique réussi</string>
     <string name="persistence_started">Tsuyu a redémarré automatiquement avec succès. Le service est actif. Gardez le débogage USB activé.</string>
-    <string name="persistence_key_required">Autorisation de débogage nécessaire : réessayez le démarrage et acceptez la demande système.</string>
-    <string name="persistence_key_refresh_failed">L’autorisation de Tsuyu n’a pas pu être renouvelée. Vérifiez le débogage USB, puis réessayez le démarrage.</string>
+    <string name="persistence_key_required">Autorisation de débogage nécessaire : choisissez « Renouveler l’autorisation » et acceptez la demande système.</string>
+    <string name="persistence_restart_auth">Autorisation de débogage nécessaire : réessayez le démarrage et acceptez la demande système.</string>
+    <string name="persistence_key_refresh_failed">L’autorisation de Tsuyu n’a pas pu être renouvelée. Vérifiez le débogage USB, puis choisissez « Renouveler l’autorisation ».</string>
+    <string name="persistence_renew">Renouveler l’autorisation</string>
+    <string name="persistence_disable">Désactiver le démarrage automatique</string>
     <string name="persistence_home_standard">Redémarrage : programmation Android, constructeur non vérifié</string>
     <string name="persistence_home_unverified">Redémarrage : préparation non vérifiée</string>
     <string name="persistence_boot_failed">Le redémarrage a échoué : ouvrez « Démarrage au redémarrage » pour réparer.</string>

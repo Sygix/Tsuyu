@@ -44,5 +44,7 @@ class LocalAdbClient(
         throw StartException(Failure.ENDPOINT)
     }
 
+    suspend fun renewKey(awaiting: () -> Unit) = use(awaiting = awaiting) { Unit }
+
     suspend fun refreshKey() = use(authenticationTimeout = 5000, awaiting = { throw StartException(Failure.AUTHENTICATION) }) { Unit }
 }

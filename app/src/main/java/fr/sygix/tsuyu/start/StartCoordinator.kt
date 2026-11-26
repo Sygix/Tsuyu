@@ -24,6 +24,7 @@ import kotlinx.coroutines.sync.withLock
 
 class StartCoordinator(private val settings: SystemSettings, private val server: ServerAccess, private val launcher: ServerLauncher, private val io: BoundedIo = BoundedIo(), private val report: (Exception) -> Unit = {}) {
     private val mutex = Mutex()
+    private val starting = AtomicBoolean(false)
     private val mutable = MutableStateFlow(StartState())
     val state = mutable.asStateFlow()
     @Volatile private var attempt: Job? = null
@@ -44,21 +45,23 @@ class StartCoordinator(private val settings: SystemSettings, private val server:
         val alive = withTimeout(5000) { server.alive() }
         val result = io.call(5000) { settings.read() }
         val previous = mutable.value
-        if (!alive && previous.phase == Phase.ERROR && previous.developer == result.first && previous.debugging == result.second) return false
+        if (!alive && previous.phase == Phase.ERROR && previous.failure != Failure.SETTINGS && previous.developer == result.first && previous.debugging == result.second) return false
         mutable.value = StartState(if (alive) Phase.RUNNING else if (result.second != Debugging.ENABLED) Phase.SETUP else Phase.STOPPED, result.first, result.second)
         return alive
     }
     suspend fun start() {
-        if (!mutex.tryLock()) return
+        if (!starting.compareAndSet(false, true)) return
         try {
-            supervisorScope {
-                val work = async(start = CoroutineStart.LAZY) { performStart() }
-                attempt = work
-                try { work.await() }
-                catch (cancelled: CancellationException) { currentCoroutineContext().ensureActive() }
-                finally { attempt = null }
+            mutex.withLock {
+                supervisorScope {
+                    val work = async(start = CoroutineStart.LAZY) { performStart() }
+                    attempt = work
+                    try { work.await() }
+                    catch (cancelled: CancellationException) { currentCoroutineContext().ensureActive() }
+                    finally { attempt = null }
+                }
             }
-        } finally { mutex.unlock() }
+        } finally { starting.set(false) }
     }
     private suspend fun performStart() {
         val active = AtomicBoolean(true)

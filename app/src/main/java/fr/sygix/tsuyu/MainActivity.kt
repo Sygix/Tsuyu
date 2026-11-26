@@ -7,7 +7,6 @@ package fr.sygix.tsuyu
 
 import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -17,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import fr.sygix.tsuyu.ui.*
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -36,7 +36,11 @@ class MainActivity : ComponentActivity() {
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
-        lifecycleScope.launch { graph.persistence.state.collect { graph.persistenceController.refresh() } }
+        lifecycleScope.launch {
+            graph.persistence.state
+                .catch { failure -> android.util.Log.e("Tsuyu", "Persistence state unreadable", failure); graph.persistenceController.refresh() }
+                .collect { graph.persistenceController.refresh() }
+        }
         setContent {
             val ui = model.ui.collectAsStateWithLifecycle().value
             BackHandler { handleBack(ui.screen) }
@@ -86,7 +90,7 @@ class MainActivity : ComponentActivity() {
         }
         if (action == Action.SETTINGS) {
             SettingsNavigation.open(
-                { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) },
+                { startActivity(SettingsNavigation.intent(graph.coordinator.state.value.developer)) },
                 model::settingsFailed,
             )
         } else model.act(action)

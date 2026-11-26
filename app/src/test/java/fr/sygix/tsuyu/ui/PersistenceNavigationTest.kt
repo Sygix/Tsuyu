@@ -43,6 +43,29 @@ class PersistenceNavigationTest {
         compose.onNodeWithTag("persistence-cancel").assertDoesNotExist()
         compose.onNodeWithTag("persistence-reauthorize").assertDoesNotExist()
     }
+    @Test fun authorizationWarningFocusesRenewalAndReachesDisableWithoutWrapping() {
+        val actions = mutableListOf<Action>()
+        val warned = PersistenceUi(enabled = true, enabledKnown = true, loading = false, keyRefresh = KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        val state = mutableStateOf(PersistenceViewModel.present(warned, false, null, StartState(Phase.RUNNING)))
+        compose.setContent { PersistenceScreen(state.value, actions::add) }
+        compose.onNodeWithTag("persistence-renew").assertIsFocused()
+        press("persistence-renew", Key.DirectionUp)
+        compose.onNodeWithTag("persistence-renew").assertIsFocused()
+        press("persistence-renew", Key.DirectionCenter)
+        press("persistence-renew", Key.DirectionDown)
+        compose.onNodeWithTag("persistence-enable").assertIsFocused()
+        press("persistence-enable", Key.DirectionDown)
+        press("persistence-expiry", Key.DirectionDown)
+        press("persistence-refresh", Key.DirectionDown)
+        compose.onNodeWithTag("persistence-disable").assertIsFocused()
+        press("persistence-disable", Key.DirectionCenter)
+        assertEquals(listOf(Action.RENEW, Action.DISABLE_PERSISTENCE), actions)
+        compose.runOnIdle { state.value = PersistenceViewModel.present(warned.copy(loading = true), false, "persistence-disable", StartState(Phase.RUNNING)) }
+        compose.onNodeWithTag("persistence-disable").assertIsFocused()
+        compose.runOnIdle { state.value = PersistenceViewModel.present(PersistenceUi(enabledKnown = true, loading = false), false, null, StartState(Phase.RUNNING)) }
+        compose.onNodeWithTag("persistence-enable").assertIsFocused()
+        compose.onNodeWithTag("persistence-disable").assertDoesNotExist()
+    }
     @Test fun optionalChoiceInitiallyKeepsPolicyAndDoesNotWrap() {
         val actions = mutableListOf<Action>()
         val state = mutableStateOf(PersistenceViewModel.present(PersistenceUi(loading = false, expiry = 604800000), true, "expiry-disable"))

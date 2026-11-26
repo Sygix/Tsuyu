@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancelAndJoin
 
 enum class Screen { HOME, SETUP, HELP, DETAILS, PERSISTENCE, EXPIRY, UPDATES }
-enum class Action { ENABLE, START, CANCEL, REAUTHORIZE, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES, LANGUAGE }
+enum class Action { ENABLE, START, CANCEL, REAUTHORIZE, SETTINGS, HELP, DETAILS, BACK, REFRESH, APPS, PERSISTENCE, EXPIRY, DISABLE_EXPIRY, RENEW, DISABLE_PERSISTENCE, RETURN, UPDATES, UPDATE, CHECK, AUTO, PRERELEASES, LANGUAGE }
 data class Control(val id: String, val label: Int, val action: Action, val args: List<Any> = emptyList(), val enabled: Boolean = true)
 interface ScreenUi {
     val screen: Screen
@@ -69,12 +69,12 @@ class HomeViewModel(
             preparation.enabled && (preparation.ready || preparation.unsupported)
         val returning = label.takeIf { settled }
         val presentation = present(state, nav.screen, nav.returnFocus, returning)
-        val failed = preparation.outcome.failed || preparation.keyRefresh in listOf(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, KeyRefreshOutcome.FAILED)
+        val failed = preparation.enabled && (preparation.outcome.failed || preparation.keyRefresh in listOf(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, KeyRefreshOutcome.FAILED))
         val verified = !preparation.loading && !preparation.error
         val status = when {
-            preparation.keyRefresh == KeyRefreshOutcome.AUTHORIZATION_REQUIRED -> R.string.persistence_key_required
-            preparation.keyRefresh == KeyRefreshOutcome.FAILED -> R.string.persistence_key_refresh_failed
-            preparation.outcome == RestartOutcome.AUTHENTICATION -> R.string.persistence_key_required
+            failed && preparation.keyRefresh == KeyRefreshOutcome.AUTHORIZATION_REQUIRED -> R.string.persistence_key_required
+            failed && preparation.keyRefresh == KeyRefreshOutcome.FAILED -> R.string.persistence_key_refresh_failed
+            failed && preparation.outcome == RestartOutcome.AUTHENTICATION -> R.string.persistence_restart_auth
             failed -> R.string.persistence_boot_failed
             verified && preparation.enabled && preparation.outcome == RestartOutcome.RUNNING && state.phase == Phase.RUNNING -> R.string.persistence_home_started
             verified && preparation.ready && preparation.enabled -> R.string.persistence_home_ready
@@ -109,7 +109,10 @@ class HomeViewModel(
         cancelPending()
         navigation.value = navigation.value.copy(returnFocus = if (fromMain) "action-main" else "action-persistence")
     }
-    fun cancelPending() { coordinator.cancel(); startup?.cancel() }
+    fun cancelPending() {
+        if (startup?.isActive == true) coordinator.cancel()
+        startup?.cancel()
+    }
     fun back() {
         cancelPending()
         navigation.value = navigation.value.copy(screen = Screen.HOME)
@@ -119,7 +122,7 @@ class HomeViewModel(
         when (action) {
             Action.ENABLE -> navigation.value = Navigation(Screen.SETUP)
             Action.START -> start()
-            Action.CANCEL -> { cancelPending(); navigation.value = Navigation(); resume() }
+            Action.CANCEL -> { coordinator.cancel(); startup?.cancel(); navigation.value = Navigation(); resume() }
             Action.REAUTHORIZE -> viewModelScope.launch {
                 startup?.cancelAndJoin()
                 coordinator.cancelAndJoin()
@@ -134,7 +137,7 @@ class HomeViewModel(
             Action.PERSISTENCE -> navigation.value = navigation.value.copy(returnFocus = "action-persistence")
             Action.UPDATES -> navigation.value = navigation.value.copy(returnFocus = "action-updates")
             Action.LANGUAGE -> navigation.value = navigation.value.copy(returnFocus = "action-language")
-            Action.EXPIRY, Action.DISABLE_EXPIRY, Action.RETURN, Action.UPDATE, Action.CHECK, Action.AUTO, Action.PRERELEASES -> Unit
+            Action.EXPIRY, Action.DISABLE_EXPIRY, Action.RENEW, Action.DISABLE_PERSISTENCE, Action.RETURN, Action.UPDATE, Action.CHECK, Action.AUTO, Action.PRERELEASES -> Unit
         }
     }
     private fun start() {
@@ -184,7 +187,8 @@ class HomeViewModel(
                             Failure.BUSY -> R.string.error_busy
                             else -> R.string.error_launch
                         }
-                        main = Control("action-main", R.string.retry, if (state.failure == Failure.SETTINGS) Action.SETTINGS else Action.START)
+                        main = if (state.failure == Failure.SETTINGS) Control("action-main", R.string.open_settings, Action.SETTINGS)
+                            else Control("action-main", R.string.retry, Action.START)
                     }
                     state.phase == Phase.SETUP && state.debugging == Debugging.UNKNOWN -> {
                         title = R.string.setup_title; body = R.string.error_unknown_settings

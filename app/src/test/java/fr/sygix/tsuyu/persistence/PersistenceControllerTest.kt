@@ -17,6 +17,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.resetMain
@@ -124,7 +125,7 @@ class PersistenceControllerTest {
         assertEquals(RestartOutcome.RECOVERED, controller.state.value.outcome)
         assertEquals(1, scheduled)
     }
-    @Test fun previousBootSuccessIsNotPresentedAsCurrentAndManualRecoveryClearsFailure() = runTest {
+    @Test fun previousBootSuccessIsNotPresentedAsCurrentAndManualRecoveryClearsFailureButNotTheKeyWarning() = runTest {
         val store = Store()
         store.saved = StoredPersistence(true, RestartRecord("boot:1", outcome = RestartOutcome.RUNNING))
         val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
@@ -136,7 +137,102 @@ class PersistenceControllerTest {
         assertEquals(RestartOutcome.AUTHENTICATION, controller.state.value.outcome)
         controller.recovered()
         assertEquals(RestartOutcome.RECOVERED, controller.state.value.outcome)
-        assertEquals(KeyRefreshOutcome.CURRENT, controller.state.value.keyRefresh)
+        assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, controller.state.value.keyRefresh)
+    }
+    @Test fun renewalPromptsWithoutRestartingAndRecordsOnlyItsRealAuthenticationResult() = runTest {
+        val store = Store()
+        store.saved = StoredPersistence(true, keyRefresh = KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        var launches = 0
+        val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) { launches++ } }, direct)
+        var result: Failure? = Failure.AUTHENTICATION
+        var prompted: PersistenceScreenUi? = null
+        lateinit var controller: PersistenceController
+        controller = PersistenceController(store, coordinator, { null }, direct, renewKey = { awaiting ->
+            awaiting()
+            prompted = PersistenceViewModel.present(controller.state.value, false, "persistence-renew", coordinator.state.value)
+            result?.let { throw StartException(it) }
+        })
+        controller.refresh()
+        assertEquals("persistence-renew", PersistenceViewModel.present(controller.state.value, false, "persistence-renew").controls.first().id)
+        controller.renewAuthorization()
+        assertEquals(R.string.auth_body, prompted?.body)
+        assertEquals(listOf("persistence-cancel"), prompted?.controls?.map { it.id })
+        assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, store.saved.keyRefresh)
+        result = Failure.ENDPOINT
+        controller.renewAuthorization()
+        assertEquals(KeyRefreshOutcome.FAILED, store.saved.keyRefresh)
+        store.saved = store.saved.copy(keyRefresh = KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        val unreachable = PersistenceController(store, coordinator, { null }, direct, renewKey = { kotlinx.coroutines.withTimeout(1) { kotlinx.coroutines.awaitCancellation() } })
+        unreachable.renewAuthorization()
+        assertEquals(KeyRefreshOutcome.FAILED, store.saved.keyRefresh)
+        result = null
+        controller.renewAuthorization()
+        assertEquals(KeyRefreshOutcome.CURRENT, store.saved.keyRefresh)
+        assertFalse(controller.state.value.renewing)
+        assertFalse(PersistenceViewModel.present(controller.state.value, false, "persistence-renew").controls.any { it.id == "persistence-renew" })
+        assertEquals(0, launches)
+    }
+    @Test fun theScreenOpensOnRenewalWhenAWarningIsPresent() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModels = ViewModelStore()
+        try {
+            val store = Store()
+            store.saved = StoredPersistence(true, keyRefresh = KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+            val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+            val controller = PersistenceController(store, coordinator, { null }, direct)
+            controller.refresh()
+            val model = PersistenceViewModel(controller)
+            viewModels.put("persistence", model)
+            runCurrent()
+            assertEquals("persistence-renew", model.ui.value.focus)
+            val idle = model.ui.value.controls.map { it.id }
+            store.gate = CompletableDeferred()
+            model.act(Action.REFRESH); runCurrent()
+            assertTrue(controller.state.value.loading)
+            assertEquals(idle, model.ui.value.controls.map { it.id })
+            store.gate!!.complete(Unit); advanceUntilIdle()
+        } finally { viewModels.clear(); Dispatchers.resetMain() }
+    }
+    @Test fun cancellingRenewalKeepsTheWarningAndLeavesNoProgress() = runTest {
+        val store = Store()
+        store.saved = StoredPersistence(true, keyRefresh = KeyRefreshOutcome.AUTHORIZATION_REQUIRED)
+        val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+        val controller = PersistenceController(store, coordinator, { null }, direct, renewKey = { awaiting -> awaiting(); awaitCancellation() })
+        controller.refresh()
+        val renewal = launch { controller.renewAuthorization() }
+        runCurrent()
+        assertTrue(controller.state.value.renewing)
+        renewal.cancel(); renewal.join()
+        assertFalse(controller.state.value.renewing)
+        assertFalse(controller.state.value.loading)
+        assertEquals(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, store.saved.keyRefresh)
+        assertEquals("persistence-renew", PersistenceViewModel.present(controller.state.value, false, "persistence-renew").focus)
+    }
+    @Test fun disablingCancelsKeyRefreshAndReturnsToTheDisclosureWithoutStoppingTheService() = runTest {
+        val store = Store()
+        store.saved = StoredPersistence(true, keyRefresh = KeyRefreshOutcome.FAILED)
+        var cancelled = 0
+        val coordinator = StartCoordinator(object : SystemSettings { override fun read() = true to Debugging.ENABLED }, object : ServerAccess { override suspend fun alive() = true }, object : ServerLauncher { override suspend fun launch(progress: (Phase) -> Unit) = Unit }, direct)
+        val controller = PersistenceController(store, coordinator, { null }, direct, cancelKeyRefresh = { cancelled++ })
+        controller.refresh()
+        assertTrue(PersistenceViewModel.present(controller.state.value, false, "persistence-disable").controls.any { it.id == "persistence-disable" })
+        controller.disable()
+        assertEquals(1, cancelled)
+        assertFalse(store.saved.enabled)
+        assertEquals(KeyRefreshOutcome.NONE, store.saved.keyRefresh)
+        val shown = PersistenceViewModel.present(controller.state.value, false, "persistence-disable")
+        assertEquals(R.string.persistence_disclosure, shown.body)
+        assertFalse(shown.controls.any { it.id == "persistence-disable" || it.id == "persistence-renew" })
+        assertEquals(Phase.RUNNING, coordinator.state.value.phase)
+    }
+    @Test fun firstRunWithoutDeveloperOptionsShowsTheDeveloperStepBeforeTheDisclosure() {
+        val developer = PersistenceViewModel.present(PersistenceUi(loading = false, setup = true), false, "persistence-enable", StartState(Phase.SETUP, developer = false, debugging = Debugging.DISABLED))
+        assertEquals(R.string.setup_developer_title, developer.title)
+        assertEquals(R.string.setup_developer_body, developer.body)
+        val debugging = PersistenceViewModel.present(PersistenceUi(loading = false, setup = true), false, "persistence-enable", StartState(Phase.SETUP, developer = true, debugging = Debugging.DISABLED))
+        assertEquals(R.string.setup_debug_title, debugging.title)
+        assertEquals(R.string.setup_debug_body, debugging.body)
+        assertEquals(Action.SETTINGS, debugging.controls.first().action)
     }
     @Test fun routingWaitsForConfigurationAndReadFailureIsVisible() = runTest {
         val store = Store()

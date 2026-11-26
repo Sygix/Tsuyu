@@ -57,7 +57,8 @@ class UpdateControllerTest {
         override fun foreground() = visible
         override fun online() = network
         override suspend fun running() = live
-        override suspend fun prepared() = ready
+        var preparedFails = false
+        override suspend fun prepared() = if (preparedFails) throw android.os.DeadObjectException() else ready
         override suspend fun idle() = quiet
         var pendingAtCommit: Pending? = Pending(0, "", "", 0, 0)
         override suspend fun install(file: File, release: Release): UpdateCause? { assertTrue(file.exists()); pendingAtCommit = storage.saved.pending; installs += release; return installResult }
@@ -114,6 +115,14 @@ class UpdateControllerTest {
         host.live = true
         host.ready = false
         assertEquals(UpdateCause.PREPARATION, controller.update())
+        assertEquals(0, files.downloads)
+        assertTrue(host.installs.isEmpty())
+    }
+
+    @Test fun serviceDyingDuringPreconditionsIsReportedInsteadOfEscaping() = runTest {
+        controller.check(manual = true)
+        host.preparedFails = true
+        assertEquals(UpdateCause.SERVICE, controller.update())
         assertEquals(0, files.downloads)
         assertTrue(host.installs.isEmpty())
     }

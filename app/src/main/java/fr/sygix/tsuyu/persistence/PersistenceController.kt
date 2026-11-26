@@ -31,6 +31,7 @@ data class PersistenceUi(
     val enabledKnown: Boolean = false,
     val settingsError: Boolean = false,
     val keyRefresh: KeyRefreshOutcome = KeyRefreshOutcome.NONE,
+    val renewing: Boolean = false,
 ) {
     val ready get() = uid == Preparation.READY && pkg == Preparation.READY
     val unsupported get() = uid == Preparation.UNSUPPORTED && pkg == Preparation.UNSUPPORTED
@@ -42,6 +43,8 @@ class PersistenceController(
     private val io: BoundedIo = BoundedIo(),
     private val scheduleKeyRefresh: () -> Unit = {},
     private val currentEvent: (String) -> Boolean = { true },
+    private val renewKey: suspend (awaiting: () -> Unit) -> Unit = {},
+    private val cancelKeyRefresh: () -> Unit = {},
 ) {
     private val mutable = MutableStateFlow(PersistenceUi())
     val state = mutable.asStateFlow()
@@ -100,6 +103,27 @@ class PersistenceController(
         update(snapshot)
         if (!snapshot.containsKey("expiry") || snapshot.getLong("expiry") != 0L) error("Expiry change unverified; refresh before retry")
     }
+    suspend fun disable() = operation {
+        withTimeout(STORAGE_TIMEOUT_MS) { store.disable() }
+        cancelKeyRefresh()
+        inspect()
+    }
+    suspend fun renewAuthorization() = operation {
+        var prompted = false
+        val outcome = try {
+            renewKey { prompted = true; mutable.value = mutable.value.copy(renewing = true) }
+            KeyRefreshOutcome.CURRENT
+        } catch (expired: TimeoutCancellationException) {
+            Log.e("Tsuyu", "Authorization renewal timed out", expired)
+            if (prompted) KeyRefreshOutcome.AUTHORIZATION_REQUIRED else KeyRefreshOutcome.FAILED
+        } catch (failure: StartException) {
+            Log.e("Tsuyu", "Authorization renewal failed", failure)
+            if (failure.failure == Failure.AUTHENTICATION || failure.failure == Failure.TIMEOUT) KeyRefreshOutcome.AUTHORIZATION_REQUIRED
+            else KeyRefreshOutcome.FAILED
+        } finally { mutable.value = mutable.value.copy(renewing = false) }
+        withTimeout(STORAGE_TIMEOUT_MS) { store.keyRefreshed(outcome) }
+        inspect()
+    }
     private suspend fun inspect() {
         coordinator.refresh()
         val saved = withTimeout(STORAGE_TIMEOUT_MS) { store.read() }
@@ -134,7 +158,10 @@ class PersistenceController(
         if (showProgress) mutable.value = mutable.value.copy(loading = true, error = false)
         try { block() }
         catch (timeout: TimeoutCancellationException) { failed("Persistence operation timed out", timeout) }
-        catch (cancelled: CancellationException) { throw cancelled }
+        catch (cancelled: CancellationException) {
+            mutable.value = mutable.value.copy(loading = false, renewing = false)
+            throw cancelled
+        }
         catch (failure: Exception) { failed("Persistence operation failed", failure) }
     }
     private fun failed(message: String, failure: Exception) {

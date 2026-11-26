@@ -63,8 +63,11 @@
     <string name="persistence_home_ready">Avvio automatico configurato</string>
     <string name="persistence_home_started">Avvio automatico riuscito</string>
     <string name="persistence_started">Tsuyu si è riavviato automaticamente. Il servizio è attivo. Mantieni il debug USB attivo.</string>
-    <string name="persistence_key_required">È necessaria l’autorizzazione di debug: riprova l’avvio e accetta la richiesta di sistema.</string>
-    <string name="persistence_key_refresh_failed">Tsuyu non ha potuto rinnovare la propria autorizzazione. Verifica il debug USB e riprova l’avvio.</string>
+    <string name="persistence_key_required">È necessaria l’autorizzazione di debug: scegli «Rinnova autorizzazione» e accetta la richiesta di sistema.</string>
+    <string name="persistence_restart_auth">È necessaria l’autorizzazione di debug: riprova l’avvio e accetta la richiesta di sistema.</string>
+    <string name="persistence_key_refresh_failed">Tsuyu non ha potuto rinnovare la propria autorizzazione. Verifica il debug USB, poi scegli «Rinnova autorizzazione».</string>
+    <string name="persistence_renew">Rinnova autorizzazione</string>
+    <string name="persistence_disable">Disattiva l’avvio automatico</string>
     <string name="persistence_home_standard">Riavvio: Android programmato, produttore non verificato</string>
     <string name="persistence_home_unverified">Riavvio: preparazione non verificata</string>
     <string name="persistence_boot_failed">Riavvio non riuscito: apri «Avvio dopo il riavvio» per ripararlo.</string>

@@ -45,7 +45,8 @@ class AccessNavigationTest {
         val icon = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
         val rows = listOf(AccessRow(10001, listOf(AccessApp("Allowed", icon))), AccessRow(10002, listOf(AccessApp("SygixOs", icon)), refused = true))
         val resets = mutableListOf<Int>()
-        compose.setContent { AccessScreen(AccessUi(loading = false, rows = rows), {}, {}, {}, {}, resets::add) }
+        val focused = mutableListOf<Int>()
+        compose.setContent { AccessScreen(AccessUi(loading = false, rows = rows), {}, {}, {}, {}, resets::add, focused::add) }
         compose.onNodeWithTag("access-title").assertTextEquals("Accès des applications")
         compose.onNodeWithTag("revoke-10001").assertIsFocused()
         compose.onNodeWithTag("status-reset-10002").assertTextEquals("Accès refusé")
@@ -55,6 +56,7 @@ class AccessNavigationTest {
         compose.onNodeWithTag("revoke-10001").assertIsFocused()
         press("revoke-10001", Key.DirectionDown)
         compose.onNodeWithTag("reset-10002").assertIsFocused().assertTextEquals("Autoriser une nouvelle demande")
+        assertEquals(10002, focused.last())
         press("reset-10002", Key.DirectionDown)
         compose.onNodeWithTag("access-back").assertIsFocused()
         press("access-back", Key.DirectionDown)

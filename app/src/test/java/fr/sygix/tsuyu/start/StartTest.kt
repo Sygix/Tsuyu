@@ -54,6 +54,33 @@ class StartTest {
         gate.complete(Unit); first.join()
         assertEquals(Phase.RUNNING, coordinator.state.value.phase)
     }
+    @Test fun settingsFailureClearsOnceSettingsCanBeReadAgain() = runTest {
+        val coordinator = StartCoordinator(Settings(), Server(), launcher { }, direct)
+        coordinator.refresh()
+        coordinator.settingsFailed()
+        assertEquals(Failure.SETTINGS, coordinator.state.value.failure)
+        coordinator.refresh()
+        assertEquals(Phase.STOPPED, coordinator.state.value.phase)
+        assertNull(coordinator.state.value.failure)
+    }
+    @Test fun startPressedDuringRefreshRunsAfterItInsteadOfBeingDropped() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var launches = 0
+        var running = false
+        val server = object : ServerAccess {
+            override suspend fun alive(): Boolean { if (!gate.isCompleted) gate.await(); return running }
+        }
+        val coordinator = StartCoordinator(Settings(), server, launcher { launches++; running = true }, direct)
+        val refresh = launch { coordinator.refresh() }
+        runCurrent()
+        val start = launch { coordinator.start() }
+        runCurrent()
+        assertEquals(0, launches)
+        gate.complete(Unit)
+        refresh.join(); start.join()
+        assertEquals(1, launches)
+        assertEquals(Phase.RUNNING, coordinator.state.value.phase)
+    }
     @Test fun cancelledLaunchReconcilesActualLateServer() = runTest {
         val server = Server()
         var late: ((Phase) -> Unit)? = null
