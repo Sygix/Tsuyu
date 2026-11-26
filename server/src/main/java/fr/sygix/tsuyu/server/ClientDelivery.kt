@@ -18,6 +18,7 @@ import rikka.hidden.compat.adapter.UidObserverAdapter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class ClientDelivery(
     private val binder: IBinder,
@@ -31,6 +32,7 @@ internal class ClientDelivery(
     private val reportClient: (String, Boolean) -> Unit = { _, _ -> },
 ) : AutoCloseable {
     private val pending = ConcurrentHashMap.newKeySet<String>()
+    private val inFlight = ConcurrentHashMap.newKeySet<String>()
     private val delivered = ConcurrentHashMap.newKeySet<Int>()
     private val owners = ConcurrentHashMap<Int, Int>()
     private val retryAfter = ConcurrentHashMap<Int, Long>()
@@ -102,13 +104,35 @@ internal class ClientDelivery(
         val key = "$user:$name"
         if (attempt == 0 && !pending.add(key)) return
         events.execute {
+            if (!inFlight.add(key)) {
+                pending.remove(key)
+                reportClient(name, false)
+                return@execute
+            }
+            val claimed = AtomicBoolean()
+            val abandoned = AtomicBoolean()
             try {
-                deadline.call(Deadline.Use.DELIVERY) {
-                    if (send != null) send.invoke(name, user)
-                    else ProviderBridge(user).call("$name.shizuku", "sendBinder", Bundle().apply {
-                        putParcelable("moe.shizuku.privileged.api.intent.extra.BINDER", BinderContainer(binder))
-                    })
-                }
+                try {
+                    deadline.call(Deadline.Use.DELIVERY) {
+                        if (!claimed.compareAndSet(false, true)) return@call
+                        try {
+                            if (send != null) send.invoke(name, user)
+                            else ProviderBridge(user).call("$name.shizuku", "sendBinder", Bundle().apply {
+                                putParcelable("moe.shizuku.privileged.api.intent.extra.BINDER", BinderContainer(binder))
+                            })
+                            if (abandoned.get()) { reportClient(name, true); reportSuccess() }
+                        } catch (late: Exception) {
+                            if (abandoned.get()) {
+                                if (uid != null) retryUid(uid)
+                                reportClient(name, false)
+                            }
+                            throw late
+                        } finally { inFlight.remove(key) }
+                    }
+                } catch (failure: Exception) {
+                    if (claimed.get()) abandoned.set(true)
+                    throw failure
+                } finally { if (claimed.compareAndSet(false, true)) inFlight.remove(key) }
                 pending.remove(key)
                 reportClient(name, true)
                 reportSuccess()
@@ -129,7 +153,7 @@ internal class ClientDelivery(
     }
     companion object {
         private const val PER_USER_RANGE = 100_000
-        private const val UID_OBSERVER_ACTIVE = 2
+        private const val UID_OBSERVER_ACTIVE = 8
         private const val UID_OBSERVER_CACHED = 16
         private const val RETRY_COOLDOWN_MS = 5000
     }

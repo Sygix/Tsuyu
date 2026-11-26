@@ -38,7 +38,8 @@ class ClientServiceTest {
     private var death: android.os.IBinder.DeathRecipient? = null
     private var cleanupFails = false
     private var stops = 0
-    private val service = ClientService(10002, access, identities, storage, deadline, {}, UserServices("unused", 1), { uid }, { pid }, { "shell-context" }, elapsed = { time }, showRequest = { token, user -> opened.add(token to user) }, stopClient = { _, _ -> stops++; check(!cleanupFails) })
+    private var showFails = false
+    private val service = ClientService(10002, access, identities, storage, deadline, {}, UserServices("unused", 1), { uid }, { pid }, { "shell-context" }, elapsed = { time }, showRequest = { token, user -> check(!showFails) { "No screen" }; opened.add(token to user) }, stopClient = { _, _ -> stops++; check(!cleanupFails) })
     @After fun cleanup() { service.shutdown(); deadline.close() }
     private var metadata: Bundle? = null
     private val callback = object : IShizukuApplication.Stub() {
@@ -169,16 +170,44 @@ class ClientServiceTest {
         uid = 110001
         assertTrue(service.checkSelfPermission())
     }
-    @Test fun refusalAndLateConfirmationReturnDenialWithTheOriginalCode() {
+    @Test fun lateConfirmationReturnsDenialWithTheOriginalCodeWithoutRecordingARefusal() {
         attach(); service.requestPermission(17)
         val token = opened.single().first
         time = 120001
         uid = 10002
         service.confirm(token, true)
         assertEquals(listOf(17 to false), results.toList())
+        assertEquals(0, service.accessList().getIntArray("refused")?.size)
         uid = 110001
         assertFalse(service.checkSelfPermission())
+        assertFalse(service.shouldShowRequestPermissionRationale())
+        service.requestPermission(18)
+        assertEquals(2, opened.size)
+    }
+    @Test fun unopenableConsentScreenDeniesWithoutRecordingARefusal() {
+        attach()
+        showFails = true
+        assertThrows(IllegalStateException::class.java) { service.requestPermission(41) }
+        assertEquals(listOf(41 to false), results.toList())
+        assertFalse(service.shouldShowRequestPermissionRationale())
+        showFails = false
+        service.requestPermission(42)
+        assertEquals(1, opened.size)
+    }
+    @Test fun explicitRefusalIsAnsweredWithoutAnotherPromptUntilReset() {
+        attach(); service.requestPermission(31)
+        uid = 10002
+        service.confirm(opened.single().first, false)
+        uid = 110001
         assertTrue(service.shouldShowRequestPermissionRationale())
+        service.requestPermission(32)
+        assertEquals(1, opened.size)
+        assertEquals(listOf(31 to false, 32 to false), results.toList())
+        uid = 10002
+        assertTrue(service.resetRefusal(110001))
+        uid = 110001
+        service.requestPermission(33)
+        assertEquals(2, opened.size)
     }
     @Test fun clientDeathCannotAuthorizePendingConsent() {
         attach(); service.requestPermission(19)
@@ -257,6 +286,26 @@ class ClientServiceTest {
         uid = 110002
         forward()
         assertEquals(1, calls)
+    }
+    @Test fun legacyClientTransactionsForwardOnlyBinderCallFlags() {
+        service.attachApplication(callback, Bundle().apply { putString(ATTACH_APPLICATION_PACKAGE_NAME, "client"); putInt(ATTACH_APPLICATION_API_VERSION, 12) })
+        access.decide(uid, true)
+        val seen = mutableListOf<Int>()
+        val target = object : android.os.Binder() {
+            override fun onTransact(code: Int, data: android.os.Parcel, reply: android.os.Parcel?, flags: Int): Boolean {
+                seen.add(flags)
+                return true
+            }
+        }
+        listOf(0x10, 0x11, 0x30).forEach { incoming ->
+            val data = android.os.Parcel.obtain()
+            try {
+                data.writeInterfaceToken(BINDER_DESCRIPTOR)
+                data.writeStrongBinder(target); data.writeInt(5)
+                assertTrue(service.transact(1, data, null, incoming))
+            } finally { data.recycle() }
+        }
+        assertEquals(listOf(0, android.os.IBinder.FLAG_ONEWAY, 0x20), seen)
     }
     @Test fun revocationClearsTheDecisionSoAnUnchangedClientCanRequestAgain() {
         attach(); access.decide(uid, true)

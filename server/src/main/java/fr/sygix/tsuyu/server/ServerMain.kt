@@ -32,12 +32,16 @@ object ServerMain {
             exitProcess(1)
         }
     }
+    internal fun socketName(userId: Int, token: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray())
+        return "$PACKAGE.server.$userId." + digest.joinToString("") { "%02x".format(it) }.take(32)
+    }
     private fun run(args: Array<String>) {
         check(Os.getuid() == 2000) { "Shell uid required" }
         require(args.size == 4 && args[1].matches(Regex("[a-f0-9]{32}")) && args[2].matches(Regex("[a-f0-9]{32}")))
         HiddenApiAccess.enable()
         val userId = args[3].toInt().also { require(it in 0..21474) }
-        val socketName = "$PACKAGE.server.$userId"
+        val socketName = socketName(userId, args[1])
         val socket = try { LocalServerSocket(socketName) } catch (occupied: java.io.IOException) {
             LocalSocket().use { peer ->
                 LocalSocketConnection.connect(peer, socketName)
@@ -95,7 +99,10 @@ object ServerMain {
         check(executor.submit<Boolean> { watch.reconcile() }.get(5, TimeUnit.SECONDS))
         var generation = args[2]
         lateinit var reconnect: (Int) -> Unit
-        fun publish(nextGeneration: String) {
+        val publishing = Any()
+        var manager: android.os.IBinder? = null
+        val managerDied = android.os.IBinder.DeathRecipient { ready.set(false); events.schedule({ reconnect(0) }, 250, TimeUnit.MILLISECONDS) }
+        fun publish(nextGeneration: String) = synchronized(publishing) {
             val call = executor.submit<android.os.IBinder> { bridge.publish(binder, args[1], nextGeneration) }
             val client = try { call.get(5, TimeUnit.SECONDS) } finally { if (!call.isDone) call.cancel(true) }
             val checkPackage = executor.submit<Boolean> { watch.reconcile() }
@@ -103,7 +110,9 @@ object ServerMain {
             generation = nextGeneration
             identities.invalidate()
             access.reload()
-            client.linkToDeath({ ready.set(false); events.schedule({ reconnect(0) }, 250, TimeUnit.MILLISECONDS) }, 0)
+            manager?.let { previous -> try { previous.unlinkToDeath(managerDied, 0) } catch (missing: NoSuchElementException) { Log.w("TsuyuServer", "Manager death link already gone", missing) } }
+            client.linkToDeath(managerDied, 0)
+            manager = client
             ready.set(true)
         }
         reconnect = { attempt ->

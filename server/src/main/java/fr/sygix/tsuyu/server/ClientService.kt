@@ -281,8 +281,8 @@ internal class ClientService(
             val owner = allowed(flags and IBinder.FLAG_ONEWAY != 0)
             val target = requireNotNull(data.readStrongBinder())
             val targetCode = data.readInt()
-            val targetFlags = if (owner.api >= API_VERSION) data.readInt() else flags
-            require(targetCode > 0 && targetFlags and IBinder.FLAG_ONEWAY.inv() == 0)
+            val targetFlags = (if (owner.api >= API_VERSION) data.readInt() else flags) and FORWARDED_FLAGS
+            require(targetCode > 0)
             val payload = Parcel.obtain()
             try {
                 payload.appendFrom(data, data.dataPosition(), data.dataAvail())
@@ -314,5 +314,7 @@ internal class ClientService(
         private const val FLAG_DENIED = 4
         private const val PERMISSION_MASK = FLAG_ALLOWED or FLAG_DENIED
         private const val PER_USER_RANGE = 100_000
+        private const val FLAG_CLEAR_BUF = 0x20
+        private const val FORWARDED_FLAGS = IBinder.FLAG_ONEWAY or FLAG_CLEAR_BUF
     }
 }

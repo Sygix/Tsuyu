@@ -27,6 +27,7 @@ internal class ConsentRequests(
     private val ended: (String) -> Unit,
     private val failed: () -> Unit,
 ) : AutoCloseable {
+    private data class Decided(val allowed: Boolean)
     private data class Request(
         val token: String,
         val client: ClientRecord,
@@ -44,7 +45,7 @@ internal class ConsentRequests(
     }
 
     fun cancel(uid: Int) {
-        requests.values.filter { it.client.uid == uid }.forEach { complete(it.token, false) }
+        requests.values.filter { it.client.uid == uid }.forEach { complete(it.token, false, recorded = false) }
     }
 
     fun enqueue(client: ClientRecord, code: Int) {
@@ -54,7 +55,9 @@ internal class ConsentRequests(
                 check(current.members[client.packageName] == client.group.members[client.packageName]) {
                     "Client identity changed; reopen the application"
                 }
-                if (access.allowed(client.uid)) null else synchronized(requests) {
+                if (access.allowed(client.uid)) Decided(true)
+                else if (access.rationale(client.uid)) Decided(false)
+                else synchronized(requests) {
                     check(requests.size < MAX_PENDING) { "Too many pending requests" }
                     check(requests.values.count { it.client.uid == client.uid } < MAX_PER_UID) {
                         "This client already has pending requests"
@@ -65,21 +68,22 @@ internal class ConsentRequests(
                 }
             }
         }
-        if (request == null) {
-            respond(client, code, true)
+        if (request is Decided) {
+            respond(client, code, request.allowed)
             return
         }
-        events.schedule({ complete(request.token, false) }, DECISION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        request as Request
+        events.schedule({ complete(request.token, false, recorded = false) }, DECISION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         try { shell { deadline.call { show(request.token, client.uid / PER_USER_RANGE) } } }
         catch (failure: Exception) {
-            complete(request.token, false)
+            complete(request.token, false, recorded = false)
             throw IllegalStateException("Open Tsuyu and retry permission", failure)
         }
     }
 
     fun details(token: String): Bundle {
         val request = requests[token] ?: error("Request expired")
-        if (elapsed() >= request.expires) { complete(token, false); error("Request expired") }
+        if (elapsed() >= request.expires) { complete(token, false, recorded = false); error("Request expired") }
         check(shell { identities.resolve(request.client.uid) } == request.group) { "Identity changed" }
         return Bundle().apply {
             putInt("uid", request.client.uid)
@@ -88,7 +92,7 @@ internal class ConsentRequests(
         }
     }
 
-    fun complete(token: String, allowed: Boolean) {
+    fun complete(token: String, allowed: Boolean, recorded: Boolean = true) {
         val owner = requests[token]?.client ?: return
         val completed = lifecycle.withUid(owner.uid) {
             val request = requests.remove(token) ?: return@withUid emptyList<Pair<Request, Boolean>>()
@@ -103,9 +107,7 @@ internal class ConsentRequests(
                             if (requests.remove(pending.token, pending)) targets.add(pending)
                         }
                     }
-                    if (now < request.expires || !access.allowed(request.client.uid)) {
-                        access.decide(request.group, allowed && now < request.expires)
-                    }
+                    if (recorded && now < request.expires) access.decide(request.group, allowed)
                     result = allowed && now < request.expires
                 }
             } catch (failure: Exception) {

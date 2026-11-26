@@ -45,6 +45,51 @@ class ClientDeliveryTest {
             }
         }
     }
+    @Test fun slowProviderThatFinallyAcceptsIsReportedAsDelivered() {
+        val release = CountDownLatch(1)
+        val refused = CountDownLatch(1)
+        val accepted = CountDownLatch(1)
+        val reports = java.util.concurrent.CopyOnWriteArrayList<Boolean>()
+        Deadline().use { deadline ->
+            ClientDelivery(Binder(), 0, deadline, {}, {}, enumerate = { listOf("slow") }, send = { _, _ ->
+                while (release.count > 0) try { release.await() } catch (ignored: InterruptedException) { Thread.interrupted() }
+            }, reportClient = { _, ok -> reports.add(ok); if (ok) accepted.countDown() else refused.countDown() }).use { delivery ->
+                try {
+                    delivery.processStarted(1, 10001)
+                    assertTrue(refused.await(10, TimeUnit.SECONDS))
+                } finally { release.countDown() }
+                assertTrue(accepted.await(3, TimeUnit.SECONDS))
+                assertEquals(listOf(false, true), reports.toList())
+            }
+        }
+    }
+    @Test fun hungProviderHoldsAtMostOneDeliveryWorkerAndOthersStillReceiveTheBinder() {
+        val release = CountDownLatch(1)
+        val hostileCalls = AtomicInteger()
+        val refused = CountDownLatch(1)
+        val delivered = CountDownLatch(1)
+        var time = 0L
+        Deadline().use { deadline ->
+            ClientDelivery(Binder(), 0, deadline, {}, {}, enumerate = { uid ->
+                listOf(if (uid == 10001) "hostile" else "good")
+            }, send = { name, _ ->
+                if (name == "hostile") {
+                    hostileCalls.incrementAndGet()
+                    while (release.count > 0) try { release.await() } catch (ignored: InterruptedException) { Thread.interrupted() }
+                } else delivered.countDown()
+            }, clock = { time }, reportClient = { name, ok -> if (name == "hostile" && !ok) refused.countDown() }).use { delivery ->
+                try {
+                    delivery.processStarted(1, 10001)
+                    assertTrue(refused.await(10, TimeUnit.SECONDS))
+                    time = 10_000
+                    delivery.processStarted(2, 10001)
+                    delivery.processStarted(3, 10002)
+                    assertTrue(delivered.await(3, TimeUnit.SECONDS))
+                    assertEquals(1, hostileCalls.get())
+                } finally { release.countDown() }
+            }
+        }
+    }
     @Test fun stateChangesDeliverOncePerPidAndDeathAllowsRedelivery() {
         val scans = AtomicInteger()
         val first = CountDownLatch(1)
