@@ -46,9 +46,9 @@ Keep the public Shizuku AIDL unchanged. The presence of a reserved manager trans
 
 The current scheduler uses unique work names `tsuyu-update` and `tsuyu-update-recheck`. The existing preferences DataStore is named `updates`, with a JSON `state` entry; cached APKs are confined to the app-private `update` cache directory.
 
-**Store cleanup.** Extract a minimal shared cleanup boundary that can reset updater state without importing release parsers, network code or an installer. Use one owner for each DataStore instance. Cleanup cancels both work names, resets automatic-update intent and pending/offered updater state while keeping the recorded versionCodes described below, and removes only managed update-cache files. Keeping the record lets a later standalone build detect the store interval by itself. It must never follow an arbitrary persisted path outside that cache or clear consent, language or persistence data.
+**Store cleanup.** Extract a minimal shared cleanup boundary that can reset updater state without importing release parsers, network code or an installer. Use one owner for each DataStore instance. Cleanup cancels both work names, resets automatic-update intent and pending/offered updater state while keeping the recorded versionCode described below, and removes only managed update-cache files. Keeping the record lets a later standalone build detect the store interval by itself. It must never follow an arbitrary persisted path outside that cache or clear consent, language or persistence data.
 
-A store build runs this cleanup at every process start, from application initialization and therefore before any activity, receiver or worker of that process, until one run completes; a completed run is recorded so later starts skip the work. Each step is idempotent, so a crash or partial failure is repaired by the next start. The store build has no updater screen, and the user can do nothing about a failed cleanup, so a failure shows no notice: it returns a Result, is logged with its cause and bounded by a deadline, and is retried at the next process start. Safety does not depend on it: the store payload contains no updater code, so a stale job cannot discover, download or install anything while cleanup is pending.
+A store build runs this cleanup at every process start, started from application initialization without blocking it, until one run completes; activities, receivers and workers of that process may run before it finishes, and a later standalone write clears the completion record so a new store interval cleans again; a completed run is recorded so later starts skip the work. Each step is idempotent, so a crash or partial failure is repaired by the next start. The store build has no updater screen, and the user can do nothing about a failed cleanup, so a failure shows no notice: it returns a Result, is logged with its cause and bounded by a deadline, and is retried at the next process start. Safety does not depend on it: the store payload contains no updater code, so a stale job cannot discover, download or install anything while cleanup is pending.
 
 **Standalone replacement rule.** The owner decided that automatic updating returns to off after a store interval, and that a missing record is the first observation: no store build exists before the release that introduces the rule, so no store interval can precede it, and existing users keep their setting. The standalone build detects any replacement it did not perform itself instead of relying on the store build having run:
 
@@ -67,9 +67,12 @@ Test rapid replacements, a store installation never opened, a worker that become
 
 | Release asset | Build | Consumer |
 | --- | --- | --- |
-| `tsuyu.apk` | standalone release APK | Existing/new GitHub updater clients |
-| `tsuyu-store.apk` | store release APK | F-Droid reference binary |
-| `tsuyu-store.aab` | store release bundle | Play submission |
+| `tsuyu-X.Y.Z-standalone.apk` | standalone release APK | GitHub downloads and updater clients from 0.4 |
+| `tsuyu.apk` | same file as the standalone APK | updater clients before 0.4, which only know this name |
+| `tsuyu-X.Y.Z-store.apk` | store release APK | F-Droid reference binary |
+| `tsuyu-X.Y.Z-store.aab` | store release bundle | Play submission |
+
+Names follow `tsuyu-<version>-<variant>`; no store mandates a file name. The APKs are universal (every ABI in one file), so no ABI appears in the name. The updater takes the versioned standalone name and falls back to `tsuyu.apk`, which stays published until no supported installation predates 0.4.
 
 Use `fr.sygix.tsuyu` and existing provider authorities for both variants. Do not add a variant offset. Test newer-version transitions; a store need not offer same-version replacement. Explain installer/update-ownership constraints rather than bypassing them.
 
@@ -93,8 +96,8 @@ Two signing identities are used and never interchanged:
 
 | Artifact | Signed with | Checked against |
 | --- | --- | --- |
-| `tsuyu.apk`, `tsuyu-store.apk` | existing developer release key | release certificate |
-| `tsuyu-store.aab` | Play upload key | upload certificate |
+| `tsuyu-X.Y.Z-standalone.apk` (and `tsuyu.apk`), `tsuyu-X.Y.Z-store.apk` | existing developer release key | release certificate |
+| `tsuyu-X.Y.Z-store.aab` | Play upload key | upload certificate |
 
 The `production` environment gains a second set of secrets for the upload key next to the existing release-key set. The release job signs each artifact with its own identity, then verifies every signer explicitly: the APKs with the APK signature verifier against the release certificate, the AAB's JAR signature against the upload certificate. A missing set, an invalid key or swapped identities fail the job before anything is staged.
 
@@ -124,11 +127,11 @@ Audit merged permissions, dependency-added services and network behavior for pri
 
 Implement the protocol and README matrix described by `device-validation`, with physical/emulator evidence separated. Require artifact identity, client permission/process/UserService checks, boot with the manager absent, signed replacement and variant-specific checks. Keep a passing historical row when a later release regresses, and link all validated rows to reviewed evidence.
 
-The available physical regression device is a TCL Google TV running Android 14. Android 9 is initially emulator-tested. A community developer may supply evidence; maintainer review is labelled as review, not independent physical reproduction.
+Releases are validated on emulators; the README names the owner's TCL Google TV running Android 14 as the device Tsuyu is used on. Other devices are reported through issues. A community developer may supply evidence; maintainer review is labelled as review, not independent physical reproduction.
 
 Channel status is public in one place: a README « Availability » table with a row for GitHub releases, Google Play and F-Droid, each carrying one status among prepared, testing, submitted, live and blocked, plus the next action or missing input for a submitted or blocked row. A row becomes live only after an installation from that channel has been verified. The same section states that changing channel needs a later version on the target channel.
 
-Prepare Fastlane-format metadata for five languages, real TV screenshots, a privacy document, store-specific checklists and reviewer setup steps. Runtime screenshots are produced during implementation. A stable public privacy URL and account inputs are required before submission, not guessed in these artifacts.
+Prepare Fastlane-format metadata for five languages, TV emulator screenshots, a privacy document, store-specific checklists and reviewer setup steps. Runtime screenshots are produced during implementation. A stable public privacy URL and account inputs are required before submission, not guessed in these artifacts.
 
 ### 9. Play may take over an installation made from the GitHub APK
 
@@ -154,7 +157,7 @@ The store and standalone builds share a package name and, once Play App Signing 
 1. Archive order: `consent-and-persistence-controls`, then `android9-compatibility`, then this change. The first modifies `client-access` "Authenticated server-managed consent" and adds `boot-persistence` requirements; this change modifies only `self-update` requirements and refers to the others, so there is no competing delta.
 2. Introduce the version file in the first release built from this change; that release's tag matches the file like any later one.
 3. Build both variants and verify newer-version standalone -> store -> standalone upgrades on existing configured data, with active and pending clients/work.
-4. Keep `tsuyu.apk` as the standalone artifact so currently installed clients can upgrade directly.
+4. Keep publishing the standalone APK as `tsuyu.apk` too so currently installed clients can upgrade directly.
 5. Validate generated split delivery and real Play testing-track delivery, then reproduce the developer-signed store APK for F-Droid.
 6. Publish channel readiness in the README « Availability » table. Execute the publication runbooks in `handoff.md` only with the owner's authorization.
 7. Roll back behavior through a newer corrected signed release; do not instruct users to downgrade or uninstall a compatible installation.

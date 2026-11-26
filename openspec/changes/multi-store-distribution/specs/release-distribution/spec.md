@@ -74,7 +74,7 @@ An accepted same-package, compatible-signature upgrade between standalone and st
 - **THEN** old binders die, clients observe the new binder through Shizuku.addBinderReceivedListenerSticky and checkSelfPermission() reflects preserved matching decisions
 
 ### Requirement: Silent store-side updater cleanup
-A store build SHALL run the cleanup of standalone updater work, state and files at every process start until it completes, before exposing any capability. The cleanup SHALL be safe to repeat and bounded by a deadline. A failure SHALL be logged with its cause and retried at the next process start, without any user notice.
+A store build SHALL run the cleanup of standalone updater work, state and files at every process start until it completes, starting at application initialization; a standalone build clears the completion record. The cleanup SHALL be safe to repeat and bounded by a deadline. A failure SHALL be logged with its cause and retried at the next process start, without any user notice.
 
 #### Scenario: Old pending worker races with startup
 - **WHEN** stored updater work becomes runnable before the first activity launch in the store installation
@@ -120,11 +120,11 @@ A standalone build SHALL persist the versionCode observed at its last process st
 - **THEN** no automatic check, download or installation runs in that process, the cause is logged, « Rechercher les mises à jour » stays available and the rule is evaluated again at the next process start
 
 ### Requirement: Compatible artifact identity and versioning
-Each published release SHALL provide standalone `tsuyu.apk`, store `tsuyu-store.apk` and Play `tsuyu-store.aab` artifacts for the same source version. They SHALL use the existing package identity and the version of the committed version file, without per-variant offsets. The standalone asset name SHALL remain compatible with installed updater clients.
+Each published release SHALL provide `tsuyu-X.Y.Z-standalone.apk`, the same file as `tsuyu.apk`, `tsuyu-X.Y.Z-store.apk` and the Play `tsuyu-X.Y.Z-store.aab` for the same source version X.Y.Z. They SHALL use the existing package identity and the version of the committed version file, without per-variant offsets. The standalone asset name SHALL remain compatible with installed updater clients.
 
 #### Scenario: Existing updater finds a release
 - **WHEN** a previously published standalone version checks a new release
-- **THEN** it finds the standalone tsuyu.apk whose versionCode equals the value it computes from the tag, with published size and digest, rather than selecting the store artifact
+- **THEN** it finds the standalone APK, under its versioned name or as `tsuyu.apk`, whose versionCode equals the value it computes from the tag, with published size and digest, rather than selecting the store artifact
 
 #### Scenario: Artifact parity
 - **WHEN** the three artifacts are inspected for a release

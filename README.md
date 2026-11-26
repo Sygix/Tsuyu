@@ -14,8 +14,8 @@
 - **Shizuku API compatibility** — delivers the binder to compatible apps and supports their existing Shizuku API calls.
 - **Consent you control** — review each app's request, allow or refuse it, revoke access later, or let a refused app ask again, from one « Accès des applications » list. A refused app cannot reopen the request until you allow it to ask again.
 - **Designed to survive reboots and updates** — prepare automatic startup so Tsuyu resumes after the TV restarts or after one of its own updates.
-- **Updates from the TV** — check the published releases, install a verified update in one press, or turn on silent automatic updates (off by default).
-- **No account or telemetry** — Tsuyu runs locally on your TV. Its only network request is the update check against this repository's public releases.
+- **Updates from the TV** — in the GitHub build, check the published releases, install a verified update in one press, or turn on silent automatic updates (off by default). Store builds are updated by their store.
+- **No account or telemetry** — Tsuyu runs locally on your TV. Its only network request, in the GitHub build, is the update check against this repository's public releases.
 
 ## Getting started
 
@@ -43,9 +43,18 @@ Tsuyu follows the TV's system languages by default, using the first supported la
 
 An app can open Tsuyu to help the user set it up. Launch `fr.sygix.tsuyu.MainActivity` explicitly, without `FLAG_ACTIVITY_NEW_TASK`. On Android 14 and later, pass `ActivityOptions.makeBasic().setShareIdentityEnabled(true)`: once the service runs and the restart preparation has a result, Tsuyu shows « Revenir à <app> » to return to it. Without a shared identity, or on Android 9–13, the user returns with normal Back navigation; Tsuyu does not infer a caller name from extras or the referrer.
 
+## Builds and stores
+
+Tsuyu comes in two builds of the same app, with the same package and signing certificate:
+
+- **GitHub build** (`tsuyu-X.Y.Z-standalone.apk` on [Releases](https://github.com/Sygix/Tsuyu/releases)): includes the in-app updater described below. Each release also carries the same file as `tsuyu.apk` for older installations.
+- **Store build** (Google Play and F-Droid): identical except that it contains no updater; the store installs updates. Enable « Démarrage au redémarrage » so the service comes back by itself after a store update.
+
+Switching between them keeps your configuration, authorizations and language, but only to a later version: Android refuses a same-version or older replacement. Google Play may replace an installation made from the GitHub APK with its own build when it publishes a later version. To return to the GitHub build, install a later standalone APK. After any replacement that the GitHub build's updater did not perform itself (a store update, or a manually installed APK), automatic updates are turned off until you enable them again; the app shows no notice for this.
+
 ## Updates
 
-Tsuyu reads the public releases of this repository, verifies the downloaded APK (size, SHA-256, package, version and signing certificate) and installs it through its own service, without any dialog. Updates therefore need the service running and « Démarrage au redémarrage » prepared: the service restarts by itself afterwards, and apps reconnect with their access preserved. Prereleases are only offered when « Inclure les préversions » is on.
+The GitHub build reads the public releases of this repository, verifies the downloaded APK (size, SHA-256, package, version and signing certificate) and installs it through its own service, without any dialog. Updates therefore need the service running and « Démarrage au redémarrage » prepared: the service restarts by itself afterwards, and apps reconnect with their access preserved. Prereleases are only offered when « Inclure les préversions » is on.
 
 ## Core capabilities
 

@@ -15,9 +15,9 @@ This planning PR does not deliver code, APKs, account setup or store approval. A
 3. Silent store cleanup of old jobs/files/opt-in, retried at every process start and logged on failure, tested across newer-version variant migrations, including background-first and never-manually-opened store installations.
 4. The standalone replacement rule: automatic updating returns to off when the installed versionCode is neither the one last observed nor one the updater started installing.
 5. A committed version file read by the build, with a release job that refuses a tag that does not match it.
-6. Three coherent release artifacts: standalone `tsuyu.apk` and `tsuyu-store.apk` signed with the release key, `tsuyu-store.aab` signed with the Play upload key; keyless release builds are unsigned.
+6. Coherent release artifacts: `tsuyu-X.Y.Z-standalone.apk` (also published as `tsuyu.apk`) and `tsuyu-X.Y.Z-store.apk` signed with the release key, `tsuyu-X.Y.Z-store.aab` signed with the Play upload key; keyless release builds are unsigned.
 7. A reproducible, developer-signed store APK and prepared F-Droid recipe that reads the version file.
-8. Five-language metadata, real TV screenshots, privacy/declaration drafts, release runbooks, community protocol, evidence-linked README matrix and README « Availability » table.
+8. Five-language metadata, TV emulator screenshots, privacy/declaration drafts, release runbooks, community protocol, evidence-linked README matrix and README « Availability » table.
 
 The store build keeps the whole persistence screen, including « Désactiver le démarrage automatique » and « Renouveler l'autorisation », and has no updater action. This change adds no user-visible string and no channel-change notice.
 
@@ -50,7 +50,7 @@ Track each channel independently in the README « Availability » table as **pre
 
 ### F-Droid
 
-1. Ensure public sources, licenses, complete metadata and a stable tagged reference `tsuyu-store.apk` are available after an authorized release.
+1. Ensure public sources, licenses, complete metadata and a stable tagged reference `tsuyu-X.Y.Z-store.apk` are available after an authorized release.
 2. Reproduce that exact APK from its clean source revision with the documented toolchain; verify that signature copying validates against the pinned developer certificate.
 3. Prepare the fdroiddata metadata for `fr.sygix.tsuyu` with the store flavor, stable-tag update detection that reads versionName and versionCode from the committed version file, automatic version updates, reference binary URL and AllowedAPKSigningKeys.
 4. Run the current fdroidserver metadata lint/update-detection/build workflow; record the tool version and results. A byte or signature mismatch blocks this version, not a fallback signer.

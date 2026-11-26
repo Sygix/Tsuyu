@@ -7,7 +7,7 @@ Tsuyu needs store-managed distribution alongside its existing GitHub updater. A 
 ## What Changes
 
 - Introduce `store` and `standalone` distribution variants; exclude the internal updater and its privileged installer from store builds.
-- Publish the existing `tsuyu.apk` standalone asset, a `tsuyu-store.apk` and a Play `tsuyu-store.aab`, all carrying the version of one committed version file.
+- Publish versioned artifacts `tsuyu-X.Y.Z-standalone.apk`, `tsuyu-X.Y.Z-store.apk` and the Play `tsuyu-X.Y.Z-store.aab`, plus the standalone APK under its existing name `tsuyu.apk` for installed updaters, all carrying the version of one committed version file.
 - Replace the tag-supplied version variable with a committed version file (versionName and versionCode) read by the build. A bump commit precedes each tag, the release job refuses a tag that does not match the file, and F-Droid detects new versions from it.
 - Make release builds without signing inputs truly unsigned instead of debug-signed. Sign the two APKs with the existing release key and the Play bundle with a separate upload key; publication fails when either identity is missing or swapped.
 - Preserve app data across compatible-signature upgrades and prevent a previously scheduled standalone updater from running after migration to store. Store-side cleanup is silent, retried at every process start and logged on failure.

@@ -138,11 +138,13 @@ Any other assumption about the device must be checked on the TV before it is spe
 - **Target:** Android TV 9+ installation baseline (minSdk 28, compileSdk 37). A usable local ADB endpoint and boot delivery remain firmware-dependent; an SDK minimum is not physical-device validation.
 
 ## CI and release
-- **`test`:** runs `./gradlew test` on every PR and on main. It is the required check for merging.
+- **`test`:** runs `./gradlew test assembleRelease bundleStoreRelease` and `scripts/check-artifacts.sh` (with its negative checks) on every PR and on main. It is the required check for merging.
+- **Variants:** a `distribution` flavor dimension with `standalone` (GitHub build with the self-updater) and `store` (Google Play and F-Droid, no updater code). Tasks are named per variant, for example `assembleStandaloneDebug`, `testStoreDebugUnitTest`, `lintStandaloneDebug`; `./gradlew test` and `./gradlew lint` cover all of them.
 - **`codeql`:** runs only while the repository is public, because code scanning is unavailable on a private repository.
 - **`release`:**
-  - a signed tag `vX.Y.Z` or `vX.Y.Z-(alpha|beta|rc).N` builds the APK, signs it with the key of the `production` environment, and publishes the GitHub release;
-  - the versionCode is derived from the tag (`app/build.gradle.kts`);
+  - the version lives in `version.properties` (`versionName`, `versionCode`); Gradle fails when the code does not match the formula in `app/build.gradle.kts`. A release is a commit bumping that file, then a signed tag `v<versionName>` on it;
+  - the tag builds `tsuyu-X.Y.Z-standalone.apk` (also published as `tsuyu.apk` for older updaters) and `tsuyu-X.Y.Z-store.apk` signed with the release key, and `tsuyu-X.Y.Z-store.aab` signed with the Play upload key, verifies each signer against fingerprints kept outside the secrets (`.github/signing/release-certificate.sha256`, variable `TSUYU_UPLOAD_CERT_SHA256`) and the artifact contents, and publishes the GitHub release with `SHA256SUMS`; it fails if the tag and the file disagree or a key is missing. Runbook: `docs/release.md`;
+  - without `TSUYU_STORE_FILE`, release builds are unsigned (`tsuyu-X.Y.Z-<variant>-release-unsigned.apk`), never debug-signed;
   - tags and releases belong to Sygix, never to an agent.
 - **Actions:**
   - pinned by full SHA;
@@ -168,7 +170,7 @@ The repository will become public. Everything pushed stays readable in the histo
 
 ## Environment
 - Repository: github.com/Sygix/Tsuyu.
-- Reference TV: TCL Google TV, Android 14. Test on the real TV with `adb connect <TV-IP>`, using `assembleRelease`.
+- Reference TV: TCL Google TV, Android 14. Test on the real TV with `adb connect <TV-IP>`, using a release build of the matching variant signed with a local test key (`TSUYU_STORE_FILE`, `TSUYU_STORE_PASSWORD`, `TSUYU_KEY_ALIAS`, `TSUYU_KEY_PASSWORD`); a keyless release build is unsigned and cannot be installed.
 
 ## Tools
 - OpenSpec CLI (`openspec`):
