@@ -59,6 +59,7 @@ class HomeViewModel(
     notice: StateFlow<String?> = MutableStateFlow(null),
     updateBlocked: kotlinx.coroutines.flow.Flow<Boolean> = MutableStateFlow(false),
     private val recovered: suspend () -> Unit = {},
+    private val updates: Boolean = true,
 ) : ViewModel() {
     private val navigation = MutableStateFlow(Navigation())
     private val caller = MutableStateFlow<String?>(null)
@@ -68,7 +69,7 @@ class HomeViewModel(
         val settled = !preparation.loading && preparation.enabledKnown && !preparation.error && !preparation.outcome.failed &&
             preparation.enabled && (preparation.ready || preparation.unsupported)
         val returning = label.takeIf { settled }
-        val presentation = present(state, nav.screen, nav.returnFocus, returning)
+        val presentation = present(state, nav.screen, nav.returnFocus, returning, updates)
         val failed = preparation.enabled && (preparation.outcome.failed || preparation.keyRefresh in listOf(KeyRefreshOutcome.AUTHORIZATION_REQUIRED, KeyRefreshOutcome.FAILED))
         val verified = !preparation.loading && !preparation.error
         val status = when {
@@ -92,7 +93,7 @@ class HomeViewModel(
             focus = if (failed && !presentation.busy && nav.screen == Screen.HOME && nav.returnFocus == "action-main") "action-persistence" else presentation.focus,
         )
     }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, present(StartState(), Screen.HOME, "action-main"))
+        .stateIn(viewModelScope, SharingStarted.Eagerly, present(StartState(), Screen.HOME, "action-main", updates = updates))
     fun resume() {
         viewModelScope.launch {
             coordinator.refresh()
@@ -152,7 +153,7 @@ class HomeViewModel(
         }
     }
     companion object {
-        fun present(state: StartState, screen: Screen, restore: String, caller: String? = null): HomeUi {
+        fun present(state: StartState, screen: Screen, restore: String, caller: String? = null, updates: Boolean = true): HomeUi {
             val main: Control
             val title: Int
             val body: Int
@@ -217,9 +218,9 @@ class HomeViewModel(
             val returning = caller?.takeIf { home && state.phase == Phase.RUNNING }
             val controls = listOfNotNull(returning?.let { Control("action-return", R.string.return_to_caller, Action.RETURN, listOf(it)) }) + main +
                 (if (state.phase == Phase.AUTHORIZING && screen in listOf(Screen.HOME, Screen.SETUP)) listOf(Control("action-reauthorize", R.string.retry_authorization, Action.REAUTHORIZE)) else emptyList()) +
-                if (home) listOf(
+                if (home) listOfNotNull(
                     Control("action-apps", R.string.access_apps, Action.APPS),
-                    Control("action-updates", R.string.updates_title, Action.UPDATES),
+                    Control("action-updates", R.string.updates_title, Action.UPDATES).takeIf { updates },
                     Control("action-persistence", R.string.persistence_title, Action.PERSISTENCE),
                     Control("action-help", R.string.help_title, Action.HELP),
                     Control("action-language", R.string.language_title, Action.LANGUAGE),

@@ -27,6 +27,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.tv.material3.Text
 import fr.sygix.tsuyu.R
 import fr.sygix.tsuyu.TsuyuGraph
+import fr.sygix.tsuyu.distribution.updateHost
+import fr.sygix.tsuyu.distribution.updates
 import fr.sygix.tsuyu.start.Phase
 import fr.sygix.tsuyu.ui.Action
 import fr.sygix.tsuyu.ui.StateScreen

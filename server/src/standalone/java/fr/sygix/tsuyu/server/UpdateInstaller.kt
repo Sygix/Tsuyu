@@ -12,17 +12,15 @@ import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
-enum class InstallStatus { SUCCESS, DIGEST, INSTALLER, TIMEOUT }
-data class InstallOutcome(val status: InstallStatus, val detail: String = "")
 
 class UpdateInstaller(
     private val userId: Int,
     private val launch: (List<String>) -> Process = { ProcessBuilder(it).redirectErrorStream(true).start() },
     private val stepTimeoutMs: Long = 60_000,
-) {
+) : UpdateInstallation {
     init { require(userId in 0..21474) }
 
-    fun install(apk: InputStream, size: Long, sha256: String): InstallOutcome {
+    override fun install(apk: InputStream, size: Long, sha256: String): InstallOutcome {
         require(size in 1..MAX_SIZE && sha256.matches(Regex("[a-f0-9]{64}")))
         val created = try { step(listOf(PM, "install-create", "-r", "--user", userId.toString(), "--pkg", PACKAGE, "-S", size.toString())) }
             catch (failure: Exception) { return InstallOutcome(InstallStatus.INSTALLER, failure.javaClass.simpleName) }

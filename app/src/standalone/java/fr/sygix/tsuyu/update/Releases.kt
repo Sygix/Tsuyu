@@ -24,6 +24,8 @@ object Releases {
     const val MAX_SIZE = 200L * 1024 * 1024
     private val TAG = Regex("""v(\d{1,2})\.(\d{1,3})\.(\d{1,3})(?:-(alpha|beta|rc)\.?(\d{1,2}))?""")
 
+    fun versionedAsset(version: String) = "tsuyu-$version-standalone.apk"
+
     fun versionCode(tag: String): Long? {
         val (major, minor, patch, stage, n) = TAG.matchEntire(tag)?.destructured ?: return null
         if (major.toInt() > 20) return null
@@ -44,7 +46,9 @@ object Releases {
         val tag = item.optString("tag_name")
         val code = versionCode(tag) ?: return null
         val assets = item.optJSONArray("assets") ?: return null
-        val asset = (0 until assets.length()).map { assets.getJSONObject(it) }.singleOrNull { it.optString("name") == ASSET } ?: return null
+        val candidates = (0 until assets.length()).map { assets.getJSONObject(it) }
+        val asset = candidates.singleOrNull { it.optString("name") == versionedAsset(tag.removePrefix("v")) }
+            ?: candidates.singleOrNull { it.optString("name") == ASSET } ?: return null
         val url = asset.optString("browser_download_url")
         val size = asset.optLong("size", -1)
         val digest = asset.optString("digest").removePrefix("sha256:")

@@ -14,7 +14,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 
-private val Context.updateData by preferencesDataStore("updates")
+private val Context.updateData by preferencesDataStore("updates", corruptionHandler = androidx.datastore.core.handlers.ReplaceFileCorruptionHandler { androidx.datastore.preferences.core.emptyPreferences() })
 
 data class Pending(val code: Long, val version: String, val path: String, val verifiedAt: Long, val boot: Int)
 
@@ -29,6 +29,7 @@ data class UpdateSaved(
     val target: Long? = null,
     val targetVersion: String? = null,
     val noticeShown: Boolean = true,
+    val observed: Long? = null,
 )
 
 interface UpdateStorage {
@@ -39,12 +40,17 @@ interface UpdateStorage {
 class UpdateStore(private val data: DataStore<Preferences>) : UpdateStorage {
     constructor(context: Context) : this(context.updateData)
     private val key = stringPreferencesKey("state")
+    private val storeCleanupDone = androidx.datastore.preferences.core.booleanPreferencesKey("store_cleanup_done")
 
     override suspend fun read(): UpdateSaved = decode(data.data.first()[key])
 
     override suspend fun update(transform: (UpdateSaved) -> UpdateSaved): UpdateSaved {
         var next = UpdateSaved()
-        data.edit { value -> next = transform(decode(value[key])); value[key] = encode(next) }
+        data.edit { value ->
+            next = transform(decode(value[key]))
+            value[key] = encode(next)
+            value.remove(storeCleanupDone)
+        }
         return next
     }
 
@@ -59,6 +65,7 @@ class UpdateStore(private val data: DataStore<Preferences>) : UpdateStorage {
             saved.target?.let { put("target", it) }
             saved.targetVersion?.let { put("targetVersion", it) }
             put("noticeShown", saved.noticeShown)
+            saved.observed?.let { put("observed", it) }
         }.toString()
 
         fun decode(value: String?): UpdateSaved {
@@ -75,6 +82,7 @@ class UpdateStore(private val data: DataStore<Preferences>) : UpdateStorage {
                 target = if (json.has("target")) json.getLong("target") else null,
                 targetVersion = json.optString("targetVersion").takeIf { it.isNotEmpty() },
                 noticeShown = json.optBoolean("noticeShown", true),
+                observed = if (json.has("observed")) json.getLong("observed") else null,
             )
         }
     }

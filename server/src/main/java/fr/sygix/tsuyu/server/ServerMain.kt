@@ -87,7 +87,7 @@ object ServerMain {
             launchProcess = { command, environment, directory -> sessions.launch(command, environment, directory) },
         )
         Runtime.getRuntime().addShutdownHook(Thread { clients.shutdown() })
-        val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients, persistence = PersistenceControl(AndroidPersistenceCommands(), userId, managerUid, android.os.Build.VERSION.SDK_INT), updates = UpdateInstaller(userId))
+        val binder = ServerControl(managerUid, ready::get, { exitProcess(0) }, clients = clients, persistence = PersistenceControl(AndroidPersistenceCommands(), userId, managerUid, android.os.Build.VERSION.SDK_INT), updates = updateInstallation(userId))
         fun snapshot(): PackageStamp? = try {
             rikka.hidden.compat.PackageManagerApis.getPackageInfo(PACKAGE, 0, userId)?.let { installed ->
                 PackageStamp(requireNotNull(installed.applicationInfo).sourceDir, installed.lastUpdateTime, requireNotNull(installed.applicationInfo).uid)

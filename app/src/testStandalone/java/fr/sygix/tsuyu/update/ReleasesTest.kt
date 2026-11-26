@@ -36,6 +36,19 @@ class ReleasesTest {
         assertNull(Releases.versionCode("v0.2.0-beta"))
     }
 
+    @Test fun theVersionedStandaloneAssetIsPreferredAndTheLegacyNameStillWorks() {
+        val versioned = asset(name = "tsuyu-0.5.0-standalone.apk", url = "https://github.com/Sygix/Tsuyu/releases/download/v0.5.0/tsuyu-0.5.0-standalone.apk")
+        val both = release("v0.5.0", asset = null).apply {
+            getJSONArray("assets").put(asset()).put(versioned).put(asset(name = "tsuyu-0.5.0-store.apk", url = "https://github.com/Sygix/Tsuyu/releases/download/v0.5.0/tsuyu-0.5.0-store.apk"))
+        }
+        val legacy = release("v0.4.0")
+        val storeOnly = release("v0.6.0", asset = asset(name = "tsuyu-0.6.0-store.apk"))
+        val parsed = Releases.parse(JSONArray().put(both).put(legacy).put(storeOnly).toString())
+        assertEquals(listOf("v0.5.0", "v0.4.0"), parsed.map { it.tag })
+        assertEquals("https://github.com/Sygix/Tsuyu/releases/download/v0.5.0/tsuyu-0.5.0-standalone.apk", parsed.first().apk)
+        assertEquals("https://github.com/Sygix/Tsuyu/releases/download/x/tsuyu.apk", parsed.last().apk)
+    }
+
     @Test fun onlyCompleteVerifiableReleasesAreEligible() {
         val json = JSONArray()
             .put(release("v0.3.0"))

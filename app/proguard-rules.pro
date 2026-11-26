@@ -1,4 +1,5 @@
 -keep class fr.sygix.tsuyu.server.** { *; }
+-keepnames class fr.sygix.tsuyu.update.**
 -keep class fr.sygix.tsuyu.ipc.** { *; }
 -keep class moe.shizuku.** { *; }
 -dontwarn android.app.IActivityManager

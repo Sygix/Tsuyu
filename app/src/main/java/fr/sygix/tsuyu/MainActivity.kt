@@ -14,7 +14,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import fr.sygix.tsuyu.ui.*
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
@@ -26,12 +25,9 @@ class MainActivity : LocalizedActivity() {
         val graph = TsuyuGraph.get(this)
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                graph.scope.launch {
-                    graph.updates.load()
-                    if (!graph.updates.state.value.auto) graph.updates.check(false)
-                }
+                graph.distribution.homeCreated()
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.updates.notice, graph.updates.state.map { it.blocked }, graph.persistenceController::recovered) as T
+                return HomeViewModel(graph.coordinator, graph.compatibility, graph.persistenceController.state, graph.distribution.notice, graph.distribution.updateBlocked, graph.persistenceController::recovered, graph.distribution.offersUpdates) as T
             }
         })[HomeViewModel::class.java]
         lifecycleScope.launch { graph.broker.server.collect { if (it == null) model.died() else model.resume() } }
@@ -79,7 +75,7 @@ class MainActivity : LocalizedActivity() {
         }
         if (action == Action.UPDATES) {
             model.act(action)
-            startActivity(Intent(this, fr.sygix.tsuyu.update.UpdateActivity::class.java))
+            graph.distribution.openUpdates(this)
             return
         }
         if (action == Action.APPS) {
@@ -111,7 +107,7 @@ class MainActivity : LocalizedActivity() {
     }
     override fun onResume() { super.onResume(); model.caller(resolveCaller()); model.resume(); lifecycleScope.launch { TsuyuGraph.get(this@MainActivity).persistenceController.refresh() } }
     override fun onStop() {
-        TsuyuGraph.get(this).let { graph -> graph.scope.launch { graph.updates.consumeNotice() } }
+        TsuyuGraph.get(this).distribution.homeStopped()
         try { observer?.close() } catch (failure: Exception) { model.settingsFailed() }
         observer = null
         super.onStop()

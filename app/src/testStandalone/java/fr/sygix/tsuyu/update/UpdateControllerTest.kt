@@ -5,6 +5,8 @@
 
 package fr.sygix.tsuyu.update
 
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.flow.first
 import fr.sygix.tsuyu.start.BoundedIo
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -27,7 +29,13 @@ class UpdateControllerTest {
     private var fetches = 0
     private val storage = object : UpdateStorage {
         var saved = UpdateSaved()
-        override suspend fun read() = saved
+        var readFails = false
+        var hangs = false
+        override suspend fun read(): UpdateSaved {
+            if (hangs) kotlinx.coroutines.awaitCancellation()
+            if (readFails) throw java.io.IOException("unreadable")
+            return saved
+        }
         override suspend fun update(transform: (UpdateSaved) -> UpdateSaved) = transform(saved).also { saved = it }
     }
     private val files = object : UpdateFiles {
@@ -69,6 +77,70 @@ class UpdateControllerTest {
         override suspend fun <T> call(timeout: Long, cancel: () -> Unit, block: () -> T): T = block()
     }
     private val controller = UpdateController(storage, { fetches++; fetched }, files, host, { now }, direct)
+
+    @Test fun replacementOutsideTheUpdaterTurnsAutomaticUpdatingOffBeforeAnyWork() = runTest {
+        storage.saved = UpdateSaved(auto = true, observed = 100099, releases = listOf(release.copy(code = 300099, version = "0.3.0")), checkedAt = 0,
+            pending = Pending(300099, "0.3.0", File(folder.root, "stale.apk").path, now, 1), result = UpdateController.AVAILABLE, target = 300099, targetVersion = "0.3.0", noticeShown = false)
+        File(folder.root, "stale.apk").writeBytes(ByteArray(1))
+        host.installed = 200099
+        controller.automatic()
+        assertFalse(storage.saved.auto)
+        assertTrue(storage.saved.releases.isEmpty())
+        assertEquals(200099L, storage.saved.observed)
+        assertEquals(false, host.scheduled)
+        assertEquals(0, fetches)
+        assertEquals(0, files.downloads)
+        assertTrue(folder.root.listFiles().isNullOrEmpty())
+        assertFalse(controller.state.value.auto)
+        assertNull(storage.saved.pending)
+        assertNull(storage.saved.result)
+        assertNull(storage.saved.target)
+        assertTrue(storage.saved.noticeShown)
+        controller.load()
+        assertNull(controller.notice.value)
+    }
+
+    @Test fun updaterInstallUnchangedVersionAndFirstObservationKeepTheSetting() = runTest {
+        storage.saved = UpdateSaved(auto = true, observed = 100099, target = 200099, targetVersion = "0.2.0", noticeShown = false)
+        host.installed = 200099
+        controller.load()
+        assertTrue(storage.saved.auto)
+        assertEquals(200099L, storage.saved.observed)
+        assertEquals("0.2.0", controller.notice.value)
+        val restarted = UpdateController(storage, { fetches++; fetched }, files, host, { now }, direct)
+        restarted.load()
+        assertTrue(storage.saved.auto)
+        storage.saved = UpdateSaved(auto = true)
+        val firstRelease = UpdateController(storage, { fetches++; fetched }, files, host, { now }, direct)
+        firstRelease.load()
+        assertTrue(storage.saved.auto)
+        assertEquals(200099L, storage.saved.observed)
+        assertNull(host.scheduled)
+    }
+
+    @Test fun timedOutRecordSkipsAutomaticWorkForTheProcess() = runTest {
+        storage.saved = UpdateSaved(auto = true, observed = 100099, releases = listOf(release), checkedAt = now)
+        storage.hangs = true
+        controller.automatic()
+        storage.hangs = false
+        controller.automatic()
+        assertEquals(0, fetches)
+        assertEquals(0, files.downloads)
+        assertTrue(storage.saved.auto)
+    }
+
+    @Test fun unreadableRecordSkipsAutomaticWorkButKeepsManualChecks() = runTest {
+        storage.saved = UpdateSaved(auto = true, observed = 100099, releases = listOf(release), checkedAt = now)
+        storage.readFails = true
+        controller.automatic()
+        storage.readFails = false
+        controller.automatic()
+        controller.check(manual = false)
+        assertEquals(0, fetches)
+        assertEquals(0, files.downloads)
+        controller.check(manual = true)
+        assertEquals(1, fetches)
+    }
 
     @Test fun automaticChecksRespectTheDailyAndRetryGatesWhileManualChecksAlwaysRun() = runTest {
         controller.check(manual = false)
@@ -275,5 +347,14 @@ class UpdateControllerTest {
         controller.update()
         assertTrue(storage.saved.auto)
         assertTrue(controller.state.value.blocked.not())
+    }
+
+    @Test fun anyStandaloneWriteClearsTheStoreCleanupMarker() = runTest {
+        val data = androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { folder.newFile("updates.preferences_pb") })
+        val marker = androidx.datastore.preferences.core.booleanPreferencesKey("store_cleanup_done")
+        data.edit { it[marker] = true }
+        UpdateStore(data).update { it.copy(observed = 300299) }
+        assertNull(data.data.first()[marker])
+        assertEquals(300299L, UpdateStore(data).read().observed)
     }
 }

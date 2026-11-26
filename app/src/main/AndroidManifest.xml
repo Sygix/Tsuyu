@@ -17,6 +17,7 @@
         android:required="false" />
 
     <application
+        android:name=".TsuyuApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:banner="@drawable/app_banner"
@@ -43,9 +44,6 @@
             android:exported="false" />
         <activity
             android:name=".persistence.PersistenceActivity"
-            android:exported="false" />
-        <activity
-            android:name=".update.UpdateActivity"
             android:exported="false" />
         <activity
             android:name=".access.AccessActivity"

@@ -44,7 +44,6 @@ class TsuyuGraph private constructor(context: Context) {
                 context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime)
         },
     )
-    private val tracker = fr.sygix.tsuyu.update.ForegroundTracker().also { (context.applicationContext as android.app.Application).registerActivityLifecycleCallbacks(it) }
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default +
         kotlinx.coroutines.CoroutineExceptionHandler { _, failure -> android.util.Log.e("Tsuyu", "Background operation failed", failure) })
     init {
@@ -57,13 +56,7 @@ class TsuyuGraph private constructor(context: Context) {
             catch (failure: Exception) { android.util.Log.e("Tsuyu", "ADB key refresh scheduling failed", failure) }
         }
     }
-    val updateHost = fr.sygix.tsuyu.update.AndroidUpdateHost(context, coordinator, persistence, { broker.server.value }, tracker, BoundedIo())
-    val updates = fr.sygix.tsuyu.update.UpdateController(
-        fr.sygix.tsuyu.update.UpdateStore(context),
-        fr.sygix.tsuyu.update.GitHubReleases("Tsuyu/${updateHost.installedVersion}"),
-        fr.sygix.tsuyu.update.AndroidUpdateFiles(context),
-        updateHost,
-    )
+    val distribution: fr.sygix.tsuyu.distribution.Distribution = fr.sygix.tsuyu.distribution.createDistribution(context, this)
     companion object {
         @Volatile private var graph: TsuyuGraph? = null
         fun get(context: Context): TsuyuGraph = graph ?: synchronized(this) {

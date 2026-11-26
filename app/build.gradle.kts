@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -11,15 +13,23 @@ plugins {
 fun versionCodeOf(version: String): Int {
     val match = requireNotNull(
         Regex("""(\d{1,2})\.(\d{1,3})\.(\d{1,3})(?:-(alpha|beta|rc)\.?(\d{1,2}))?""").matchEntire(version)
-    ) { "TSUYU_VERSION doit être vX.Y.Z ou vX.Y.Z-(alpha|beta|rc).N, reçu : $version" }
+    ) { "versionName must be X.Y.Z or X.Y.Z-(alpha|beta|rc).N in version.properties, got: $version" }
     val (major, minor, patch, stage, n) = match.destructured
-    require(major.toInt() <= 20) { "major doit être ≤ 20 (plafond du versionCode Android), reçu : $version" }
+    require(major.toInt() <= 20) { "major must be at most 20 (Android versionCode ceiling), got: $version" }
     val suffix = if (stage.isEmpty()) 99 else {
-        require(n.toInt() <= 29) { "le numéro de pré-release doit être ≤ 29, reçu : $version" }
+        require(n.toInt() <= 29) { "prerelease number must be at most 29, got: $version" }
         mapOf("alpha" to 0, "beta" to 30, "rc" to 60).getValue(stage) + n.toInt()
     }
     return major.toInt() * 100_000_000 + minor.toInt() * 100_000 + patch.toInt() * 100 + suffix
 }
+
+val versionFile = rootProject.file("version.properties")
+val versionProperties = Properties().apply { versionFile.inputStream().use { load(it) } }
+val releaseName: String = requireNotNull(versionProperties.getProperty("versionName")?.trim()?.takeIf { it.isNotEmpty() }) { "versionName missing in ${versionFile.name}" }
+val releaseCode: Int = requireNotNull(versionProperties.getProperty("versionCode")?.trim()?.toIntOrNull()) { "versionCode missing or malformed in ${versionFile.name}" }
+require(releaseCode == versionCodeOf(releaseName)) { "versionCode $releaseCode in ${versionFile.name} does not match versionName $releaseName (expected ${versionCodeOf(releaseName)})" }
+
+base.archivesName = "tsuyu-$releaseName"
 
 android {
     namespace = "fr.sygix.tsuyu"
@@ -29,22 +39,26 @@ android {
         applicationId = "fr.sygix.tsuyu"
         minSdk = 28
         targetSdk = 37
-        val ciVersion = System.getenv("TSUYU_VERSION")?.removePrefix("v")
-        versionCode = ciVersion?.let(::versionCodeOf) ?: 1
-        versionName = ciVersion ?: "0.0.1"
+        versionCode = releaseCode
+        versionName = releaseName
+    }
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("standalone") { dimension = "distribution" }
+        create("store") { dimension = "distribution" }
+    }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
+    val storePath = System.getenv("TSUYU_STORE_FILE")
     signingConfigs {
-        create("release") {
-            val storePath = System.getenv("TSUYU_STORE_FILE")
-            if (storePath != null) {
-                storeFile = file(storePath)
-                storePassword = System.getenv("TSUYU_STORE_PASSWORD")
-                keyAlias = System.getenv("TSUYU_KEY_ALIAS")
-                keyPassword = System.getenv("TSUYU_KEY_PASSWORD")
-            } else {
-                initWith(getByName("debug"))
-            }
+        if (storePath != null) create("release") {
+            storeFile = file(storePath)
+            storePassword = System.getenv("TSUYU_STORE_PASSWORD")
+            keyAlias = System.getenv("TSUYU_KEY_ALIAS")
+            keyPassword = System.getenv("TSUYU_KEY_PASSWORD")
         }
     }
     buildTypes {
@@ -52,7 +66,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (storePath != null) signingConfigs.getByName("release") else null
         }
     }
     compileOptions {
@@ -73,7 +87,7 @@ dependencies {
     implementation(project(":api"))
     implementation(libs.datastore.preferences)
     implementation(libs.work.runtime)
-    implementation(libs.zxing.core)
+    "standaloneImplementation"(libs.zxing.core)
     implementation(project(":server"))
     implementation(libs.tv.material)
     implementation(libs.lifecycle.runtime.compose)

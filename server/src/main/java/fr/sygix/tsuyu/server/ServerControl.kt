@@ -9,7 +9,7 @@ import android.os.Binder
 import android.system.Os
 import fr.sygix.tsuyu.ipc.ITsuyuServer
 
-internal class ServerControl(private val managerUid: Int, private val ready: () -> Boolean, private val stop: () -> Unit, private val caller: () -> Int = Binder::getCallingUid, private val processUid: () -> Int = Os::getuid, private val clients: ClientService? = null, private val persistence: PersistenceControl? = null, private val updates: UpdateInstaller? = null) : ITsuyuServer.Stub() {
+internal class ServerControl(private val managerUid: Int, private val ready: () -> Boolean, private val stop: () -> Unit, private val caller: () -> Int = Binder::getCallingUid, private val processUid: () -> Int = Os::getuid, private val clients: ClientService? = null, private val persistence: PersistenceControl? = null, private val updates: UpdateInstallation? = null) : ITsuyuServer.Stub() {
     private fun enforceManager() { if (caller() != managerUid) throw SecurityException("Manager identity required") }
     override fun getUid(): Int { enforceManager(); return processUid() }
     override fun isReady(): Boolean { enforceManager(); return ready() }

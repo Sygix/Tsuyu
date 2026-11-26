@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import java.io.File
 
 enum class UpdatePhase { IDLE, CHECKING, DOWNLOADING, WAITING, INSTALLING }
@@ -56,8 +57,36 @@ class UpdateController(
     private val noticeFlow = MutableStateFlow<String?>(null)
     val notice = noticeFlow.asStateFlow()
     private val mutex = Mutex()
+    private var startup: Boolean? = null
+
+    private suspend fun startupReady(): Boolean {
+        startup?.let { return it }
+        val ready = try {
+            withTimeout(RECORD_TIMEOUT_MS) {
+                val installed = host.installed
+                val saved = storage.read()
+                val replaced = saved.observed != null && installed != saved.observed && installed != saved.target
+                if (replaced) {
+                    storage.update { it.copy(auto = false, pending = null, releases = emptyList(), result = null, observed = installed, target = null, targetVersion = null, noticeShown = true) }
+                    host.schedule(false)
+                    files.clean(null)
+                } else if (saved.observed != installed) storage.update { it.copy(observed = installed) }
+                true
+            }
+        } catch (expired: TimeoutCancellationException) {
+            Log.e("Tsuyu", "Update record unavailable; automatic work skipped in this process", expired)
+            false
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) {
+            Log.e("Tsuyu", "Update record unavailable; automatic work skipped in this process", failure)
+            false
+        }
+        startup = ready
+        return ready
+    }
 
     suspend fun load() = mutex.withLock {
+        startupReady()
         val saved = storage.update { value ->
             val pending = value.pending?.takeIf { it.code > host.installed && it.boot == host.boot() && File(it.path).exists() && clock() - it.verifiedAt in 0..WAIT_WINDOW_MS }
             value.copy(pending = pending)
@@ -96,6 +125,7 @@ class UpdateController(
     }
 
     suspend fun automatic() = mutex.withLock {
+        if (!startupReady()) return@withLock
         var saved = storage.read()
         if (!saved.auto) return@withLock
         val pending = saved.pending
@@ -204,9 +234,10 @@ class UpdateController(
     }
 
     private suspend fun checkLocked(manual: Boolean) {
+        val ready = manual || startupReady()
         val saved = storage.read()
         val now = clock()
-        if (!manual && (!due(saved, now) || !host.online())) { publish(saved, UpdatePhase.IDLE); return }
+        if (!manual && (!ready || !due(saved, now) || !host.online())) { publish(saved, UpdatePhase.IDLE); return }
         mutable.value = mutable.value.copy(phase = UpdatePhase.CHECKING)
         val next = when (val fetched = fetch()) {
             is Fetch.Found -> storage.update {
@@ -250,6 +281,7 @@ class UpdateController(
         const val IDLE_RECHECK_MS = 900_000L
         private const val FETCH_TIMEOUT_MS = 25_000L
         private const val DOWNLOAD_TIMEOUT_MS = 600_000L
+        private const val RECORD_TIMEOUT_MS = 5_000L
 
         fun due(saved: UpdateSaved, now: Long): Boolean {
             val checked = saved.checkedAt

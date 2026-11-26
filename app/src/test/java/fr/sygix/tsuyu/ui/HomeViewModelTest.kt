@@ -200,6 +200,15 @@ class HomeViewModelTest {
             assertEquals("action-help", model.ui.value.focus)
         } finally { store.clear(); Dispatchers.resetMain() }
     }
+    @Test fun homeOffersUpdatesOnlyWhenTheDistributionHasAnUpdater() {
+        val standalone = HomeViewModel.present(StartState(Phase.RUNNING), Screen.HOME, "action-updates")
+        val store = HomeViewModel.present(StartState(Phase.RUNNING), Screen.HOME, "action-updates", updates = false)
+        assertTrue(standalone.controls.any { it.id == "action-updates" })
+        assertFalse(store.controls.any { it.action == Action.UPDATES })
+        assertEquals(standalone.controls.map { it.id } - "action-updates", store.controls.map { it.id })
+        assertEquals(store.controls.first().id, store.focus)
+        assertEquals(Action.DETAILS, store.controls.first().action)
+    }
     @Test fun disabledStartupShowsNoFailureAndAnExpiredBootKeyAsksToStartAgain() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val store = ViewModelStore()

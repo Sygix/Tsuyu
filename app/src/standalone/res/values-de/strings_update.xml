@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_never_body">Version %1$s installiert. Noch keine Prüfung.</string>
+    <string name="update_current_title">Tsuyu ist aktuell</string>
+    <string name="update_current_body">Version %1$s installiert.</string>
+    <string name="update_available_title">Version %1$s verfügbar</string>
+    <string name="update_available_body">Installiert: %1$s. Tsuyu startet nach dem Update automatisch neu und die Apps verbinden sich wieder.</string>
+    <string name="update_start_service">Starte Tsuyu, um das Update zu installieren.</string>
+    <string name="update_checking_title">Updates werden gesucht</string>
+    <string name="update_checking_body">Tsuyu prüft veröffentlichte Versionen.</string>
+    <string name="update_to_title">Update auf %1$s</string>
+    <string name="update_downloading_body">Datei wird heruntergeladen und geprüft…</string>
+    <string name="update_installing_body">Installation läuft. Tsuyu startet automatisch neu.</string>
+    <string name="update_waiting_title">Update ausstehend</string>
+    <string name="update_waiting_body">Version %1$s geprüft. Sie wird automatisch installiert, sobald keine App Tsuyu nutzt.</string>
+    <string name="update_failed_title">Update fehlgeschlagen</string>
+    <string name="update_check_failed_title">Prüfung fehlgeschlagen</string>
+    <string name="update_cause_network">Netzwerk nicht verfügbar. Prüfe die TV-Verbindung und versuche es erneut.</string>
+    <string name="update_cause_timeout">Zeitüberschreitung. Prüfe die TV-Verbindung und versuche es erneut.</string>
+    <string name="update_cause_unreadable">Antwort nicht lesbar. Versuche es später erneut.</string>
+    <string name="update_cause_limited">Zu viele Prüfungen in letzter Zeit. Versuche es später erneut.</string>
+    <string name="update_cause_withdrawn">Diese Version ist nicht mehr verfügbar. Es wurde nichts installiert.</string>
+    <string name="update_cause_size">Update abgelehnt: ungültige Datei (andere Größe). Es wurde nichts installiert.</string>
+    <string name="update_cause_digest">Update abgelehnt: ungültige Datei (andere Prüfsumme). Es wurde nichts installiert.</string>
+    <string name="update_cause_package">Update abgelehnt: ungültige Datei (andere App). Es wurde nichts installiert.</string>
+    <string name="update_cause_version">Update abgelehnt: ungültige Datei (widersprüchliche Version). Es wurde nichts installiert.</string>
+    <string name="update_cause_certificate">Update abgelehnt: ungültige Datei (andere Signatur). Es wurde nichts installiert.</string>
+    <string name="update_cause_installer">Android hat die Installation abgelehnt. Dienst und Berechtigungen sind unverändert. Versuche es später erneut.</string>
+    <string name="update_cause_preparation">Richte „Start nach Neustart“ ein, damit Tsuyu nach dem Update automatisch neu startet.</string>
+    <string name="update_install">Auf %1$s aktualisieren</string>
+    <string name="update_check">Nach Updates suchen</string>
+    <string name="update_auto">Automatische Updates: %1$s</string>
+    <string name="update_prereleases">Vorabversionen einschließen: %1$s</string>
+    <string name="update_back">Zurück</string>
+    <string name="update_checked_at">Zuletzt geprüft: %1$s</string>
+    <string name="update_notes">Versionshinweise</string>
+    <string name="toggle_on">Ein</string>
+    <string name="toggle_off">Aus</string>
+</resources>

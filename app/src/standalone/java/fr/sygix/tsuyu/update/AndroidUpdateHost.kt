@@ -103,7 +103,7 @@ class AndroidUpdateHost(
 
 class UpdateWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
-        val updates = fr.sygix.tsuyu.TsuyuGraph.get(applicationContext).updates
+        val updates = (fr.sygix.tsuyu.TsuyuGraph.get(applicationContext).distribution as fr.sygix.tsuyu.distribution.StandaloneDistribution).updates
         updates.load()
         updates.automatic()
         return Result.success()

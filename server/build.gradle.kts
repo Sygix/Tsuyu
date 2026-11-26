@@ -8,6 +8,11 @@ android {
     namespace = "fr.sygix.tsuyu.server"
     compileSdk = 37
     defaultConfig { minSdk = 28 }
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("standalone") { dimension = "distribution" }
+        create("store") { dimension = "distribution" }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
