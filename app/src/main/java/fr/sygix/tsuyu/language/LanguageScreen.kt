@@ -39,7 +39,7 @@ fun LanguageScreen(ui: LanguageUi, onSelect: (AppLanguage?) -> Unit, onRetry: ()
             Column(Modifier.weight(0.55f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(TsuyuSpacing.gap)) {
                 BrandHeader(false)
                 Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.language_title), fontSize = TsuyuType.title, color = TsuyuColors.text)
+                Text(stringResource(R.string.language_title), fontSize = TsuyuType.title, lineHeight = TsuyuType.titleLine, color = TsuyuColors.text)
                 Text(stringResource(R.string.language_body), fontSize = TsuyuType.body, color = TsuyuColors.secondary)
                 ui.language?.let { state ->
                     val detail = state.system?.let { stringResource(R.string.language_system_value, it.nativeName) }

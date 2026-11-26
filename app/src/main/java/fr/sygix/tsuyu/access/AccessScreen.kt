@@ -62,7 +62,7 @@ fun AccessScreen(ui: AccessUi, confirm: (Boolean) -> Unit, revoke: (Int) -> Unit
                             .padding(32.dp).verticalScroll(rememberScrollState()).testTag("access-request-surface"),
                         verticalArrangement = Arrangement.spacedBy(TsuyuSpacing.gap),
                     ) {
-                        Text(stringResource(presentation.title), fontSize = TsuyuType.title, color = TsuyuColors.text, modifier = Modifier.testTag("access-title"))
+                        Text(stringResource(presentation.title), fontSize = TsuyuType.title, lineHeight = TsuyuType.titleLine, color = TsuyuColors.text, modifier = Modifier.testTag("access-title"))
                         ui.rows.forEach { row -> key(row.uid) { AppNames(row) } }
                         Text(stringResource(presentation.body), fontSize = TsuyuType.body, color = TsuyuColors.secondary, modifier = Modifier.testTag("access-body"))
                         DeliveryFailures(ui)
@@ -73,7 +73,7 @@ fun AccessScreen(ui: AccessUi, confirm: (Boolean) -> Unit, revoke: (Int) -> Unit
                 }
             } else {
                 Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(TsuyuSpacing.gap)) {
-                    Text(stringResource(presentation.title), fontSize = TsuyuType.title, color = TsuyuColors.text, modifier = Modifier.testTag("access-title"))
+                    Text(stringResource(presentation.title), fontSize = TsuyuType.title, lineHeight = TsuyuType.titleLine, color = TsuyuColors.text, modifier = Modifier.testTag("access-title"))
                     Text(stringResource(presentation.body), fontSize = TsuyuType.body, color = TsuyuColors.secondary, modifier = Modifier.testTag("access-body"))
                     if (ui.loading) OperationProgress(Modifier.widthIn(max = 480.dp))
                     DeliveryFailures(ui)

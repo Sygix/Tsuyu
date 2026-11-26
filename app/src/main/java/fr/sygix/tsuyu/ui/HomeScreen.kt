@@ -47,7 +47,7 @@ fun StateScreen(ui: ScreenUi, onAction: (Action) -> Unit, home: Boolean = false,
             Column(Modifier.weight(0.55f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(TsuyuSpacing.gap)) {
                 BrandHeader(home)
                 Spacer(Modifier.height(8.dp))
-                Text(localized(ui.title, ui.titleArgs), fontSize = TsuyuType.title, color = TsuyuColors.text, modifier = Modifier.testTag("state-title"))
+                Text(localized(ui.title, ui.titleArgs), fontSize = TsuyuType.title, lineHeight = TsuyuType.titleLine, color = TsuyuColors.text, modifier = Modifier.testTag("state-title"))
                 Text(localized(ui.body, ui.bodyArgs), fontSize = TsuyuType.body, color = TsuyuColors.secondary, modifier = Modifier.testTag("state-body"))
                 if (ui.busy) OperationProgress(Modifier.padding(vertical = 8.dp))
                 details()

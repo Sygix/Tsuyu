@@ -36,6 +36,7 @@ object TsuyuSpacing {
 
 object TsuyuType {
     val title = 36.sp
+    val titleLine = 44.sp
     val body = 20.sp
     val supporting = 18.sp
     val action = 20.sp
