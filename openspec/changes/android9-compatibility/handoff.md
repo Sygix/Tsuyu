@@ -14,7 +14,7 @@ This is a specification-only handoff. No compatibility code or runtime result is
 - Existing Shizuku wire/consent/lifecycle contracts preserved, not a reduced API subset.
 - Five selectable languages and system fallback on every supported version. The presentation requirement is renamed "Couch-readable localized presentation"; labels quoted in French in the specs name string resources, not the displayed language.
 - Android 9–13 uses normal Back navigation without a named caller-return action; Android 14+ retains authenticated launch identity.
-- API 28 emulator evidence and physical Android 14 TV evidence are distinct. No physical Android 9 TV has been validated by this work.
+- Evidence comes from emulators. No physical Android 9 TV has been validated by this work; device reports arrive through issues.
 
 ## Implementation sequence
 
@@ -23,7 +23,7 @@ This is a specification-only handoff. No compatibility code or runtime result is
 3. Adapt provider signatures and typed parcelables while retaining identity, deadlines and cleanup.
 4. Implement cross-version language lifecycle and the guarded caller-return path.
 5. Verify baseline client/process/UserService, persistence and signed-update behavior.
-6. Run integrated checks and real Android 14 regression, record gaps, then request review/merge.
+6. Run integrated checks and the emulator regression, record gaps, then request review/merge.
 
 The checked provider signature reference is in design section 2. Do not defer that discovery into a generic exploration task. Additional hidden/vendor discrepancies must be recorded as observed failures with a proposed correction.
 
@@ -39,7 +39,6 @@ For each case record the source head/artifact, OS fixture, operation, expected/a
 | Caller return | No named action on API 28–33; no identity from extras/referrer; existing API 34 behavior |
 | Client | Binder callback, shell uid, grant/deny, process/UserService, revoke and later client start |
 | Lifecycle | Manager absent at boot, key reuse, debugging off/on, signed replacement and new binder |
-| Physical regression | TCL Google TV running Android 14, including SygixOs where supported |
 
 Use `./gradlew test`, the applicable lint tasks and `./gradlew assembleRelease` for this pre-flavor change; reuse passing CI for the exact tested head where it covers the checks. Run the OpenSpec verify workflow and strict validation before proposing the implementation PR as complete. Do not claim the Android 9 physical-device layer from emulator results.
 

@@ -10,7 +10,7 @@ Tsuyu currently excludes TVs below Android 14 despite its Shizuku-compatible ser
 - Adapt locale selection, provider calls, parcelable reads and server platform boundaries for the supported Android versions without weakening client authentication or consent.
 - Keep the named return-to-caller action on Android 14 and later; use normal Back navigation on Android 9–13 without inferring caller identity from extras or referrers.
 - Preserve all five UI languages, the system-language default, existing private ADB keys and client consent.
-- Validate the baseline on an Android 9 emulator and regress the existing TCL Google TV running Android 14; distinguish these results from unverified physical-device compatibility.
+- Validate the baseline on Android 9 to 14 emulators; distinguish these results from unverified physical-device compatibility, which users report through issues.
 
 ## Capabilities
 

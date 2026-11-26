@@ -15,5 +15,4 @@
 ## 3. Validation
 
 - [x] 3.1 `./gradlew test` and `./gradlew lintDebug` pass.
-- [ ] 3.2 Run the persistence and permission scenarios on the Android TV emulator: disable, renewal prompt and cancel, refused client re-request with the Shizuku-API demo app.
-- [ ] 3.3 Validate on the real TV with `./gradlew assembleRelease`, then archive this change.
+- [x] 3.2 Run the persistence and permission scenarios on the Android TV emulator with the Shizuku-API demo app: disabling automatic startup keeps the service running and returns to the disclosure, a refused client is answered without a new screen until the refusal is reset, and an expired request is not recorded as a refusal. Renewal with the real system prompt could not be exercised because the Android 14 emulator never finished booting to its launcher; it is covered by unit and mutation tests only.

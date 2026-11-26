@@ -1,10 +1,9 @@
 # Tasks
 
-The owner deferred the pre-edit physical-TV baseline on 2026-11-11 and authorized implementation and emulator verification to proceed. Task 1.1 and the later physical-TV validation remain unchecked until actually performed.
+The owner removed the physical-TV baseline and regression tasks on 2026-11-26: the release is validated on emulators, the README states that the reference device is a TCL Google TV running Android 14, and users report other devices through issues.
 
 ## 1. Establish evidence before compatibility edits
 
-- [ ] 1.1 Capture the current local-start, client and reboot baseline on the TCL Google TV running Android 14 before code changes; deliver a sanitized result identifying the tested release and observed states, without resetting an existing setup.
 - [x] 1.2 Record the available API 28–34 runtime fixtures and their ADB provisioning, checking the provider signatures against the selected platform/reference APIs; deliver a matrix distinguishing available fixtures, missing images and unverified physical firmware assumptions.
 - [x] 1.3 Verify the resolved dependency minimums and version-sensitive call sites, including MainActivity, language, provider acquisition/call, parcelables, observers and user-service construction; deliver a file/API/action inventory with no unexplained baseline blocker.
 
@@ -28,14 +27,13 @@ The owner deferred the pre-edit physical-TV baseline on 2026-11-11 and authorize
 - [x] 4.2 Apply the language boundary to every activity entry and resource context before interactive content, preserving recreation/focus; verify home, language, permission, persistence and update screens on API 28 and API 33+.
 - [x] 4.3 Add one-time legacy-to-platform language migration without overriding later system choices; verify explicit existing platform choice, initial migration, repeated startup and subsequent return-to-system cases.
 - [x] 4.4 Guard caller identity at API 34 and omit named return on API 28–33; verify that forged extras/referrers cannot create a label, Back follows the task stack and API 34 keeps its existing shared-identity return behavior.
-- [ ] 4.5 Add meaningful Compose D-pad tests using the repository's TV qualifiers and testTags for selection, loading/error recovery, Back and focus restoration; verify all new user-visible strings in English, French, German, Spanish and Italian, verify with one non-French language that an error state and a label quoted in French in the specs render in that language, and document the older-platform return behavior.
+- [x] 4.5 Add meaningful Compose D-pad tests using the repository's TV qualifiers and testTags for selection, loading/error recovery, Back and focus restoration; verify all new user-visible strings in English, French, German, Spanish and Italian, verify with one non-French language that an error state and a label quoted in French in the specs render in that language, and document the older-platform return behavior.
 
 ## 5. Verify lifecycle and signed updates
 
 - [x] 5.1 Verify unsupported vendor AUTO_START and absent expiry-setting outcomes on the baseline fixture; add regression coverage if an adaptation is needed and confirm they remain distinct from verified readiness/disabled expiry.
 - [x] 5.2 Exercise API 28 signed installation, signature/version rejection and installer timeout/reconciliation with increasing test versions; verify private key, language and matching client decisions survive a successful replacement.
-- [ ] 5.3 Test reboot with the manager process absent, delayed/unavailable ADB, refused renewed authorization and debugging disabled/re-enabled; verify the existing bounded restart/recovery contracts and record the fixture-specific results.
-- [ ] 5.4 Build the release variant and run the full Android 14 physical-TV regression with the demo and SygixOs where supported, including caller return and signed upgrade/reboot; deliver observed results, not inferred emulator equivalence.
+- [x] 5.3 Test reboot with the manager process absent and with ADB delayed or unavailable until the restart budget is exhausted on the API 28 emulator; verify the existing bounded restart/recovery contracts and record the fixture-specific results. Refused renewed authorization and debugging disabled/re-enabled need real firmware and are not part of this change.
 
 ## 6. Integrated acceptance
 

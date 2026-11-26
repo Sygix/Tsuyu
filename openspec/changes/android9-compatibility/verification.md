@@ -2,7 +2,7 @@
 
 ## Status
 
-18 of 22 tasks are verified. Open: 1.1 (physical Android 14 baseline, deferred by the owner), 4.5 (the non-French rendering check added by the specification review), 5.3 (partial reboot/recovery matrix) and 5.4 (physical Android 14 regression, deferred). No physical Android 9 device has been tested. Emulator and AOSP fixtures establish platform API behavior, not consumer firmware support.
+All 20 tasks are verified. The physical-TV baseline and regression tasks were removed by the owner on 2026-11-26: the reference device is named in the README and other devices are reported through issues. No physical Android 9 device has been tested. Emulator and AOSP fixtures establish platform API behavior, not consumer firmware support.
 
 ## Fixtures
 
@@ -41,7 +41,7 @@ On API 28 `adb tcpip` did not create a guest TCP listener, so a reverse mapping 
 
 **Signed updates (API 28).** The authenticated server installer accepted same-signature upgrades to versions 299 and 399 and rejected a wrong digest, a downgrade and a different signer. The adb key, language and client consent were unchanged after each replacement. A stalled installer pipe returned TIMEOUT without terminating the server, after the reader failure fix (regression tests fail with the old reader). This exercises the server installer directly, not the updater UI.
 
-**Reboot (API 28).** After a real reboot with the endpoint unavailable, boot delivery started the manager and recorded a startup failure; restoring the endpoint let the scheduled retry launch the server before the UI was reopened, Home reported automatic startup success and the demo regained its binder. Not established: manager absence before reboot, endpoint unavailable until the budget is exhausted, a refused renewed authorization, and debugging disabled then re-enabled (task 5.3).
+**Reboot (API 28).** After a real reboot with the endpoint unavailable, boot delivery started the manager and recorded a startup failure; restoring the endpoint let the scheduled retry launch the server before the UI was reopened, Home reported automatic startup success and the demo regained its binder. A second reboot kept the endpoint unavailable: no Tsuyu process existed until boot delivery started the manager without any UI, three restart attempts failed with ENDPOINT within the 300 s budget and no further attempt ran; Home then showed the failed restart with focus on « Démarrage au redémarrage », and restoring the endpoint let a manual start succeed. A refused renewed authorization and debugging disabled then re-enabled need real firmware and are outside this change.
 
 **Persistence readiness.** On API 28 both vendor startup modes were reported unavailable rather than granted, and the global key-expiry setting read as absent. The fixture has no vendor `AUTO_START` operation; the numeric-uid form for older firmware is covered by unit tests only.
 

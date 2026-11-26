@@ -59,7 +59,7 @@ Guard `MainActivity.resolveCaller` at API 34. Below that boundary return no name
 
 ### 6. Device assumptions and validation
 
-Before code, capture the reference TV's current startup/client/boot baseline and the available emulator/API fixtures. Treat usable local ADB, boot delivery and optional vendor operations on other firmware as unverified. API 28 runtime tests run after the compatibility build exists; that emulator fixture establishes API behavior only. No physical Android 9 TV is currently available, and this limitation must remain explicit.
+Before code, record the available emulator/API fixtures. Treat usable local ADB, boot delivery and optional vendor operations on other firmware as unverified. API 28 runtime tests run after the compatibility build exists; that emulator fixture establishes API behavior only. No physical Android 9 TV is currently available, and this limitation must remain explicit.
 
 | Evidence layer | Required checks | What it proves |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ Before code, capture the reference TV's current startup/client/boot baseline and
 | API 29 and 30 boundaries | Provider call/acquisition, binder delivery and failure isolation | Each older provider signature |
 | API 31 boundary | Attribution-based provider handoff | New provider signature path |
 | API 33 boundary | Platform locale selection and migration | Locale API transition |
-| TCL Google TV running Android 14 | Full existing client/start/persistence regression and caller return | Existing physical-device regression |
+| API 34 runtime | Client/start/persistence regression and caller return | Current-platform behavior on the recorded fixture |
 | Later Android smoke | Launch, language, binder and package replacement when an image is available | Observed later-runtime coverage only |
 
 Unavailable test images are recorded as gaps; the corresponding branch is not called runtime-verified. Physical TV-only claims stay blocked until community evidence exists. Each failure records its stage and recovery, not personal device output. Newer client apps that themselves require a newer OS are not used as proof of Tsuyu's API 28 failure; use a compatible Shizuku-API demo for that baseline.
